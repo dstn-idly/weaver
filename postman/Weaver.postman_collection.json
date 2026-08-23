@@ -308,7 +308,7 @@
               "    pm.expect(body.items).to.be.an(\"array\");",
               "    pm.expect(body.columns).to.be.an(\"array\");",
               "    pm.expect(body.offset).to.eql(0);",
-              "    pm.expect(body.limit).to.eql(12);",
+              "    pm.expect(body.limit).to.eql(5);",
               "    pm.expect(body.total).to.be.a(\"number\").and.at.least(0);",
               "    pm.expect(body.has_more).to.be.a(\"boolean\");",
               "});",
