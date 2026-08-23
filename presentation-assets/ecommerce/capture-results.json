@@ -1,0 +1,101 @@
+[
+  {
+    "group": "ecommerce",
+    "slug": "01-ikea",
+    "name": "IKEA",
+    "requestedUrl": "https://www.ikea.com/us/en/",
+    "output": "/Users/dustinthach/Documents/Coding Projects/Hackathon/Greptile YC/presentation-assets/ecommerce/01-ikea.png",
+    "ok": true,
+    "status": 200,
+    "finalUrl": "https://www.ikea.com/us/en/",
+    "title": "Shop Affordable Home Furnishings & Home Goods - IKEA"
+  },
+  {
+    "group": "ecommerce",
+    "slug": "02-lego",
+    "name": "LEGO Shop",
+    "requestedUrl": "https://www.lego.com/en-us",
+    "output": "/Users/dustinthach/Documents/Coding Projects/Hackathon/Greptile YC/presentation-assets/ecommerce/02-lego.png",
+    "ok": true,
+    "status": 200,
+    "finalUrl": "https://www.lego.com/en-us?age-gate=grown_up",
+    "title": "Home | Official LEGO® Shop US"
+  },
+  {
+    "group": "ecommerce",
+    "slug": "03-patagonia",
+    "name": "Patagonia",
+    "requestedUrl": "https://www.patagonia.com/home/",
+    "output": "/Users/dustinthach/Documents/Coding Projects/Hackathon/Greptile YC/presentation-assets/ecommerce/03-patagonia.png",
+    "ok": true,
+    "status": 200,
+    "finalUrl": "https://www.patagonia.com/home/",
+    "title": "Patagonia Outdoor Clothing & Gear"
+  },
+  {
+    "group": "ecommerce",
+    "slug": "04-rei",
+    "name": "REI Co-op",
+    "requestedUrl": "https://www.rei.com/",
+    "output": "/Users/dustinthach/Documents/Coding Projects/Hackathon/Greptile YC/presentation-assets/ecommerce/04-rei.png",
+    "ok": true,
+    "status": 200,
+    "finalUrl": "https://www.rei.com/",
+    "title": "REI: A Life Outdoors is a Life Well Lived | REI Co-op"
+  },
+  {
+    "group": "ecommerce",
+    "slug": "05-apple",
+    "name": "Apple Store",
+    "requestedUrl": "https://www.apple.com/store",
+    "output": "/Users/dustinthach/Documents/Coding Projects/Hackathon/Greptile YC/presentation-assets/ecommerce/05-apple.png",
+    "ok": true,
+    "status": 200,
+    "finalUrl": "https://www.apple.com/store",
+    "title": "Apple Store Online - Apple"
+  },
+  {
+    "group": "ecommerce",
+    "slug": "06-warby-parker",
+    "name": "Warby Parker",
+    "requestedUrl": "https://www.warbyparker.com/",
+    "output": "/Users/dustinthach/Documents/Coding Projects/Hackathon/Greptile YC/presentation-assets/ecommerce/06-warby-parker.png",
+    "ok": true,
+    "status": 200,
+    "finalUrl": "https://www.warbyparker.com/",
+    "title": "Warby Parker: Eyewear Online | We've Got Your Eyes Covered | Warby Parker"
+  },
+  {
+    "group": "ecommerce",
+    "slug": "07-sephora",
+    "name": "Sephora",
+    "requestedUrl": "https://www.sephora.com/",
+    "output": "/Users/dustinthach/Documents/Coding Projects/Hackathon/Greptile YC/presentation-assets/ecommerce/07-sephora.png",
+    "ok": true,
+    "status": 200,
+    "finalUrl": "https://www.sephora.com/",
+    "title": "Makeup, Skincare, Fragrance, Hair & Beauty Products | Sephora"
+  },
+  {
+    "group": "ecommerce",
+    "slug": "08-etsy",
+    "name": "Etsy",
+    "requestedUrl": "https://www.etsy.com/",
+    "output": "/Users/dustinthach/Documents/Coding Projects/Hackathon/Greptile YC/presentation-assets/ecommerce/08-etsy.png",
+    "ok": true,
+    "status": 200,
+    "finalUrl": "https://www.etsy.com/",
+    "title": "Etsy - Shop for handmade, vintage, custom, and unique gifts for everyone"
+  },
+  {
+    "group": "ecommerce",
+    "slug": "09-crate-and-barrel",
+    "name": "Crate & Barrel",
+    "requestedUrl": "https://www.crateandbarrel.com/",
+    "output": "/Users/dustinthach/Documents/Coding Projects/Hackathon/Greptile YC/presentation-assets/ecommerce/09-crate-and-barrel.png",
+    "ok": true,
+    "status": 200,
+    "finalUrl": "https://www.crateandbarrel.com/",
+    "title": "Furniture, Home Decor and Wedding Registry | Crate & Barrel"
+  }
+]

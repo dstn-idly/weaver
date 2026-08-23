@@ -1,0 +1,13 @@
+[
+  {
+    "group": "ecommerce",
+    "slug": "04-rei",
+    "name": "REI Co-op",
+    "requestedUrl": "https://www.rei.com/",
+    "output": "/Users/dustinthach/Documents/Coding Projects/Hackathon/Greptile YC/presentation-assets/ecommerce/04-rei.png",
+    "ok": true,
+    "status": 200,
+    "finalUrl": "https://www.rei.com/",
+    "title": "REI: A Life Outdoors is a Life Well Lived | REI Co-op"
+  }
+]

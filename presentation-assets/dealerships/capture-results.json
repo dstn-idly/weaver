@@ -1,0 +1,101 @@
+[
+  {
+    "group": "dealerships",
+    "slug": "01-nissan-of-portland",
+    "name": "Nissan of Portland",
+    "requestedUrl": "https://nissanofportland.com/",
+    "output": "/Users/dustinthach/Documents/Coding Projects/Hackathon/Greptile YC/presentation-assets/dealerships/01-nissan-of-portland.png",
+    "ok": true,
+    "status": 200,
+    "finalUrl": "https://nissanofportland.com/",
+    "title": "Nissan Of Portland | New & Used Nissan Dealer in Portland, Oregon"
+  },
+  {
+    "group": "dealerships",
+    "slug": "02-alpine-nissan",
+    "name": "Alpine Nissan",
+    "requestedUrl": "https://alpinenissan.com/inventory",
+    "output": "/Users/dustinthach/Documents/Coding Projects/Hackathon/Greptile YC/presentation-assets/dealerships/02-alpine-nissan.png",
+    "ok": true,
+    "status": 200,
+    "finalUrl": "https://alpinenissan.com/inventory?filters=%7B%22sortBy%22%3A%7B%22option%22%3A%7B%22label%22%3A%22Price%22%2C%22value%22%3A%22price%22%2C%22type%22%3A%22value%22%7D%2C%22direction%22%3A%22desc%22%7D%2C%22appliedFilters%22%3A%7B%7D%7D",
+    "title": "Inventory - Alpine Nissan"
+  },
+  {
+    "group": "dealerships",
+    "slug": "03-teddy-nissan",
+    "name": "Teddy Nissan",
+    "requestedUrl": "https://www.teddynissan.com/inventory/new",
+    "output": "/Users/dustinthach/Documents/Coding Projects/Hackathon/Greptile YC/presentation-assets/dealerships/03-teddy-nissan.png",
+    "ok": true,
+    "status": 200,
+    "finalUrl": "https://www.teddynissan.com/inventory/new",
+    "title": "New Nissan Models for Sale in the Bronx, NY | Nissan Dealership"
+  },
+  {
+    "group": "dealerships",
+    "slug": "04-town-center-nissan",
+    "name": "Town Center Nissan",
+    "requestedUrl": "https://www.towncenternissan.com/new-inventory",
+    "output": "/Users/dustinthach/Documents/Coding Projects/Hackathon/Greptile YC/presentation-assets/dealerships/04-town-center-nissan.png",
+    "ok": true,
+    "status": 200,
+    "finalUrl": "https://www.towncenternissan.com/new-nissan",
+    "title": "New Nissan for Sale in Kennesaw, GA | Town Center Nissan New Inventory"
+  },
+  {
+    "group": "dealerships",
+    "slug": "05-xtreme-nissan",
+    "name": "Xtreme Nissan",
+    "requestedUrl": "https://www.xtremenissan.com/inventory/new",
+    "output": "/Users/dustinthach/Documents/Coding Projects/Hackathon/Greptile YC/presentation-assets/dealerships/05-xtreme-nissan.png",
+    "ok": true,
+    "status": 200,
+    "finalUrl": "https://www.xtremenissan.com/inventory/new",
+    "title": "New Nissan for Sale or Lease in New Orleans, LA | Xtreme Nissan"
+  },
+  {
+    "group": "dealerships",
+    "slug": "06-lupient-nissan",
+    "name": "Lupient Nissan",
+    "requestedUrl": "https://lupientnissan.com/inventory",
+    "output": "/Users/dustinthach/Documents/Coding Projects/Hackathon/Greptile YC/presentation-assets/dealerships/06-lupient-nissan.png",
+    "ok": true,
+    "status": 200,
+    "finalUrl": "https://lupientnissan.com/inventory?filters=%7B%22sortBy%22%3A%7B%22option%22%3A%7B%22label%22%3A%22Age%22%2C%22value%22%3A%22age%22%2C%22type%22%3A%22value%22%7D%2C%22direction%22%3A%22desc%22%7D%2C%22appliedFilters%22%3A%7B%7D%7D",
+    "title": "Inventory - Lupient Nissan"
+  },
+  {
+    "group": "dealerships",
+    "slug": "07-tamaroff-nissan",
+    "name": "Tamaroff Nissan",
+    "requestedUrl": "https://www.tamaroffnissan.com/",
+    "output": "/Users/dustinthach/Documents/Coding Projects/Hackathon/Greptile YC/presentation-assets/dealerships/07-tamaroff-nissan.png",
+    "ok": true,
+    "status": 200,
+    "finalUrl": "https://www.tamaroffnissan.com/",
+    "title": "Nissan Dealership North of Detroit, MI | Car Dealership"
+  },
+  {
+    "group": "dealerships",
+    "slug": "08-state-line-nissan",
+    "name": "State Line Nissan",
+    "requestedUrl": "https://statelinenissan.com/",
+    "output": "/Users/dustinthach/Documents/Coding Projects/Hackathon/Greptile YC/presentation-assets/dealerships/08-state-line-nissan.png",
+    "ok": true,
+    "status": 200,
+    "finalUrl": "https://statelinenissan.com/",
+    "title": "Nissan Dealership in Kansas City | State Line Nissan"
+  },
+  {
+    "group": "dealerships",
+    "slug": "09-777-nissan",
+    "name": "777 Nissan",
+    "requestedUrl": "https://777nissan.com/",
+    "output": "/Users/dustinthach/Documents/Coding Projects/Hackathon/Greptile YC/presentation-assets/dealerships/09-777-nissan.png",
+    "ok": true,
+    "status": 200,
+    "finalUrl": "https://777nissan.com/",
+    "title": "777 Nissan | Las Vegas Nissan Dealership Near Summerlin"
+  }
+]

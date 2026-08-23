@@ -1,0 +1,13 @@
+[
+  {
+    "group": "dealerships",
+    "slug": "06-lupient-nissan",
+    "name": "Lupient Nissan",
+    "requestedUrl": "https://lupientnissan.com/inventory",
+    "output": "/Users/dustinthach/Documents/Coding Projects/Hackathon/Greptile YC/presentation-assets/dealerships/06-lupient-nissan.png",
+    "ok": true,
+    "status": 200,
+    "finalUrl": "https://lupientnissan.com/inventory?filters=%7B%22sortBy%22%3A%7B%22option%22%3A%7B%22label%22%3A%22Age%22%2C%22value%22%3A%22age%22%2C%22type%22%3A%22value%22%7D%2C%22direction%22%3A%22desc%22%7D%2C%22appliedFilters%22%3A%7B%7D%7D",
+    "title": "Inventory - Lupient Nissan"
+  }
+]

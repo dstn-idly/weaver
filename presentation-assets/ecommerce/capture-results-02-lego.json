@@ -1,0 +1,13 @@
+[
+  {
+    "group": "ecommerce",
+    "slug": "02-lego",
+    "name": "LEGO Shop",
+    "requestedUrl": "https://www.lego.com/en-us",
+    "output": "/Users/dustinthach/Documents/Coding Projects/Hackathon/Greptile YC/presentation-assets/ecommerce/02-lego.png",
+    "ok": true,
+    "status": 200,
+    "finalUrl": "https://www.lego.com/en-us",
+    "title": "Home | Official LEGO® Shop US"
+  }
+]

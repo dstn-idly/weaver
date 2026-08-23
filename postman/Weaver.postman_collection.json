@@ -1,0 +1,357 @@
+{
+  "info": {
+    "_postman_id": "153d9bf4-72dc-4fcf-8d6c-5c9d45fba986",
+    "name": "Weaver Local API Demo",
+    "description": "A six-request local demo for Weaver. Run Health and Controlled Repair Demo first, then Start Live Books Scrape. The start request stores the returned ID in both the collection and active-environment `run_id` variables. Re-send Run Status until its status is `passed`, `partial`, or `failed`, then inspect Latest Record and Rows. No client authentication is required; the optional OpenAI key remains server-side.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "noauth"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:8000",
+      "type": "string"
+    },
+    {
+      "key": "run_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Health",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Health returns HTTP 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "const body = pm.response.json();",
+              "pm.test(\"Weaver reports a healthy, fail-closed service\", function () {",
+              "    pm.expect(body.status).to.eql(\"ok\");",
+              "    pm.expect(body.weaver).to.be.a(\"string\").and.not.empty;",
+              "    pm.expect(body.robots_policy).to.eql(\"fail_closed\");",
+              "});",
+              "",
+              "pm.test(\"AI configuration is explicitly reported\", function () {",
+              "    pm.expect(body.openai_configured).to.be.a(\"boolean\");",
+              "    if (body.openai_configured) {",
+              "        pm.expect(body.model).to.be.a(\"string\").and.not.empty;",
+              "    }",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/health",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "health"
+          ]
+        },
+        "description": "Confirms the local API is running and shows the Weaver version, Scrapling version, AI configuration, and robots policy."
+      },
+      "response": []
+    },
+    {
+      "name": "2. Controlled Repair Demo",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Repair demo returns HTTP 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "const body = pm.response.json();",
+              "pm.test(\"Demo exercises controlled selector drift\", function () {",
+              "    pm.expect(body.mode).to.eql(\"controlled_drift_simulation\");",
+              "    pm.expect(body.baseline.verification.passed).to.be.true;",
+              "    pm.expect(body.failure.verification.passed).to.be.false;",
+              "});",
+              "",
+              "pm.test(\"Weaver repairs and verifies the generated scraper\", function () {",
+              "    pm.expect(body.patch.generated_python_compiles).to.be.true;",
+              "    pm.expect(body.patch.before).to.not.eql(body.patch.after);",
+              "    pm.expect(body.result.verification.passed).to.be.true;",
+              "    pm.expect(body.result.rows).to.be.an(\"array\").that.is.not.empty;",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/presentation/repair-demo",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "presentation",
+            "repair-demo"
+          ]
+        },
+        "description": "Runs a deterministic, network-free selector-drift demonstration through Weaver's real analysis, code generation, and verification primitives."
+      },
+      "response": []
+    },
+    {
+      "name": "3. Start Live Books Scrape",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.collectionVariables.unset(\"run_id\");",
+              "pm.environment.unset(\"run_id\");"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Live scrape is accepted\", function () {",
+              "    pm.response.to.have.status(202);",
+              "});",
+              "",
+              "const body = pm.response.json();",
+              "pm.test(\"Response contains a usable asynchronous run ID\", function () {",
+              "    pm.expect(body.id).to.match(/^[a-f0-9]{16}$/);",
+              "    pm.expect([\"queued\", \"running\"]).to.include(body.status);",
+              "    pm.expect(body.run_url).to.eql(`/api/runs/${body.id}`);",
+              "    pm.expect(body.latest_url).to.eql(`/api/runs/${body.id}/latest`);",
+              "});",
+              "",
+              "if (body.id) {",
+              "    pm.collectionVariables.set(\"run_id\", body.id);",
+              "    pm.environment.set(\"run_id\", body.id);",
+              "    console.log(`Saved run_id=${body.id}`);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"urls\": [\n    \"https://books.toscrape.com/\"\n  ],\n  \"options\": {\n    \"category\": \"ecommerce\",\n    \"output_format\": \"csv\",\n    \"image_mode\": \"links\",\n    \"render_mode\": \"http\",\n    \"max_items\": 12,\n    \"max_pages\": 1,\n    \"use_ai\": true,\n    \"requested_fields\": [\n      {\n        \"name\": \"title\",\n        \"type\": \"str\",\n        \"required\": true\n      },\n      {\n        \"name\": \"price\",\n        \"type\": \"money\"\n      },\n      {\n        \"name\": \"url\",\n        \"type\": \"url\"\n      }\n    ]\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/runs",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "runs"
+          ]
+        },
+        "description": "Starts the presentation-aligned live demo: scrape 12 books from one static page, infer/refine the requested field contract, verify the generated scraper, and export CSV. The test script saves the returned ID as `run_id` in both the collection and active environment."
+      },
+      "response": []
+    },
+    {
+      "name": "4. Run Status",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Run lookup returns HTTP 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "const body = pm.response.json();",
+              "const terminal = [\"passed\", \"partial\", \"failed\"];",
+              "pm.test(\"Status belongs to Weaver's run lifecycle\", function () {",
+              "    pm.expect(body.id).to.eql(pm.collectionVariables.get(\"run_id\"));",
+              "    pm.expect([\"queued\", \"running\", ...terminal]).to.include(body.status);",
+              "    pm.expect(body.requested_urls).to.include(\"https://books.toscrape.com/\");",
+              "});",
+              "",
+              "if (terminal.includes(body.status)) {",
+              "    console.log(`Run finished with status=${body.status}`);",
+              "} else {",
+              "    console.log(`Run is ${body.status}; re-send this request in about one second.`);",
+              "}",
+              "",
+              "pm.test(\"A successful terminal run includes verification details\", function () {",
+              "    if (body.status === \"passed\") {",
+              "        pm.expect(body.row_count).to.be.above(0);",
+              "        pm.expect(body.results).to.be.an(\"array\").that.is.not.empty;",
+              "        pm.expect(body.results[0].verification.passed).to.be.true;",
+              "    }",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/runs/{{run_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "runs",
+            "{{run_id}}"
+          ]
+        },
+        "description": "Shows queue/running/terminal status and, after completion, row count, inferred fields, verification, and pagination metadata. Re-send until terminal."
+      },
+      "response": []
+    },
+    {
+      "name": "5. Latest Record",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Latest-record endpoint returns HTTP 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "const body = pm.response.json();",
+              "pm.test(\"Latest response preserves the requested field contract\", function () {",
+              "    pm.expect(body.run_id).to.eql(pm.collectionVariables.get(\"run_id\"));",
+              "    pm.expect(body.meta.fields.map((field) => field.name)).to.eql([\"title\", \"price\", \"url\"]);",
+              "    pm.expect(body.meta).to.have.property(\"poll_after_ms\");",
+              "});",
+              "",
+              "pm.test(\"A passed run returns a verified portal-ready record\", function () {",
+              "    if (body.status === \"passed\") {",
+              "        pm.expect(body.data).to.be.an(\"object\");",
+              "        pm.expect(body.data).to.have.all.keys(\"title\", \"price\", \"url\");",
+              "        pm.expect(body.data.title).to.be.a(\"string\").and.not.empty;",
+              "        pm.expect(body.meta.verification.passed).to.be.true;",
+              "        pm.expect(body.meta.poll_after_ms).to.be.null;",
+              "    }",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/runs/{{run_id}}/latest",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "runs",
+            "{{run_id}}",
+            "latest"
+          ]
+        },
+        "description": "Returns one portal-friendly record containing only the requested `title`, `price`, and `url` fields, along with field coverage and verification metadata."
+      },
+      "response": []
+    },
+    {
+      "name": "6. Rows",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Rows endpoint returns HTTP 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "const body = pm.response.json();",
+              "pm.test(\"Rows response has bounded pagination metadata\", function () {",
+              "    pm.expect(body.items).to.be.an(\"array\");",
+              "    pm.expect(body.columns).to.be.an(\"array\");",
+              "    pm.expect(body.offset).to.eql(0);",
+              "    pm.expect(body.limit).to.eql(12);",
+              "    pm.expect(body.total).to.be.a(\"number\").and.at.least(0);",
+              "    pm.expect(body.has_more).to.be.a(\"boolean\");",
+              "});",
+              "",
+              "pm.test(\"A passed scrape exposes the requested book columns and data\", function () {",
+              "    if (body.status === \"passed\") {",
+              "        pm.expect(body.total).to.be.above(0);",
+              "        pm.expect(body.items).to.be.an(\"array\").that.is.not.empty;",
+              "        pm.expect(body.items[0]).to.include.all.keys(\"title\", \"price\", \"url\");",
+              "    }",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/runs/{{run_id}}/rows?offset=0&limit=5",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "runs",
+            "{{run_id}}",
+            "rows"
+          ],
+          "query": [
+            {
+              "key": "offset",
+              "value": "0"
+            },
+            {
+              "key": "limit",
+              "value": "5"
+            }
+          ]
+        },
+        "description": "Returns the first bounded page of extracted rows plus columns, image-field hints, total count, and `has_more`."
+      },
+      "response": []
+    }
+  ]
+}

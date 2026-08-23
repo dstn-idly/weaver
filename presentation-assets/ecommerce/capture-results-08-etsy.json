@@ -1,0 +1,13 @@
+[
+  {
+    "group": "ecommerce",
+    "slug": "08-etsy",
+    "name": "Etsy",
+    "requestedUrl": "https://www.etsy.com/",
+    "output": "/Users/dustinthach/Documents/Coding Projects/Hackathon/Greptile YC/presentation-assets/ecommerce/08-etsy.png",
+    "ok": true,
+    "status": 200,
+    "finalUrl": "https://www.etsy.com/",
+    "title": "Etsy - Shop for handmade, vintage, custom, and unique gifts for everyone"
+  }
+]

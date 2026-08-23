@@ -1,0 +1,13 @@
+[
+  {
+    "group": "dealerships",
+    "slug": "09-777-nissan",
+    "name": "777 Nissan",
+    "requestedUrl": "https://777nissan.com/cars/new-inventory",
+    "output": "/Users/dustinthach/Documents/Coding Projects/Hackathon/Greptile YC/presentation-assets/dealerships/09-777-nissan.png",
+    "ok": true,
+    "status": 200,
+    "finalUrl": "https://777nissan.com/cars/new-inventory",
+    "title": "New Nissan Cars Trucks & SUVs For Sale Las Vegas NV| Paradise| Enterprise"
+  }
+]

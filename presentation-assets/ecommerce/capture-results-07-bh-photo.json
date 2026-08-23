@@ -1,0 +1,13 @@
+[
+  {
+    "group": "ecommerce",
+    "slug": "07-bh-photo",
+    "name": "B&H Photo",
+    "requestedUrl": "https://www.bhphotovideo.com/",
+    "output": "/Users/dustinthach/Documents/Coding Projects/Hackathon/Greptile YC/presentation-assets/ecommerce/07-bh-photo.png",
+    "ok": true,
+    "status": 200,
+    "finalUrl": "https://www.bhphotovideo.com/",
+    "title": "B&H Photo Video Digital Cameras, Photography, Computers"
+  }
+]

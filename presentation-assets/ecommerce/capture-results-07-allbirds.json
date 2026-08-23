@@ -1,0 +1,13 @@
+[
+  {
+    "group": "ecommerce",
+    "slug": "07-allbirds",
+    "name": "Allbirds",
+    "requestedUrl": "https://www.allbirds.com/",
+    "output": "/Users/dustinthach/Documents/Coding Projects/Hackathon/Greptile YC/presentation-assets/ecommerce/07-allbirds.png",
+    "ok": true,
+    "status": 200,
+    "finalUrl": "https://www.allbirds.com/",
+    "title": "Allbirds: Comfortable, Sustainable Shoes & Apparel"
+  }
+]

@@ -1,0 +1,10 @@
+beautifulsoup4==4.14.3
+fastapi==0.128.0
+httpx==0.28.1
+openai==2.15.0
+openpyxl==3.1.5
+playwright==1.62.0
+protego==0.6.2
+PyYAML==6.0.3
+scrapling[fetchers]==0.4.15
+uvicorn[standard]==0.40.0

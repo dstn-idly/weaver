@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "weaver-web",
+      "runtimeExecutable": ".venv/bin/uvicorn",
+      "runtimeArgs": ["weaver.app:app", "--host", "127.0.0.1", "--port", "8000", "--reload"],
+      "port": 8000
+    }
+  ]
+}

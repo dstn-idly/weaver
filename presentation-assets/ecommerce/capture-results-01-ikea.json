@@ -1,0 +1,13 @@
+[
+  {
+    "group": "ecommerce",
+    "slug": "01-ikea",
+    "name": "IKEA",
+    "requestedUrl": "https://www.ikea.com/us/en/",
+    "output": "/Users/dustinthach/Documents/Coding Projects/Hackathon/Greptile YC/presentation-assets/ecommerce/01-ikea.png",
+    "ok": true,
+    "status": 200,
+    "finalUrl": "https://www.ikea.com/us/en/",
+    "title": "Shop Affordable Home Furnishings & Home Goods - IKEA"
+  }
+]

@@ -1,0 +1,13 @@
+[
+  {
+    "group": "dealerships",
+    "slug": "07-tamaroff-nissan",
+    "name": "Tamaroff Nissan",
+    "requestedUrl": "https://www.tamaroffnissan.com/",
+    "output": "/Users/dustinthach/Documents/Coding Projects/Hackathon/Greptile YC/presentation-assets/dealerships/07-tamaroff-nissan.png",
+    "ok": true,
+    "status": 200,
+    "finalUrl": "https://www.tamaroffnissan.com/",
+    "title": "Nissan Dealership North of Detroit, MI | Car Dealership"
+  }
+]

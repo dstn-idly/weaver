@@ -1,0 +1,13 @@
+[
+  {
+    "group": "ecommerce",
+    "slug": "03-patagonia",
+    "name": "Patagonia",
+    "requestedUrl": "https://www.patagonia.com/home/",
+    "output": "/Users/dustinthach/Documents/Coding Projects/Hackathon/Greptile YC/presentation-assets/ecommerce/03-patagonia.png",
+    "ok": true,
+    "status": 200,
+    "finalUrl": "https://www.patagonia.com/home/",
+    "title": "Patagonia Outdoor Clothing & Gear"
+  }
+]

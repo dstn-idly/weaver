@@ -1,0 +1,13 @@
+[
+  {
+    "group": "ecommerce",
+    "slug": "07-adidas",
+    "name": "adidas",
+    "requestedUrl": "https://www.adidas.com/us/",
+    "output": "/Users/dustinthach/Documents/Coding Projects/Hackathon/Greptile YC/presentation-assets/ecommerce/07-adidas.png",
+    "ok": true,
+    "status": 403,
+    "finalUrl": "https://www.adidas.com/us/",
+    "title": "adidas"
+  }
+]

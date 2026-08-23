@@ -1,0 +1,13 @@
+[
+  {
+    "group": "ecommerce",
+    "slug": "09-crate-and-barrel",
+    "name": "Crate & Barrel",
+    "requestedUrl": "https://www.crateandbarrel.com/",
+    "output": "/Users/dustinthach/Documents/Coding Projects/Hackathon/Greptile YC/presentation-assets/ecommerce/09-crate-and-barrel.png",
+    "ok": true,
+    "status": 200,
+    "finalUrl": "https://www.crateandbarrel.com/",
+    "title": "Furniture, Home Decor and Wedding Registry | Crate & Barrel"
+  }
+]

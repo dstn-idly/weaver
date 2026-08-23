@@ -1,0 +1,13 @@
+[
+  {
+    "group": "dealerships",
+    "slug": "03-teddy-nissan",
+    "name": "Teddy Nissan",
+    "requestedUrl": "https://www.teddynissan.com/inventory/new",
+    "output": "/Users/dustinthach/Documents/Coding Projects/Hackathon/Greptile YC/presentation-assets/dealerships/03-teddy-nissan.png",
+    "ok": true,
+    "status": 200,
+    "finalUrl": "https://www.teddynissan.com/inventory/new",
+    "title": "New Nissan Models for Sale in the Bronx, NY | Nissan Dealership"
+  }
+]

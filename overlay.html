@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#1f251c">
+  <title>Weaver Quick Drop · Weaver</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500&amp;family=Spline+Sans+Mono:wght@300;400;500&amp;display=swap" rel="stylesheet">
+  <link rel="preload" href="/assets/pip-sprite-atlas.png" as="image" type="image/png">
+  <link rel="stylesheet" href="/assets/overlay-shell.css">
+  <script src="/assets/overlay-shell.js" defer></script>
+</head>
+<body>
+  <header class="quickbar">
+    <a class="back" href="/" aria-label="Back to Weaver">
+      <span aria-hidden="true">←</span>
+      <span>Weaver</span>
+    </a>
+    <div class="quick-title">
+      <span class="quick-mark" aria-hidden="true"></span>
+      <span><b>Weaver Quick Drop</b><small>safe snapshot mode</small></span>
+    </div>
+    <form class="url-form" id="overlay-form">
+      <label class="sr-only" for="overlay-url">Website URL</label>
+      <input id="overlay-url" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://books.toscrape.com/">
+      <button type="submit">Capture</button>
+    </form>
+    <button class="whole-page" id="whole-page" type="button" disabled>Scrape whole page</button>
+  </header>
+
+  <main class="overlay-workspace">
+    <section class="preview-stage" id="preview-stage" aria-label="Website snapshot">
+      <div class="preview-scroll" id="preview-scroll">
+        <div class="preview-canvas" id="preview-canvas" hidden>
+          <img id="preview-image" draggable="false" alt="Static safety snapshot of the selected website">
+          <span class="target-outline" id="target-outline" aria-hidden="true"></span>
+        </div>
+      </div>
+
+      <div class="capture-state" id="capture-state" role="status" aria-live="polite">
+        <span class="capture-spinner" aria-hidden="true"></span>
+        <strong>Painting a safe snapshot…</strong>
+        <span>Target scripts stay off. Weaver only receives a picture and opaque drop zones.</span>
+      </div>
+
+      <button class="drop-pip" id="drop-pip" type="button"
+              aria-label="Weaver. Drag onto a repeated card, or use arrow keys and press S to select.">
+        <span class="drop-pip-sprite" id="drop-pip-sprite" data-motion="idle" aria-hidden="true"></span>
+      </button>
+      <span class="drop-bubble" id="drop-bubble" role="status" aria-live="polite">Drag me onto a card.</span>
+      <span class="drag-help sr-only" id="drag-help">Drag Weaver over the snapshot. Arrow keys move Weaver; press S to scrape the area underneath.</span>
+    </section>
+
+    <aside class="area-panel" aria-labelledby="area-title">
+      <p class="eyebrow">Quick scrape overlay</p>
+      <h1 id="area-title">Drop Weaver on the data.</h1>
+      <p class="area-copy">Weaver renders a script-free PNG in Docker, then keeps selectors private on the server. Drop Weaver on a repeated product, quote, row, or card.</p>
+
+      <div class="status-card">
+        <span class="status-dot" aria-hidden="true"></span>
+        <p id="overlay-status" role="status" aria-live="polite">Enter a URL to capture a safe snapshot.</p>
+      </div>
+
+      <label class="area-label" for="area-select">Keyboard alternative</label>
+      <select id="area-select" disabled>
+        <option value="">Repeated areas appear after capture</option>
+      </select>
+      <button class="use-area" id="use-area" type="button" disabled>Use selected area</button>
+
+      <div class="sample-row" aria-label="Sample websites">
+        <button type="button" data-sample="https://books.toscrape.com/">Books</button>
+        <button type="button" data-sample="https://quotes.toscrape.com/">Quotes</button>
+      </div>
+
+      <p class="safety-note">The snapshot expires after ten minutes. Robots rules and private-network blocking still apply.</p>
+    </aside>
+  </main>
+</body>
+</html>
