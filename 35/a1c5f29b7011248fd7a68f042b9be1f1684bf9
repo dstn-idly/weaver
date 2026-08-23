@@ -1,0 +1,148 @@
+postman/Weaver.postman_collection.json
+  s_cbd18b1c3ec652::t_1bc3dff97bad26 311
+  s_1c661ba9c8a917::t_58adf49250a268 1-310,312-357
+.claude/launch.json
+  s_1c661ba9c8a917::t_2d81049388e441 1-11
+.dockerignore
+  s_1c661ba9c8a917::t_6799899ace282a 1-7
+.env.example
+  s_1c661ba9c8a917::t_2823bd9223ffac 1-18
+.gitignore
+  s_8b54b4c53946cb::t_81545d000c9545 1-15
+Dockerfile
+  s_1c661ba9c8a917::t_53fa0603bbc137 1-32
+assets/overlay-shell.css
+  s_1c661ba9c8a917::t_89436d87520cf5 1-109
+assets/overlay-shell.js
+  s_1c661ba9c8a917::t_4583ad88ccc3e2 1-385
+index.html
+  s_9688608a1569ac::t_cbdef1ad58e494 1-3915
+overlay.html
+  s_1c661ba9c8a917::t_c5e4eb3f3ff16d 1-81
+postman/DEMO.md
+  s_1c661ba9c8a917::t_27f46cf719f38e 1-83
+"postman/Weaver Local.postman_environment.json"
+  s_1c661ba9c8a917::t_1012c946d64f2d 1-21
+presentation-assets/build/capture-sites.mjs
+  s_1c661ba9c8a917::t_db6153ab90e159 1-158
+presentation-assets/dealerships/capture-results-03-teddy-nissan.json
+  s_8b54b4c53946cb::t_8c0855ec98570f 1-13
+presentation-assets/dealerships/capture-results-06-lupient-nissan.json
+  s_8b54b4c53946cb::t_8f9fbe97d423e9 1-13
+presentation-assets/dealerships/capture-results-07-tamaroff-nissan.json
+  s_8b54b4c53946cb::t_016e8ca1e5fe78 1-13
+presentation-assets/dealerships/capture-results-09-777-nissan.json
+  s_8b54b4c53946cb::t_7abc50773a8fb1 1-13
+presentation-assets/dealerships/capture-results.json
+  s_1c661ba9c8a917::t_12d93eab3d1886 1-101
+presentation-assets/ecommerce/capture-results-01-ikea.json
+  s_1c661ba9c8a917::t_6c4ed518de5063 1-13
+presentation-assets/ecommerce/capture-results-02-lego.json
+  s_8b54b4c53946cb::t_80559bee6bd36a 1-13
+presentation-assets/ecommerce/capture-results-03-patagonia.json
+  s_8b54b4c53946cb::t_72a04bc107d25b 1-13
+presentation-assets/ecommerce/capture-results-04-rei.json
+  s_1c661ba9c8a917::t_fb878168370767 1-13
+presentation-assets/ecommerce/capture-results-07-adidas.json
+  s_8b54b4c53946cb::t_16b78c7e635ad6 1-13
+presentation-assets/ecommerce/capture-results-07-allbirds.json
+  s_8b54b4c53946cb::t_f402c1d0dcb4fa 1-13
+presentation-assets/ecommerce/capture-results-07-bh-photo.json
+  s_1c661ba9c8a917::t_fbff10fa23a50a 1-13
+presentation-assets/ecommerce/capture-results-08-etsy.json
+  s_1c661ba9c8a917::t_cfe72ff1dd70d3 1-13
+presentation-assets/ecommerce/capture-results-09-crate-and-barrel.json
+  s_8b54b4c53946cb::t_c4b1d3fd06e570 1-13
+presentation-assets/ecommerce/capture-results.json
+  s_8b54b4c53946cb::t_642d08c9c4e905 1-101
+presentation-assets/source-notes.txt
+  s_8b54b4c53946cb::t_3c88759117e10a 1-24
+pytest.ini
+  s_06bd3fed42fd40::t_2a8e7759cfcc1b 1-3
+requirements-dev.txt
+  s_9688608a1569ac::t_2bec7dca73c4cb 1-4
+seccomp_profile.json
+  s_1c661ba9c8a917::t_aa3d3081c33566 1-831
+tests/fixtures/cars.html
+  s_1c661ba9c8a917::t_baf44a6062068f 1-8
+tests/fixtures/shop.html
+  s_1c661ba9c8a917::t_7c38dfa73527d0 1-8
+tests/test_discovery.py
+  s_1c661ba9c8a917::t_1568c8bc4b07ea 1-189
+tests/test_exports.py
+  s_1c661ba9c8a917::t_2ce3aaf66a00d4 1-31
+tests/test_pagination.py
+  s_1c661ba9c8a917::t_279eb629430d0d 1-58
+tests/test_preview.py
+  s_1c661ba9c8a917::t_d7faf7a626d6c2 1-95
+tests/test_robots.py
+  s_1c661ba9c8a917::t_d9b613a33567de 1-18
+tests/test_security.py
+  s_1c661ba9c8a917::t_c8c0b09e92ce63 1-23
+tests/test_verification.py
+  s_1c661ba9c8a917::t_34f31c187d1937 1-29
+weaver/__init__.py
+  s_1c661ba9c8a917::t_4bddc4b50ac780 1-4
+weaver/engine.py
+  s_1c661ba9c8a917::t_23a1491499fe80 1-1200
+weaver/exporters.py
+  s_1c661ba9c8a917::t_ccbc3b625b1a61 1-84
+weaver/models.py
+  s_1c661ba9c8a917::t_109d6d8dc7c74c 1-283
+weaver/pagination.py
+  s_9688608a1569ac::t_e3e3bd5c675b14 1-208
+weaver/preview.py
+  s_1c661ba9c8a917::t_13c2b0f6fbe65c 1-359
+weaver/robots.py
+  s_1c661ba9c8a917::t_392d2416debd73 1-113
+weaver/security.py
+  s_1c661ba9c8a917::t_bd7b8f136ae8d1 1-75
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "35a1c5f29b7011248fd7a68f042b9be1f1684bf9",
+  "prompts": {},
+  "sessions": {
+    "s_06bd3fed42fd40": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0304e-9a49-7140-bdf6-7113e9024cbf",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "dustin thach <epikunder321123@gmail.com>"
+    },
+    "s_1c661ba9c8a917": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0304c-c7f8-72d2-a2a8-a451102f06d4",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "dustin thach <epikunder321123@gmail.com>"
+    },
+    "s_8b54b4c53946cb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a030b4-9a9a-7483-b383-54f896f23059",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "dustin thach <epikunder321123@gmail.com>"
+    },
+    "s_9688608a1569ac": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a030a4-ca26-76f2-8076-f9d277ca738a",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "dustin thach <epikunder321123@gmail.com>"
+    },
+    "s_cbd18b1c3ec652": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a030ea-2363-7310-a161-8f74ba24d6d9",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "dustin thach <epikunder321123@gmail.com>"
+    }
+  }
+}
