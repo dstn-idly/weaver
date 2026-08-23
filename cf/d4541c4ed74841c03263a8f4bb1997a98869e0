@@ -1,0 +1,19 @@
+postman/Weaver.postman_collection.json
+  s_8b54b4c53946cb::t_46a32e1008dc8e 311
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "cfd4541c4ed74841c03263a8f4bb1997a98869e0",
+  "prompts": {},
+  "sessions": {
+    "s_8b54b4c53946cb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a030b4-9a9a-7483-b383-54f896f23059",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "dustin thach <epikunder321123@gmail.com>"
+    }
+  }
+}
