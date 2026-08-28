@@ -1,0 +1,35 @@
+tests/test_factory.py
+  s_da9cd4ad208db2::t_2644798a58b944 125-160
+tests/test_vehicle_extract.py
+  s_da9cd4ad208db2::t_ea30b5c205d4ea 225-264
+tests/test_vehicle_qa.py
+  s_da9cd4ad208db2::t_13ee767a271362 178-190
+weaver/factory/luna.py
+  s_da9cd4ad208db2::t_874522f0a98b03 44-51
+weaver/factory/orchestrator.py
+  s_da9cd4ad208db2::t_948265c6fbaec0 23-27,155-176
+weaver/factory/simulate.py
+  s_da9cd4ad208db2::t_7623fc4f585bab 119
+weaver/factory/translate.py
+  s_da9cd4ad208db2::t_daab7c9cc95e2f 145-211
+weaver/vehicle/extract.py
+  s_da9cd4ad208db2::t_2528ea94f4ce94 404-485,500,528-532
+weaver/vehicle/qa.py
+  s_da9cd4ad208db2::t_81a722717fbd50 366-381
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "70f0572b5af732cf50e4803da21e33fb2d47aad4",
+  "prompts": {},
+  "sessions": {
+    "s_da9cd4ad208db2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4cd1a6ac-f843-47f4-ac8d-77cbe7e08a68",
+        "model": "claude-fable-5"
+      },
+      "human_author": "dustin thach <epikunder321123@gmail.com>"
+    }
+  }
+}
