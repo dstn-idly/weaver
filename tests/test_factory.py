@@ -158,3 +158,36 @@ def test_reconciliation_drops_fields_contradicting_crawl_truth():
     same, dropped_small, _ = reconcile_config_fields(config, agreeing, crawl)
     assert dropped_small == []
     assert same["fields"] == config["fields"]
+
+
+def test_engine_log_ring_buffer_tails_with_cursor_and_drops_uvicorn_noise():
+    import logging
+
+    from weaver.factory.logstream import RingLogHandler
+
+    handler = RingLogHandler()
+    root = logging.getLogger("test-engine-log")
+    root.addHandler(handler)
+    root.setLevel(logging.INFO)
+    try:
+        logging.getLogger("test-engine-log.scrapling").info("Fetched (200) <GET https://dealer.example/a>")
+        logging.getLogger("uvicorn.access").info("GET /api/factory/jobs 200")
+        handler.emit(
+            logging.LogRecord("uvicorn.access", logging.INFO, "", 0, "noise", None, None)
+        )
+        logging.getLogger("test-engine-log.scrapling").warning("Attempt 1 failed")
+    finally:
+        root.removeHandler(handler)
+
+    cursor, lines = handler.tail(0)
+    assert cursor == 2
+    assert [entry["line"] for entry in lines] == [
+        "INFO: Fetched (200) <GET https://dealer.example/a>",
+        "WARNING: Attempt 1 failed",
+    ]
+    # Cursor-based tailing returns only fresh lines and is stable when idle.
+    cursor2, fresh = handler.tail(cursor)
+    assert cursor2 == cursor
+    assert fresh == []
+    _, partial = handler.tail(1)
+    assert [entry["line"] for entry in partial] == ["WARNING: Attempt 1 failed"]

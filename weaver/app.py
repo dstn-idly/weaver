@@ -135,6 +135,9 @@ app.include_router(_factory_router)
 async def _start_factory() -> None:
     """The factory worker shares this process: one queue, one event loop."""
 
+    from weaver.factory import logstream as _factory_logstream
+
+    _factory_logstream.install()
     store = _FactoryStore(_factory_data_root())
     _factory_bind_store(store)
     app.state.factory_task = asyncio.create_task(_factory_worker(store))

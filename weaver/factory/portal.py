@@ -11,6 +11,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
+from . import logstream
 from .orchestrator import parse_intake_url
 from .simulate import extension_asset
 from .store import FactoryStore
@@ -48,6 +49,18 @@ async def factory_status() -> dict[str, object]:
         "total_jobs": len(jobs),
         "client_engine_sha256": engine_sha,
     }
+
+
+@router.get("/api/factory/logs")
+async def engine_logs(cursor: int = 0) -> dict[str, object]:
+    """Tail the container's own engine log (Scrapling fetches, pipeline
+    notes) — the same lines `docker logs` shows, minus uvicorn noise."""
+
+    captured = logstream.handler()
+    if captured is None:
+        return {"cursor": 0, "lines": []}
+    latest, lines = captured.tail(max(0, int(cursor)))
+    return {"cursor": latest, "lines": lines}
 
 
 @router.post("/api/factory/jobs", status_code=202)
@@ -166,6 +179,11 @@ PORTAL_HTML = r"""<!doctype html>
   .verdict.ship { color:var(--ok); } .verdict.needs_repair { color:var(--bad); } .verdict.review { color:var(--amber); }
   a { color:var(--blue); }
   .muted { color:var(--dim); font-size:.8rem; }
+  #enginelog { background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:.7rem;
+         height: 26vh; overflow-y:auto; font-size:.72rem; white-space:pre-wrap; word-break:break-word; }
+  #enginelog .t { color:var(--dim); }
+  #enginelog .warn { color:var(--amber); }
+  #enginelog .err { color:var(--bad); }
 </style></head><body>
 <header><h1>Scraper Factory</h1><span class="sha" id="engineSha"></span>
   <span style="flex:1"></span><button class="ghost" onclick="setToken()">token</button></header>
@@ -182,6 +200,8 @@ PORTAL_HTML = r"""<!doctype html>
   </div>
   <div id="right">
     <div id="detail" class="muted">Select a job — or feed the factory a link.</div>
+    <div class="muted" style="margin:1rem 0 .3rem">ENGINE LOG — live from the container (navigation fetches, pipeline notes)</div>
+    <pre id="enginelog"></pre>
   </div>
 </main>
 <script>
@@ -284,7 +304,29 @@ async function stream(id, cursor) {
     }
   } catch (e) {}
 }
+let engineLogCursor = 0;
+async function pollEngineLog() {
+  try {
+    const data = await (await api("/api/factory/logs?cursor=" + engineLogCursor)).json();
+    engineLogCursor = data.cursor;
+    if (!data.lines.length) return;
+    const pane = document.getElementById("enginelog");
+    const pinned = pane.scrollHeight - pane.scrollTop - pane.clientHeight < 40;
+    for (const entry of data.lines) {
+      const row = document.createElement("div");
+      const kind = entry.line.startsWith("ERROR") ? "err" : entry.line.startsWith("WARNING") ? "warn" : "";
+      row.innerHTML = `<span class="t">${entry.at}</span> ` +
+        `<span class="${kind}"></span>`;
+      row.lastChild.textContent = entry.line;
+      pane.appendChild(row);
+    }
+    while (pane.childNodes.length > 800) pane.removeChild(pane.firstChild);
+    if (pinned) pane.scrollTop = pane.scrollHeight;
+  } catch (e) {}
+}
 refresh();
 setInterval(refresh, 8000);
+pollEngineLog();
+setInterval(pollEngineLog, 3000);
 if (!token) setTimeout(setToken, 400);
 </script></body></html>"""
