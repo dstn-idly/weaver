@@ -1,0 +1,25 @@
+weaver/vehicle/transport.py
+  s_da9cd4ad208db2::t_5c4a3fc600c4d7 1573,1581-1594
+  s_da9cd4ad208db2::t_6e83548254d2c4 1228-1232
+weaver/vehicle/pipeline.py
+  s_da9cd4ad208db2::t_350396001c1875 399
+  s_da9cd4ad208db2::t_308b9ea8087ad6 393
+tests/test_vehicle_transport.py
+  s_da9cd4ad208db2::t_c7c984b0e22e3f 2882-3068
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "9fcc189463656dc3eede510a4042dd09e29cac9e",
+  "prompts": {},
+  "sessions": {
+    "s_da9cd4ad208db2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4cd1a6ac-f843-47f4-ac8d-77cbe7e08a68",
+        "model": "claude-fable-5"
+      },
+      "human_author": "dustin thach <epikunder321123@gmail.com>"
+    }
+  }
+}
