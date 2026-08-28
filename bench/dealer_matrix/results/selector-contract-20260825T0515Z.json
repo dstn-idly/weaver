@@ -1,0 +1,275 @@
+{
+  "artifact": "weaver-vehicle-v2-compatibility-sample",
+  "artifact_version": 1,
+  "generated_at": "2026-08-25T05:10:44.009877Z",
+  "scope": {
+    "sites_requested": 4,
+    "sites_run": 4,
+    "sample_only": true,
+    "full_inventory_proof": false,
+    "owner_authorization_proof": false,
+    "robots_requests": 0,
+    "html_or_cookie_persistence": false,
+    "model": "gpt-5.6-luna",
+    "max_parallel_sites": 2,
+    "transport_timeout_ms": 30000,
+    "max_response_bytes": 6000000,
+    "inter_site_delay_seconds": 1.0,
+    "inference_attempts": 3,
+    "inference_timeout_seconds": 90.0,
+    "site_timeout_seconds": 240.0,
+    "required_sample_fields": [
+      "vin",
+      "year",
+      "make+model_or_name",
+      "price",
+      "mileage",
+      "distance_unit",
+      "color",
+      "description",
+      "detail_url"
+    ],
+    "photo_acceptance": "at least 2 unique VDP-owned photos plus deterministic full-resolution proof (width >= 1000 or explicit full/original gallery source)"
+  },
+  "counts": {
+    "sample_pass": 2,
+    "sample_partial": 0,
+    "candidate_failure": 2,
+    "blocked": 0
+  },
+  "sites": [
+    {
+      "slug": "orlandonissan-com",
+      "name": "Sutherlin Nissan of Orlando",
+      "country": "US",
+      "homepage": "https://orlandonissan.com",
+      "inventory_hint": "https://orlandonissan.com/inventory/used",
+      "expected_platform": "Team Velocity (Apollo)",
+      "status": "candidate_failure",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": "static",
+      "error": {
+        "code": "candidate_or_replay_failure",
+        "message": "no locally valid spec after bounded attempts: HTTPStatusError: Client error '400 Bad Request' for url 'https://api.openai.com/v1/responses' For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400 | HTTPStatusError: Client error '400 Bad Request' f"
+      },
+      "discovery_candidates_considered": 1,
+      "listing_url": "https://orlandonissan.com/inventory/used",
+      "detail_url": "https://orlandonissan.com/viewdetails/used/1gc4yney6mf193540/2021-chevrolet-silverado-2500hd-crew-cab-pickup?type=cash",
+      "candidate_metrics": {
+        "listing_card_candidates": 12,
+        "detail_root_candidates": 12,
+        "detail_gallery_candidates": 2,
+        "verified_detail_roots": 4,
+        "verified_galleries": 0,
+        "verified_gallery_items": 1,
+        "verified_contract_passed": true
+      },
+      "duration_seconds": 55.343
+    },
+    {
+      "slug": "huberautomotive-com",
+      "name": "Huber Automotive (Heath, OH)",
+      "country": "US",
+      "homepage": "https://www.huberautomotive.com",
+      "inventory_hint": "https://www.huberautomotive.com/promotions/used/index.htm",
+      "expected_platform": "Dealer.com (Cox)",
+      "status": "sample_pass",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": "persistent_browser",
+      "error": null,
+      "discovery_candidates_considered": 1,
+      "listing_url": "https://www.huberautomotive.com/promotions/used/index.htm",
+      "detail_url": "https://www.huberautomotive.com/used/Chevrolet/2001-Chevrolet-Corvette-76cecfa2ac18449e036c6424efe70763.htm",
+      "candidate_metrics": {
+        "listing_card_candidates": 12,
+        "detail_root_candidates": 12,
+        "detail_gallery_candidates": 1,
+        "verified_detail_roots": 13,
+        "verified_galleries": 0,
+        "verified_gallery_items": 1,
+        "verified_contract_passed": true
+      },
+      "inference": {
+        "model": "gpt-5.6-luna",
+        "attempt": 1,
+        "attempts_configured": 3,
+        "validation": {
+          "raw_card_count": 4,
+          "record_count": 4,
+          "rejected_card_count": 0,
+          "detail_url_count": 4,
+          "expected_total": null,
+          "detail_validated": true,
+          "detail_identity_proven": true,
+          "detail_field_count": 19,
+          "detail_photo_count": 30,
+          "detail_full_resolution_candidates": 30
+        }
+      },
+      "replay": {
+        "record_count": 4,
+        "qa_passed": false,
+        "qa_issues": [
+          "incomplete_snapshot:detail_page_cap",
+          "expected_total_unknown",
+          "surrogate_vins:3",
+          "field_coverage:year:0.25<1.00",
+          "field_coverage:make:0.25<1.00",
+          "field_coverage:model:0.25<1.00",
+          "field_coverage:color_ext:0.25<1.00",
+          "field_coverage:color_int:0.25<0.80",
+          "field_coverage:transmission:0.25<0.80",
+          "full_resolution_photo_coverage:0.25<1.00",
+          "multi_photo_vehicle_coverage:0.25<1.00",
+          "photo_count_min:1<2",
+          "photo_count_median:1<3"
+        ],
+        "qa_warnings": [
+          "source_field_unavailable:drivetrain",
+          "source_field_unavailable:features",
+          "vehicles_with_single_gallery_photo"
+        ]
+      },
+      "sample_quality": {
+        "vin": "1G1YY32G815111559",
+        "identity_proven": true,
+        "matched_by": "ddc_gallery:vin",
+        "owned_photo_count": 30,
+        "unique_gallery_urls": true,
+        "numeric_photo_widths": [],
+        "full_resolution_widths_ge_1000": [],
+        "full_resolution_proof": true,
+        "required_fields_missing": [],
+        "required_sample_field_replay_pass": true,
+        "sample_pass_criteria": {
+          "vin_identity": true,
+          "two_owned_photos": true,
+          "full_resolution_proof": true,
+          "required_fields": true
+        }
+      },
+      "duration_seconds": 55.287
+    },
+    {
+      "slug": "rideplaza-com",
+      "name": "Ride Plaza (Loganville, GA)",
+      "country": "US",
+      "homepage": "https://rideplaza.com",
+      "inventory_hint": "https://rideplaza.com/used-cars-for-sale",
+      "expected_platform": "unidentified",
+      "status": "sample_pass",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": "static",
+      "error": null,
+      "discovery_candidates_considered": 1,
+      "listing_url": "https://rideplaza.com/used-cars-for-sale",
+      "detail_url": "https://rideplaza.com/used-cars-for-sale/Dodge/Charger/2014/2C3CDXBG3EH268813",
+      "candidate_metrics": {
+        "listing_card_candidates": 12,
+        "detail_root_candidates": 6,
+        "detail_gallery_candidates": 3,
+        "verified_detail_roots": 5,
+        "verified_galleries": 1,
+        "verified_gallery_items": 1,
+        "verified_contract_passed": true
+      },
+      "inference": {
+        "model": "gpt-5.6-luna",
+        "attempt": 1,
+        "attempts_configured": 3,
+        "validation": {
+          "raw_card_count": 10,
+          "record_count": 10,
+          "rejected_card_count": 0,
+          "detail_url_count": 10,
+          "expected_total": null,
+          "detail_validated": true,
+          "detail_identity_proven": true,
+          "detail_field_count": 17,
+          "detail_photo_count": 18,
+          "detail_full_resolution_candidates": 18
+        }
+      },
+      "replay": {
+        "record_count": 4,
+        "qa_passed": false,
+        "qa_issues": [
+          "incomplete_snapshot:detail_page_cap",
+          "expected_total_unknown",
+          "field_coverage:year:0.25<1.00",
+          "field_coverage:make:0.25<1.00",
+          "field_coverage:model:0.25<1.00",
+          "field_coverage:color_ext:0.25<1.00",
+          "field_coverage:description:0.25<1.00",
+          "field_coverage:photos:0.25<1.00",
+          "field_coverage:color_int:0.25<0.80",
+          "field_coverage:transmission:0.25<0.80",
+          "field_coverage:drivetrain:0.25<0.80",
+          "full_resolution_photo_coverage:0.25<1.00",
+          "multi_photo_vehicle_coverage:0.25<1.00",
+          "photo_count_min:0<2",
+          "photo_count_median:0<3"
+        ],
+        "qa_warnings": [
+          "source_field_unavailable:features",
+          "vehicles_without_gallery_photos"
+        ]
+      },
+      "sample_quality": {
+        "vin": "2C3CDXBG3EH268813",
+        "identity_proven": true,
+        "matched_by": null,
+        "owned_photo_count": 18,
+        "unique_gallery_urls": true,
+        "numeric_photo_widths": [],
+        "full_resolution_widths_ge_1000": [],
+        "full_resolution_proof": true,
+        "required_fields_missing": [],
+        "required_sample_field_replay_pass": true,
+        "sample_pass_criteria": {
+          "vin_identity": true,
+          "two_owned_photos": true,
+          "full_resolution_proof": true,
+          "required_fields": true
+        }
+      },
+      "duration_seconds": 60.879
+    },
+    {
+      "slug": "centreautomobilesduquebec-com",
+      "name": "Centre Automobile du Quebec (Laval, QC)",
+      "country": "CA",
+      "homepage": "https://www.centreautomobilesduquebec.com",
+      "inventory_hint": "https://www.centreautomobilesduquebec.com/fr/occasion",
+      "expected_platform": "ADWS",
+      "status": "candidate_failure",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": "persistent_browser",
+      "error": {
+        "code": "candidate_or_replay_failure",
+        "message": "application could not produce a locally verified vehicle-card selector catalog"
+      },
+      "discovery_candidates_considered": 1,
+      "listing_url": "https://www.centreautomobilesduquebec.com/fr/inventory",
+      "detail_url": "https://www.centreautomobilesduquebec.com/fr/vehicle/nissan-rogue-2024-6a4d40fa21a956acd85504af",
+      "candidate_metrics": {
+        "listing_card_candidates": 0,
+        "detail_root_candidates": 3,
+        "detail_gallery_candidates": 1,
+        "verified_detail_roots": 4,
+        "verified_galleries": 0,
+        "verified_gallery_items": 1,
+        "verified_contract_passed": true
+      },
+      "duration_seconds": 48.025
+    }
+  ]
+}

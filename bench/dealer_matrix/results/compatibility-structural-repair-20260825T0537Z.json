@@ -1,0 +1,316 @@
+{
+  "artifact": "weaver-vehicle-v2-compatibility-sample",
+  "artifact_version": 1,
+  "generated_at": "2026-08-25T05:29:06.484972Z",
+  "scope": {
+    "sites_requested": 11,
+    "sites_run": 11,
+    "sample_only": true,
+    "full_inventory_proof": false,
+    "owner_authorization_proof": false,
+    "robots_requests": 0,
+    "html_or_cookie_persistence": false,
+    "model": "gpt-5.6-luna",
+    "max_parallel_sites": 2,
+    "transport_timeout_ms": 30000,
+    "max_response_bytes": 6291456,
+    "inter_site_delay_seconds": 1.0,
+    "inference_attempts": 3,
+    "inference_timeout_seconds": 90.0,
+    "site_timeout_seconds": 240.0,
+    "required_sample_fields": [
+      "vin",
+      "year",
+      "make+model_or_name",
+      "price",
+      "mileage",
+      "distance_unit",
+      "color",
+      "description",
+      "detail_url"
+    ],
+    "photo_acceptance": "at least 2 unique VDP-owned photos plus deterministic full-resolution proof (width >= 1000 or explicit full/original gallery source)"
+  },
+  "counts": {
+    "sample_pass": 0,
+    "sample_partial": 0,
+    "candidate_failure": 7,
+    "blocked": 4
+  },
+  "sites": [
+    {
+      "slug": "serramonteford-com",
+      "name": "Serramonte Ford (Colma, CA)",
+      "country": "US",
+      "homepage": "https://www.serramonteford.com",
+      "inventory_hint": "https://www.serramonteford.com/used-vehicles/",
+      "expected_platform": "Dealer.com (Cox)",
+      "status": "blocked",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": null,
+      "error": {
+        "code": "owner_action_required",
+        "message": "persistent browser returned challenge or empty vehicle HTML after the bounded transport ladder"
+      },
+      "hint_discovery_error": "dealer_http_404",
+      "duration_seconds": 58.092
+    },
+    {
+      "slug": "bobrossbuickgmc-com",
+      "name": "Bob Ross Buick GMC (Centerville, OH)",
+      "country": "US",
+      "homepage": "https://www.bobrossbuickgmc.com",
+      "inventory_hint": "https://www.bobrossbuickgmc.com/used-vehicles/",
+      "expected_platform": "Dealer Inspire (Cars Commerce)",
+      "status": "blocked",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": null,
+      "error": {
+        "code": "site_wall_clock_timeout",
+        "message": "site exceeded 240s benchmark bound"
+      },
+      "duration_seconds": 240.0
+    },
+    {
+      "slug": "mattcastrucciautomall-com",
+      "name": "Matt Castrucci Auto Mall (Dayton, OH)",
+      "country": "US",
+      "homepage": "https://www.mattcastrucciautomall.com",
+      "inventory_hint": "https://www.mattcastrucciautomall.com/search/used/?tp=used",
+      "expected_platform": "Dealer eProcess",
+      "status": "candidate_failure",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": "persistent_browser",
+      "error": {
+        "code": "candidate_or_replay_failure",
+        "message": "application could not produce a verified detail root/gallery/item contract"
+      },
+      "discovery_candidates_considered": 1,
+      "listing_url": "https://www.mattcastrucciautomall.com/search/used/?tp=used",
+      "detail_url": "https://www.mattcastrucciautomall.com/auto/used-2012-nissan-altima-25-s/123493676/",
+      "candidate_metrics": {
+        "listing_card_candidates": 12,
+        "detail_root_candidates": 12,
+        "detail_gallery_candidates": 1,
+        "verified_detail_roots": 0,
+        "verified_galleries": 0,
+        "verified_gallery_items": 0,
+        "verified_contract_passed": false
+      },
+      "duration_seconds": 98.637
+    },
+    {
+      "slug": "marhofer-com",
+      "name": "Ron Marhofer Auto Family (Northeast OH)",
+      "country": "US",
+      "homepage": "https://www.marhofer.com",
+      "inventory_hint": "https://www.marhofer.com/sale/used-cars-akron-oh",
+      "expected_platform": "Remora",
+      "status": "blocked",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": null,
+      "error": {
+        "code": "site_wall_clock_timeout",
+        "message": "site exceeded 240s benchmark bound"
+      },
+      "duration_seconds": 240.0
+    },
+    {
+      "slug": "wylereastgate-com",
+      "name": "Jeff Wyler Eastgate Auto Mall (Cincinnati, OH)",
+      "country": "US",
+      "homepage": "https://wylereastgate.com",
+      "inventory_hint": "https://wylereastgate.com/collections/used-inventory",
+      "expected_platform": "Motive (ridemotive.com)",
+      "status": "candidate_failure",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": "persistent_browser",
+      "error": {
+        "code": "candidate_or_replay_failure",
+        "message": "application could not produce a verified detail root/gallery/item contract"
+      },
+      "discovery_candidates_considered": 1,
+      "listing_url": "https://wylereastgate.com/collections/used-inventory",
+      "detail_url": "https://wylereastgate.com/inventory/Used-2010-Kia-Forte-EX-KNAFU4A23A5310456-2897",
+      "candidate_metrics": {
+        "listing_card_candidates": 12,
+        "detail_root_candidates": 12,
+        "detail_gallery_candidates": 3,
+        "verified_detail_roots": 0,
+        "verified_galleries": 0,
+        "verified_gallery_items": 0,
+        "verified_contract_passed": false
+      },
+      "duration_seconds": 89.473
+    },
+    {
+      "slug": "automania-us",
+      "name": "Automania (Austell, GA)",
+      "country": "US",
+      "homepage": "https://www.automania.us",
+      "inventory_hint": "https://www.automania.us/autos",
+      "expected_platform": "VehiclesNETWORK (apogeeINVENT)",
+      "status": "candidate_failure",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": "static",
+      "error": {
+        "code": "candidate_or_replay_failure",
+        "message": "application could not produce a verified detail root/gallery/item contract"
+      },
+      "discovery_candidates_considered": 1,
+      "listing_url": "https://www.automania.us/autos",
+      "detail_url": "https://www.automania.us/autos/2013-Acura-MDX-Austell-GA-2858",
+      "candidate_metrics": {
+        "listing_card_candidates": 12,
+        "detail_root_candidates": 7,
+        "detail_gallery_candidates": 1,
+        "verified_detail_roots": 0,
+        "verified_galleries": 0,
+        "verified_gallery_items": 0,
+        "verified_contract_passed": false
+      },
+      "duration_seconds": 28.589
+    },
+    {
+      "slug": "vickar-com",
+      "name": "Vickar Automotive Group (Winnipeg, MB)",
+      "country": "CA",
+      "homepage": "https://www.vickar.com",
+      "inventory_hint": "https://www.vickar.com/vehicles/used/",
+      "expected_platform": "Convertus",
+      "status": "blocked",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": null,
+      "error": {
+        "code": "site_wall_clock_timeout",
+        "message": "site exceeded 240s benchmark bound"
+      },
+      "duration_seconds": 240.0
+    },
+    {
+      "slug": "401dixiekia-com",
+      "name": "401 Dixie Kia (Mississauga, ON)",
+      "country": "CA",
+      "homepage": "https://www.401dixiekia.com",
+      "inventory_hint": "https://www.401dixiekia.com/en/used-inventory",
+      "expected_platform": "SM360",
+      "status": "candidate_failure",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": "persistent_browser",
+      "error": {
+        "code": "candidate_or_replay_failure",
+        "message": "application could not produce a verified detail root/gallery/item contract"
+      },
+      "discovery_candidates_considered": 1,
+      "listing_url": "https://www.401dixiekia.com/en/used-inventory",
+      "detail_url": "https://www.401dixiekia.com/en/used-inventory/kia/seltos/2023-kia-seltos-id38356554",
+      "candidate_metrics": {
+        "listing_card_candidates": 12,
+        "detail_root_candidates": 12,
+        "detail_gallery_candidates": 9,
+        "verified_detail_roots": 0,
+        "verified_galleries": 0,
+        "verified_gallery_items": 0,
+        "verified_contract_passed": false
+      },
+      "duration_seconds": 123.659
+    },
+    {
+      "slug": "birchwood-ca",
+      "name": "Birchwood Automotive Group (Winnipeg, MB)",
+      "country": "CA",
+      "homepage": "https://www.birchwood.ca",
+      "inventory_hint": "https://www.birchwood.ca/vehicles/?condition=used",
+      "expected_platform": "unidentified (in-house WordPress)",
+      "status": "candidate_failure",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": "persistent_browser",
+      "error": {
+        "code": "candidate_or_replay_failure",
+        "message": "application could not produce a verified detail root/gallery/item contract"
+      },
+      "discovery_candidates_considered": 1,
+      "listing_url": "https://www.birchwood.ca/vehicles/?condition=used",
+      "detail_url": "https://www.birchwood.ca/vehicles/2023/jeep-grandcherokeel-summitreserve/F7JGMV/?finance_type=finance",
+      "candidate_metrics": {
+        "listing_card_candidates": 12,
+        "detail_root_candidates": 12,
+        "detail_gallery_candidates": 9,
+        "verified_detail_roots": 0,
+        "verified_galleries": 0,
+        "verified_gallery_items": 0,
+        "verified_contract_passed": false
+      },
+      "duration_seconds": 210.641
+    },
+    {
+      "slug": "occasionbeaucage-com",
+      "name": "Occasion Beaucage (Sherbrooke, QC)",
+      "country": "CA",
+      "homepage": "https://www.occasionbeaucage.com",
+      "inventory_hint": "https://www.occasionbeaucage.com/auto-usage",
+      "expected_platform": "Autoroot Technologies",
+      "status": "candidate_failure",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": null,
+      "error": {
+        "code": "target_selection_failure",
+        "message": "inventory page did not expose a representative same-origin VDP"
+      },
+      "hint_discovery_error": "vehicle_detail_not_found",
+      "failure_stage": "target_selection",
+      "duration_seconds": 25.424
+    },
+    {
+      "slug": "ridetime-ca",
+      "name": "Ride Time (Winnipeg, MB)",
+      "country": "CA",
+      "homepage": "https://www.ridetime.ca",
+      "inventory_hint": "https://www.ridetime.ca/vehicles",
+      "expected_platform": "unidentified (WordPress)",
+      "status": "candidate_failure",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": "persistent_browser",
+      "error": {
+        "code": "candidate_or_replay_failure",
+        "message": "application could not produce a locally verified vehicle-card selector catalog"
+      },
+      "hint_discovery_error": "dealer_http_404",
+      "discovery_candidates_considered": 2,
+      "listing_url": "https://www.ridetime.ca/buy-used-cars/",
+      "detail_url": "https://www.ridetime.ca/used-cars/26202-ford-escape-titanium-hybrid-2021-winnipeg-mb/",
+      "candidate_metrics": {
+        "listing_card_candidates": 0,
+        "detail_root_candidates": 12,
+        "detail_gallery_candidates": 4,
+        "verified_detail_roots": 6,
+        "verified_galleries": 1,
+        "verified_gallery_items": 1,
+        "verified_contract_passed": true
+      },
+      "duration_seconds": 54.801
+    }
+  ]
+}

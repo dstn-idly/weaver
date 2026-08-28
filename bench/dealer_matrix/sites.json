@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "purpose": "Read-only compatibility sample of 20 public dealership websites; no scraper job or production database access.",
+  "sites": [
+    {"slug":"orlandonissan-com","name":"Sutherlin Nissan of Orlando","country":"US","homepage":"https://orlandonissan.com","expected_platform":"Team Velocity (Apollo)","inventory_hint":"/inventory/used"},
+    {"slug":"universal-nissan-com","name":"Universal Nissan (Orlando)","country":"US","homepage":"https://universal-nissan.com","expected_platform":"Dealer Inspire (Cars Commerce)","inventory_hint":"/used-vehicles/"},
+    {"slug":"serramonteford-com","name":"Serramonte Ford (Colma, CA)","country":"US","homepage":"https://www.serramonteford.com","expected_platform":"Dealer.com (Cox)","inventory_hint":"/used-vehicles/"},
+    {"slug":"northshoremitsubishi-ca","name":"North Shore Mitsubishi (North Vancouver, BC)","country":"CA","homepage":"https://www.northshoremitsubishi.ca","expected_platform":"EDealer (not verifiable if challenged)","inventory_hint":"/used/"},
+    {"slug":"ricart-com","name":"Ricart Automotive Group (Columbus, OH)","country":"US","homepage":"https://www.ricart.com","expected_platform":"DealerOn","inventory_hint":"/searchused.aspx"},
+    {"slug":"huberautomotive-com","name":"Huber Automotive (Heath, OH)","country":"US","homepage":"https://www.huberautomotive.com","expected_platform":"Dealer.com (Cox)","inventory_hint":"/promotions/used/index.htm"},
+    {"slug":"bobrossbuickgmc-com","name":"Bob Ross Buick GMC (Centerville, OH)","country":"US","homepage":"https://www.bobrossbuickgmc.com","expected_platform":"Dealer Inspire (Cars Commerce)","inventory_hint":"/used-vehicles/"},
+    {"slug":"mattcastrucciautomall-com","name":"Matt Castrucci Auto Mall (Dayton, OH)","country":"US","homepage":"https://www.mattcastrucciautomall.com","expected_platform":"Dealer eProcess","inventory_hint":"/search/used/?tp=used"},
+    {"slug":"olympicautoga-com","name":"Olympic Auto Sales (Decatur, GA)","country":"US","homepage":"https://www.olympicautoga.com","expected_platform":"DealerCenter / DWS","inventory_hint":"/autos"},
+    {"slug":"marhofer-com","name":"Ron Marhofer Auto Family (Northeast OH)","country":"US","homepage":"https://www.marhofer.com","expected_platform":"Remora","inventory_hint":"/sale/used-cars-akron-oh"},
+    {"slug":"wylereastgate-com","name":"Jeff Wyler Eastgate Auto Mall (Cincinnati, OH)","country":"US","homepage":"https://wylereastgate.com","expected_platform":"Motive (ridemotive.com)","inventory_hint":"/collections/used-inventory"},
+    {"slug":"automania-us","name":"Automania (Austell, GA)","country":"US","homepage":"https://www.automania.us","expected_platform":"VehiclesNETWORK (apogeeINVENT)","inventory_hint":"/autos"},
+    {"slug":"rideplaza-com","name":"Ride Plaza (Loganville, GA)","country":"US","homepage":"https://rideplaza.com","expected_platform":"unidentified","inventory_hint":"/used-cars-for-sale"},
+    {"slug":"vickar-com","name":"Vickar Automotive Group (Winnipeg, MB)","country":"CA","homepage":"https://www.vickar.com","expected_platform":"Convertus","inventory_hint":"/vehicles/used/"},
+    {"slug":"autoshowwinnipeg-com","name":"The Auto Show (Winnipeg, MB)","country":"CA","homepage":"https://www.autoshowwinnipeg.com","expected_platform":"D2C Media","inventory_hint":"/used/"},
+    {"slug":"401dixiekia-com","name":"401 Dixie Kia (Mississauga, ON)","country":"CA","homepage":"https://www.401dixiekia.com","expected_platform":"SM360","inventory_hint":"/en/used-inventory"},
+    {"slug":"birchwood-ca","name":"Birchwood Automotive Group (Winnipeg, MB)","country":"CA","homepage":"https://www.birchwood.ca","expected_platform":"unidentified (in-house WordPress)","inventory_hint":"/vehicles/?condition=used"},
+    {"slug":"centreautomobilesduquebec-com","name":"Centre Automobile du Quebec (Laval, QC)","country":"CA","homepage":"https://www.centreautomobilesduquebec.com","expected_platform":"ADWS","inventory_hint":"/fr/occasion"},
+    {"slug":"occasionbeaucage-com","name":"Occasion Beaucage (Sherbrooke, QC)","country":"CA","homepage":"https://www.occasionbeaucage.com","expected_platform":"Autoroot Technologies","inventory_hint":"/auto-usage"},
+    {"slug":"ridetime-ca","name":"Ride Time (Winnipeg, MB)","country":"CA","homepage":"https://www.ridetime.ca","expected_platform":"unidentified (WordPress)","inventory_hint":"/vehicles"}
+  ]
+}

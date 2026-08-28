@@ -1,0 +1,1371 @@
+{
+  "active_before": null,
+  "authorization_attestation": {
+    "authorization": "owner_authorized_customer_validation",
+    "robots_policy": "vehicle_path_no_robots_request"
+  },
+  "created_at": "2026-08-25T05:22:05.591621+00:00",
+  "files": {
+    "fixtures/detail-1-https-www-jimnortontoyota-com-vehicle-used-2024-ford-mustang-1fa6p8th5r.html": {
+      "bytes": 601531,
+      "sha256": "423160cb6a014a06837b36ffcffbb45e5e2e001df9f43b022ac4ea09f3cbfc1c"
+    },
+    "fixtures/detail-10-https-www-jimnortontoyota-com-vehicle-used-2025-chevrolet-blazer-3gnkb.html": {
+      "bytes": 592174,
+      "sha256": "ac828ada9190ee651894d241f7211ec0acc4a33c8e9445cfcb8095de7d093407"
+    },
+    "fixtures/detail-100-https-www-jimnortontoyota-com-vehicle-used-2015-toyota-4runner-jtebu5.html": {
+      "bytes": 633459,
+      "sha256": "cb80d8e004e48f4fd29192ec3f6d09824cc5aaa799ddc1114612013223ce1134"
+    },
+    "fixtures/detail-101-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-rav4-2t3w1rfv7.html": {
+      "bytes": 636889,
+      "sha256": "e11e9eea8a74e1497ca66c22d2ae3e58c71f81018eb166d0902fda97ea30feb7"
+    },
+    "fixtures/detail-102-https-www-jimnortontoyota-com-vehicle-used-2020-jaguar-e-pace-sadfp2f.html": {
+      "bytes": 616108,
+      "sha256": "f576d37167a12ed4be17c7eb82ae7ce69b67dc76c7ee578169fb40bc262acd65"
+    },
+    "fixtures/detail-103-https-www-jimnortontoyota-com-vehicle-used-2023-kia-soul-kndj23au9p78.html": {
+      "bytes": 632362,
+      "sha256": "7c873889995d892e43b74fb203a6bd8ac913cbc3f056ce83d5892e4d24efa0cd"
+    },
+    "fixtures/detail-104-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-rav4-2t3p1rfv6.html": {
+      "bytes": 715064,
+      "sha256": "1cc2daa70189a2d14baa0fd06d58232e0e04bc04decac4ff0fa9bb05127527f5"
+    },
+    "fixtures/detail-105-https-www-jimnortontoyota-com-vehicle-used-2020-jeep-renegade-zacnjab.html": {
+      "bytes": 634845,
+      "sha256": "e6024184b10f93958660ffd6ba44ed3e36f476cd834f6531d5f2daf971b65650"
+    },
+    "fixtures/detail-106-https-www-jimnortontoyota-com-vehicle-used-2018-toyota-tundra-5tfhw5f.html": {
+      "bytes": 568070,
+      "sha256": "0a4f5543a870008009fbf53814512465bfcdd49797774ae69a3d287351386e7b"
+    },
+    "fixtures/detail-107-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-highlander-hyb.html": {
+      "bytes": 569306,
+      "sha256": "51397b69336714a36f4da1763f1a8731b5148707db4f6440f46af71643e308b8"
+    },
+    "fixtures/detail-108-https-www-jimnortontoyota-com-vehicle-used-2021-toyota-tacoma-3tmcz5a.html": {
+      "bytes": 640471,
+      "sha256": "88dae9abe5c2ab24576d9375f883e2248f9ac18c95ba925d8e38685d1e277fac"
+    },
+    "fixtures/detail-109-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-camry-4t1daack.html": {
+      "bytes": 634748,
+      "sha256": "8a32d25de60ba9d28635021fd436485eb35705a9437b33c85e27f911eb66aae8"
+    },
+    "fixtures/detail-11-https-www-jimnortontoyota-com-vehicle-used-2020-chevrolet-silverado-15.html": {
+      "bytes": 633022,
+      "sha256": "3de69fc38661e44641f05c65a8d125173c11d66fe23053491edfa20ce7056360"
+    },
+    "fixtures/detail-110-https-www-jimnortontoyota-com-vehicle-used-2020-toyota-4runner-jtebu5.html": {
+      "bytes": 617596,
+      "sha256": "c22129113239bcd7499626b468b4768877917f4e5c7c37798508d1ec15c75684"
+    },
+    "fixtures/detail-111-https-www-jimnortontoyota-com-vehicle-used-2025-hyundai-tucson-5nmjbc.html": {
+      "bytes": 632465,
+      "sha256": "d244b767d15c75dc5219ae46d94621e8b5e945d356275d593fe923fc0df4c59c"
+    },
+    "fixtures/detail-112-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-corolla-5yfb4m.html": {
+      "bytes": 631617,
+      "sha256": "157f68df4ca57ceac3edcc1710b19b0f4bf43c7ebf7abe9103af57cc388d26ac"
+    },
+    "fixtures/detail-113-https-www-jimnortontoyota-com-vehicle-used-2026-toyota-tundra-hybrid-.html": {
+      "bytes": 647328,
+      "sha256": "bbe74f7cccc3c2fc9d90b8f85f7d2567e287e971dd5a13791b4c8094eb4b8f2b"
+    },
+    "fixtures/detail-114-https-www-jimnortontoyota-com-vehicle-used-2019-nissan-armada-jn8ay2n.html": {
+      "bytes": 639056,
+      "sha256": "c2f118c84ee27cef08253dab662dbf0f3384771ae0a9938421c1848ac6c3862e"
+    },
+    "fixtures/detail-115-https-www-jimnortontoyota-com-vehicle-used-2025-hyundai-venue-kmhrc8a.html": {
+      "bytes": 632135,
+      "sha256": "2e6cb16243ed384b55176c4efbc8cbb6783196d61831ce369da135e9c87050b0"
+    },
+    "fixtures/detail-116-https-www-jimnortontoyota-com-vehicle-used-2024-mazda-cx-90-phev-jm3k.html": {
+      "bytes": 628139,
+      "sha256": "c48650191ac998dc250e2b0657cc687c30bc55f3a1ecb07ba0d17eda112f23df"
+    },
+    "fixtures/detail-117-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-rav4-2t3w1rfv2.html": {
+      "bytes": 721047,
+      "sha256": "1948ac29336001bf3a19e618b904a2e731345b5cb9ce699b61903f46cde110c6"
+    },
+    "fixtures/detail-118-https-www-jimnortontoyota-com-vehicle-used-2022-lexus-is-jthgz1e23n50.html": {
+      "bytes": 595529,
+      "sha256": "93279f806069d25e0aaba8b7ebc9f681da9da06b930417c770d3c44c1271409d"
+    },
+    "fixtures/detail-119-https-www-jimnortontoyota-com-vehicle-used-2023-toyota-4runner-jteku5.html": {
+      "bytes": 640777,
+      "sha256": "37bad6a82ed53889395def8d7b3d9c674762f99082ae14c565e26cd19f143e78"
+    },
+    "fixtures/detail-12-https-www-jimnortontoyota-com-vehicle-used-2017-mercedes-benz-gle-4jgd.html": {
+      "bytes": 601571,
+      "sha256": "e71b3a0efbe84fbf8c277bc9bed700963798ccbfc786737972360c95cc83ee33"
+    },
+    "fixtures/detail-120-https-www-jimnortontoyota-com-vehicle-used-2017-gmc-yukon-xl-1gks2hkj.html": {
+      "bytes": 653381,
+      "sha256": "99c6ae664bad844b7ff768f21a0d0fd17e03c672aeb2acfdae4199b9d294df6f"
+    },
+    "fixtures/detail-121-https-www-jimnortontoyota-com-vehicle-used-2026-honda-civic-hybrid-2h.html": {
+      "bytes": 615615,
+      "sha256": "b65a68f706e2d484009284d70388a46f58dc651088f68bd81163f980af256b63"
+    },
+    "fixtures/detail-122-https-www-jimnortontoyota-com-vehicle-used-2019-toyota-tundra-5tfdy5f.html": {
+      "bytes": 591779,
+      "sha256": "501edaf44f2ba170a9e63cbca255903b6c4e3c73bb8adec4bee1a09e9c5ed5ba"
+    },
+    "fixtures/detail-123-https-www-jimnortontoyota-com-vehicle-used-2026-gmc-sierra-1500-1gtuu.html": {
+      "bytes": 610128,
+      "sha256": "ae62cca57d485294ae4a89763561875bbbb3cf53637e67daafaecd701e74dd8c"
+    },
+    "fixtures/detail-124-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-highlander-5td.html": {
+      "bytes": 614380,
+      "sha256": "c7878373f6e4f9ee3782fe9c9b81d07de1d717e88ce29a36fac5001bc1eeb243"
+    },
+    "fixtures/detail-125-https-www-jimnortontoyota-com-vehicle-used-2026-toyota-corolla-5yfb4m.html": {
+      "bytes": 618260,
+      "sha256": "de63f9ee9427f440d22c03957d574fd883ba0664d6c6304cb0194d0644ae5d8d"
+    },
+    "fixtures/detail-126-https-www-jimnortontoyota-com-vehicle-used-2024-toyota-grand-highland.html": {
+      "bytes": 721199,
+      "sha256": "042fa2021ff365320904289d21592c4396b5c0bddd282abd7b60ffdc0a8ee8c8"
+    },
+    "fixtures/detail-127-https-www-jimnortontoyota-com-vehicle-used-2023-toyota-tacoma-3tmcz5a.html": {
+      "bytes": 592004,
+      "sha256": "5e18e17ed37625d36188e6d6bcf749260ad5832b1f41b627a74c50c781bf7cde"
+    },
+    "fixtures/detail-128-https-www-jimnortontoyota-com-vehicle-used-2016-cadillac-srx-3gyfnbe3.html": {
+      "bytes": 639943,
+      "sha256": "117d1ccbe0a03b9549dd9c7ed0f31f8ded13750d698f183b20b0b4aaa5e61c58"
+    },
+    "fixtures/detail-129-https-www-jimnortontoyota-com-vehicle-used-2024-honda-accord-hybrid-1.html": {
+      "bytes": 636177,
+      "sha256": "78e85298ede8c58d38a08be3de2ef5219a61f3a321042e638a0df28018f4c0e9"
+    },
+    "fixtures/detail-13-https-www-jimnortontoyota-com-vehicle-used-2020-jeep-gladiator-1c6hjta.html": {
+      "bytes": 613222,
+      "sha256": "6416abf57fbd6166059b54babbde8d0de27aa689734a4b3c1ac2f947c3e49be6"
+    },
+    "fixtures/detail-130-https-www-jimnortontoyota-com-vehicle-used-2026-toyota-tundra-hybrid-.html": {
+      "bytes": 650042,
+      "sha256": "51684d7ea3bed3f772ee8d905c98f77071e6b5a92271717e2a011b4b54f4b78b"
+    },
+    "fixtures/detail-131-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-camry-4t1dbadk.html": {
+      "bytes": 808584,
+      "sha256": "1548e45f9fc595a7fbb2ae188306f85c03c4bcf77a9827e71b09d0569e7a6016"
+    },
+    "fixtures/detail-132-https-www-jimnortontoyota-com-vehicle-used-2024-audi-q5-wa1faafy5r211.html": {
+      "bytes": 635204,
+      "sha256": "e4b13805e031189953d30021c942effc7d164e028c9cd7cb3a98c8e8e89d5818"
+    },
+    "fixtures/detail-133-https-www-jimnortontoyota-com-vehicle-used-2021-toyota-camry-4t1c11ak.html": {
+      "bytes": 628516,
+      "sha256": "de909b65fdfb55d73ce1a91da19f169440a3a02acb08c904b3b866baba1c09a4"
+    },
+    "fixtures/detail-134-https-www-jimnortontoyota-com-vehicle-used-2019-toyota-rav4-2t3h1rfv5.html": {
+      "bytes": 630330,
+      "sha256": "e64fba1532404e13ac4dfbc55e87c119db4170c39368dac82f149765bd95ce3c"
+    },
+    "fixtures/detail-135-https-www-jimnortontoyota-com-vehicle-used-2019-lincoln-nautilus-2lmp.html": {
+      "bytes": 643065,
+      "sha256": "62e54dc9b916cf3eb7db1bcaa855c6741cf734049da2e13214313d970fd36a0a"
+    },
+    "fixtures/detail-136-https-www-jimnortontoyota-com-vehicle-used-2019-toyota-rav4-hybrid-2t.html": {
+      "bytes": 805850,
+      "sha256": "82dc903253ce277f846fd2dcc72706d4d2506c9554038cf115758e4384de93e0"
+    },
+    "fixtures/detail-137-https-www-jimnortontoyota-com-vehicle-used-2024-toyota-grand-highland.html": {
+      "bytes": 640285,
+      "sha256": "9ed4ec95cc950f63a0d8c48d3849c70be3b021816e513082005dee285fc886cd"
+    },
+    "fixtures/detail-138-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-camry-4t1daack.html": {
+      "bytes": 633828,
+      "sha256": "3ad2d465b67ea733a3c93e25f8f72a7b92138b08033445308ee96a519a61ffc9"
+    },
+    "fixtures/detail-139-https-www-jimnortontoyota-com-vehicle-used-2025-nissan-kicks-3n8ap6dd.html": {
+      "bytes": 632906,
+      "sha256": "f077aec80bf37c455826e5845c0b77307e097a6644e6806f25d8c7deaa8361e8"
+    },
+    "fixtures/detail-14-https-www-jimnortontoyota-com-vehicle-used-2023-jeep-wrangler-1c4hjxen.html": {
+      "bytes": 614578,
+      "sha256": "3ee9fa6d9b4cfdf34c5b8df9d7ecad96ca37e4df740a73ede4c801cef65f9b4d"
+    },
+    "fixtures/detail-140-https-www-jimnortontoyota-com-vehicle-used-2016-jeep-renegade-zaccjbc.html": {
+      "bytes": 647717,
+      "sha256": "4a52d0dfd13dfda5be686c655158207815092daba76a1d3ecbdc65a3a9ed7cb0"
+    },
+    "fixtures/detail-141-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-tundra-5tfla5d.html": {
+      "bytes": 629044,
+      "sha256": "72af1d74236c141d4d8500d313abb8d92c571a76558dbb7027254412fbe90ee0"
+    },
+    "fixtures/detail-142-https-www-jimnortontoyota-com-vehicle-used-2022-toyota-sienna-5tdeskf.html": {
+      "bytes": 637549,
+      "sha256": "01f5802ee50920f513ef8c4f95b15e4bc98869d8f349cc7f1e9bf085cadbbfb8"
+    },
+    "fixtures/detail-143-https-www-jimnortontoyota-com-vehicle-used-2020-toyota-camry-4t1k61ak.html": {
+      "bytes": 620673,
+      "sha256": "079b3072dc0a9dd21a2effb726664e3b3f2baede4900e02e96780ba179f27aaf"
+    },
+    "fixtures/detail-144-https-www-jimnortontoyota-com-vehicle-used-2026-toyota-sienna-5tdyrke.html": {
+      "bytes": 629671,
+      "sha256": "a834247ce1708cf8020818479682a9d31939bd107882413e1fb6b13903f15732"
+    },
+    "fixtures/detail-145-https-www-jimnortontoyota-com-vehicle-used-2026-toyota-rav4-2t36drbvx.html": {
+      "bytes": 615054,
+      "sha256": "24e4e910a3f03d097a46592ada68fea3f11f3eaa9b62b89d96a733d408f59a06"
+    },
+    "fixtures/detail-146-https-www-jimnortontoyota-com-vehicle-used-2019-chevrolet-silverado-1.html": {
+      "bytes": 627015,
+      "sha256": "4da5a17d6740cf5a3bbfb4410d053407658bb08b481d020127b5216323d37c33"
+    },
+    "fixtures/detail-147-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-corolla-5yfp4m.html": {
+      "bytes": 629882,
+      "sha256": "0e70262d624eaa09982d407fc1a4796fc487b4ac27cdf54d3f4878dae93bcefb"
+    },
+    "fixtures/detail-148-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-corolla-5yft4m.html": {
+      "bytes": 641087,
+      "sha256": "5ce12e9d8cdd59e8afe7898626a1f5599ff98dd50018f0b6ca894439cfa1391f"
+    },
+    "fixtures/detail-149-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-rav4-2t3w1rfv2.html": {
+      "bytes": 629905,
+      "sha256": "98c5f5f8a326cbb111431ed5b2b0697476b59c1c98cd98b9979f8ab7d2f03de7"
+    },
+    "fixtures/detail-15-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-prius-jtdacaau3.html": {
+      "bytes": 623954,
+      "sha256": "bf93bece8bff17f167db3b33c39d3f6b08b586589e1a0e253a8c5452fc8b2a16"
+    },
+    "fixtures/detail-150-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-rav4-hybrid-jt.html": {
+      "bytes": 642495,
+      "sha256": "651ef653d065c0d791ed23bbe57699e417654bcd86cb28437e597dd3ff12a879"
+    },
+    "fixtures/detail-151-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-tundra-5tfja5d.html": {
+      "bytes": 647154,
+      "sha256": "63e4961bf5990624215295832bf2f657e58e70b8d239443faa2084ca0c84bdb7"
+    },
+    "fixtures/detail-152-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-sienna-5tdjrke.html": {
+      "bytes": 569749,
+      "sha256": "0a23abd411015c24bdc0303e382ba0318cf890953da15d73bfef8403c06b7204"
+    },
+    "fixtures/detail-153-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-rav4-hybrid-jt.html": {
+      "bytes": 644239,
+      "sha256": "ee19319b01ace9934d46e4c719f38e9baa55294cf594ef79f7194b47687c875e"
+    },
+    "fixtures/detail-154-https-www-jimnortontoyota-com-vehicle-used-2023-dodge-charger-2c3cdxg.html": {
+      "bytes": 575042,
+      "sha256": "dbce6984bbcffe81e6e2893a614e2d406f9a8f4d9c0f75228080b1930a48fc09"
+    },
+    "fixtures/detail-155-https-www-jimnortontoyota-com-vehicle-used-2023-jeep-renegade-zacnjdb.html": {
+      "bytes": 517060,
+      "sha256": "9bdd6758accbccdd6daa3e192840b1c6209789e9f9f26faf4cdeff6a0ee91274"
+    },
+    "fixtures/detail-156-https-www-jimnortontoyota-com-vehicle-used-2019-jeep-wrangler-1c4hjxd.html": {
+      "bytes": 572400,
+      "sha256": "ae56c7b71fb1d7eaa69a0b22703171298e6bf8836c7fba79c6ae4c373516c257"
+    },
+    "fixtures/detail-157-https-www-jimnortontoyota-com-vehicle-used-2026-honda-passport-5fnyf9.html": {
+      "bytes": 644700,
+      "sha256": "f22e7c558ece4066cd596ec860760ef4d64ace124f0fd6bf5e4ab680ecd194de"
+    },
+    "fixtures/detail-158-https-www-jimnortontoyota-com-vehicle-used-2025-ford-expedition-1fmju.html": {
+      "bytes": 559381,
+      "sha256": "226a80fc918771141818b72ba2c5f659ac97316befb6a163549b5c451afeeb9c"
+    },
+    "fixtures/detail-159-https-www-jimnortontoyota-com-vehicle-used-2026-toyota-grand-highland.html": {
+      "bytes": 638014,
+      "sha256": "e6de15c018472d3429a6d10af06b2c42676ff248469d2cfece6f104ddd67ea2e"
+    },
+    "fixtures/detail-16-https-www-jimnortontoyota-com-vehicle-used-2023-jeep-grand-cherokee-1c.html": {
+      "bytes": 715688,
+      "sha256": "1f37919288043af52e8728618075484d81924f908f683a7cc1623e902fe0879c"
+    },
+    "fixtures/detail-160-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-corolla-5yfb4m.html": {
+      "bytes": 631578,
+      "sha256": "5b80375f0cf0b341d7bd531ba03c443f9515601518ec4e124f7fc5fd16dd0fc0"
+    },
+    "fixtures/detail-161-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-tacoma-hybrid-.html": {
+      "bytes": 646008,
+      "sha256": "64024835848a7d0cb36e3ddd73324d257138b84b2e014b74eac7e37c7c906c74"
+    },
+    "fixtures/detail-162-https-www-jimnortontoyota-com-vehicle-used-2020-ford-f-150-1ftew1e49l.html": {
+      "bytes": 545816,
+      "sha256": "a6147516a8ff50d0b30ec5b66a376dc8eb7806f296cafd468ddaa369d2b0bcca"
+    },
+    "fixtures/detail-163-https-www-jimnortontoyota-com-vehicle-used-2008-ford-f-350sd-1ftww31r.html": {
+      "bytes": 627014,
+      "sha256": "5c4f0cea3d9aa38eb98bb48832ed1623d01187fdb60d0316cebc89ca027c57ff"
+    },
+    "fixtures/detail-164-https-www-jimnortontoyota-com-vehicle-used-2023-buick-envision-lrbazl.html": {
+      "bytes": 631658,
+      "sha256": "2fd7bf8e6eb81251e23f3aa677bb9eeff3246e675dd387a4bbb3ee9933e1d868"
+    },
+    "fixtures/detail-165-https-www-jimnortontoyota-com-vehicle-used-2023-jeep-wrangler-1c4hjxf.html": {
+      "bytes": 638370,
+      "sha256": "5457b910b6db514d4d7d5544c7fce419b3d3054cdb1ad43abe3500c71bc2efca"
+    },
+    "fixtures/detail-166-https-www-jimnortontoyota-com-vehicle-used-2022-toyota-corolla-cross-.html": {
+      "bytes": 565070,
+      "sha256": "3307bed944efaa5376cd64bf4bf221663eeaca41ec4575139315653b69015ac6"
+    },
+    "fixtures/detail-167-https-www-jimnortontoyota-com-vehicle-used-2020-lexus-is-jthga1d26l51.html": {
+      "bytes": 642604,
+      "sha256": "5dc9e38792fba8a4424f35011ccfbdd4734729400099ded4bde149b9e8714b05"
+    },
+    "fixtures/detail-168-https-www-jimnortontoyota-com-vehicle-used-2025-chevrolet-malibu-1g1z.html": {
+      "bytes": 628042,
+      "sha256": "128d254135abeb61968eb489aa9f48cba73de5c05ff680d8871ee4205ca2559f"
+    },
+    "fixtures/detail-169-https-www-jimnortontoyota-com-vehicle-used-2017-toyota-tacoma-5tfrz5c.html": {
+      "bytes": 633033,
+      "sha256": "77d9d046227fcc4c94691f6468d3c7c37d68dbda0fdcee6f0c4b3e09fcd8e191"
+    },
+    "fixtures/detail-17-https-www-jimnortontoyota-com-vehicle-used-2019-ford-f-150-1ftfw1rg0kf.html": {
+      "bytes": 630213,
+      "sha256": "544fbbbb5724da71daf0d2a716557a0a4e267a05cccd1810e3a9cc11e8c6c2db"
+    },
+    "fixtures/detail-170-https-www-jimnortontoyota-com-vehicle-used-2026-chevrolet-equinox-3gn.html": {
+      "bytes": 625791,
+      "sha256": "24cd1d6be7f0588b3b5ad330f3dad19433b88796af9dd98f65a862a4ff662fd2"
+    },
+    "fixtures/detail-171-https-www-jimnortontoyota-com-vehicle-used-2021-chevrolet-blazer-3gnk.html": {
+      "bytes": 720555,
+      "sha256": "7a4e83de0a9850c5d39039f008c1f5d2faee12c74044f02618091b28b53945ec"
+    },
+    "fixtures/detail-172-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-corolla-5yfb4m.html": {
+      "bytes": 585845,
+      "sha256": "5e5189f38969dcdd86d8c7ba6189d0a163c9bfb9e3f74771679c7ccbcd2c559c"
+    },
+    "fixtures/detail-173-https-www-jimnortontoyota-com-vehicle-used-2024-toyota-corolla-hybrid.html": {
+      "bytes": 634811,
+      "sha256": "f65cb52d46a891fae9685077f7efc1926b2dc790ecd6dbab3b9de76f6fed4088"
+    },
+    "fixtures/detail-174-https-www-jimnortontoyota-com-vehicle-used-2019-ford-f-150-1ftew1e51k.html": {
+      "bytes": 570157,
+      "sha256": "261ee3551c378ae77ba6b63ed8de357cc4223db18f7bc4afcce6a7fa5e6f5bd2"
+    },
+    "fixtures/detail-175-https-www-jimnortontoyota-com-vehicle-used-2019-buick-encore-kl4cjasb.html": {
+      "bytes": 560893,
+      "sha256": "d32e34d2f14b3a51805e3d7b9beadec65d5d05aa2d27a9758f97473f929eefbb"
+    },
+    "fixtures/detail-176-https-www-jimnortontoyota-com-vehicle-used-2022-ford-mustang-1fa6p8th.html": {
+      "bytes": 560080,
+      "sha256": "ab0fa1f730a39ed48c40c36fddb8dae6f1934f6391bff4765d2e5b983bcc9e3f"
+    },
+    "fixtures/detail-177-https-www-jimnortontoyota-com-vehicle-used-2020-toyota-rav4-hybrid-2t.html": {
+      "bytes": 567394,
+      "sha256": "4e48d56d9119e6194202a25f95527773c6dd1f9af922f9334adaa0d3278fc39f"
+    },
+    "fixtures/detail-178-https-www-jimnortontoyota-com-vehicle-used-2023-toyota-tacoma-3tmdz5b.html": {
+      "bytes": 717800,
+      "sha256": "44ad71513a9372a0314c37468f62d79379e07e49b816911bb18746d6a594eeb0"
+    },
+    "fixtures/detail-179-https-www-jimnortontoyota-com-vehicle-used-2013-chevrolet-sonic-1g1ja.html": {
+      "bytes": 559864,
+      "sha256": "37aa46d2454d0703f51d43303738d76f9e7e7680411516162cefefe4881ef228"
+    },
+    "fixtures/detail-18-https-www-jimnortontoyota-com-vehicle-used-2022-jeep-grand-cherokee-wk.html": {
+      "bytes": 636439,
+      "sha256": "895c13ef8afa4c7e4324cb06600ca1991bce161757b6673fc57d10562c148485"
+    },
+    "fixtures/detail-180-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-tacoma-hybrid-.html": {
+      "bytes": 569613,
+      "sha256": "e1da9127f2cfc39cde6cbc6e68df1761b2b67efea163deec21618651a139a348"
+    },
+    "fixtures/detail-181-https-www-jimnortontoyota-com-vehicle-used-2024-kia-sportage-plug-in-.html": {
+      "bytes": 564897,
+      "sha256": "d83305d6554f9ef03efa292a8084b10cd610dd88228a730b8564d4dee228b0dd"
+    },
+    "fixtures/detail-182-https-www-jimnortontoyota-com-vehicle-used-2024-toyota-4runner-jteru5.html": {
+      "bytes": 638531,
+      "sha256": "37a32c1c49a9710788fe65644a7218e01e5bd06077cb145680e9f7fa5ce42ba4"
+    },
+    "fixtures/detail-183-https-www-jimnortontoyota-com-vehicle-used-2023-toyota-rav4-2t3h1rfvx.html": {
+      "bytes": 570856,
+      "sha256": "f1cae01164a7743db37df25e66b12e1bb1dc7b84b75fe790ae7a103f40f9230d"
+    },
+    "fixtures/detail-184-https-www-jimnortontoyota-com-vehicle-used-2024-toyota-camry-4t1c11ak.html": {
+      "bytes": 539861,
+      "sha256": "27dddb467a4a7837bbc0d6636d367e545748bd030e14d984a3d64d82bd1ec3d9"
+    },
+    "fixtures/detail-185-https-www-jimnortontoyota-com-vehicle-used-2023-nissan-rogue-jn8bt3ba.html": {
+      "bytes": 585847,
+      "sha256": "e150e543cad8c0c19250447eecbce155ad9c8897df77e463d1b8b0a3802f02f1"
+    },
+    "fixtures/detail-186-https-www-jimnortontoyota-com-vehicle-used-2026-toyota-rav4-2t36drbv6.html": {
+      "bytes": 635113,
+      "sha256": "14d922e449a52c20d44e72c7021106fb8ab4179680c8741ee549d4f93cff07ef"
+    },
+    "fixtures/detail-187-https-www-jimnortontoyota-com-vehicle-used-2026-toyota-rav4-2t36crav1.html": {
+      "bytes": 543533,
+      "sha256": "1eee7e8d9ffc54a64e99beef9ba4c45da55e9fd1b2e6d511497cc2ac6443a474"
+    },
+    "fixtures/detail-188-https-www-jimnortontoyota-com-vehicle-used-2020-lexus-ls-jthd51ff7l50.html": {
+      "bytes": 630890,
+      "sha256": "c23a7f6edabffd08759877c782b4856b839bdaef994c67b23aa5e4629ea242af"
+    },
+    "fixtures/detail-189-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-gr86-jf1znbe15.html": {
+      "bytes": 556130,
+      "sha256": "41ff7b2436fb1e478e9760ed903f3663020422909addec6959bcae2adcb5c2f2"
+    },
+    "fixtures/detail-19-https-www-jimnortontoyota-com-vehicle-used-2024-chrysler-pacifica-2c4r.html": {
+      "bytes": 636566,
+      "sha256": "96621b059e594a523af8f2935fe8cb1f73252ed4121e64b609a7ebcfb9e39894"
+    },
+    "fixtures/detail-190-https-www-jimnortontoyota-com-vehicle-used-2020-toyota-tundra-5tfhy5f.html": {
+      "bytes": 569742,
+      "sha256": "bc5e991be8ddb22fd5e42e9f58d85108e96e5a211c1c7d06690cf28c42612bc7"
+    },
+    "fixtures/detail-191-https-www-jimnortontoyota-com-vehicle-used-2012-toyota-highlander-5td.html": {
+      "bytes": 718097,
+      "sha256": "e635e86ab6f3427ccd34232a508ee8d2ae01d029b4748efb7bd931291ddc2c51"
+    },
+    "fixtures/detail-192-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-prius-jtdacaau.html": {
+      "bytes": 564348,
+      "sha256": "891f0b9552d104a812fccb8ea09671c5f7035572796e6a1f880f47741104a2a2"
+    },
+    "fixtures/detail-193-https-www-jimnortontoyota-com-vehicle-used-2021-lexus-gx-jtjam7bx1m52.html": {
+      "bytes": 595652,
+      "sha256": "7cae62d265d619ceb02505e7e287254350268525f439eb6349d742597acf8a08"
+    },
+    "fixtures/detail-194-https-www-jimnortontoyota-com-vehicle-used-2025-mazda-cx-5-jm3kfbcm6s.html": {
+      "bytes": 543511,
+      "sha256": "5ce3303779a4044283dcc5c00f82b0bba17f5dea11670d2838abcc87e9badf46"
+    },
+    "fixtures/detail-195-https-www-jimnortontoyota-com-vehicle-used-2024-toyota-corolla-5yfb4m.html": {
+      "bytes": 624025,
+      "sha256": "fad8cdac1a1a39af441a1f7ccf1a7f48648e661d0cc8c8fe8210c7e3d03d50d0"
+    },
+    "fixtures/detail-196-https-www-jimnortontoyota-com-vehicle-used-2024-toyota-4runner-jtemu5.html": {
+      "bytes": 541535,
+      "sha256": "9214c8c6a9dd569f97ff249a8f02c52f3f347621ea478475dafc27c919c24ef5"
+    },
+    "fixtures/detail-197-https-www-jimnortontoyota-com-vehicle-used-2017-ford-fusion-3fa6p0h7x.html": {
+      "bytes": 586642,
+      "sha256": "eb1f5bf222f171dec14cab9170da6b9f05e9c046aec64260a68c6a3b0bce6d5f"
+    },
+    "fixtures/detail-198-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-corolla-5yfp4m.html": {
+      "bytes": 544863,
+      "sha256": "76d18c941b3121a48d296f9f41d689004a7dc99b09d3ef85b462a0528806920b"
+    },
+    "fixtures/detail-199-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-4runner-jteva5.html": {
+      "bytes": 626892,
+      "sha256": "f86b29f745e1a1d0b49e59df49711e6bfd431739881f066e48c9d45ae21d4933"
+    },
+    "fixtures/detail-2-https-www-jimnortontoyota-com-vehicle-used-2023-volkswagen-tiguan-3vvnb.html": {
+      "bytes": 717071,
+      "sha256": "9762471d3444e0e9b68232a126da42377dc58ff6305166bc3dc7296b6ff9b445"
+    },
+    "fixtures/detail-20-https-www-jimnortontoyota-com-vehicle-used-2025-gmc-sierra-1500-1gtuug.html": {
+      "bytes": 612582,
+      "sha256": "72ba3c77a576e78b76fbb5136df96b89e0665b33e4c83c600823bcf47d720407"
+    },
+    "fixtures/detail-200-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-camry-4t1daack.html": {
+      "bytes": 544600,
+      "sha256": "00f68a19cf4d2935966517d4007bfffc03fb7e80d0026ac84bdac23c494069e1"
+    },
+    "fixtures/detail-201-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-tundra-5tfwa5d.html": {
+      "bytes": 547194,
+      "sha256": "f7554ff30c5e75bab70ffa58f949ca86a76e6f241a4d8b05455848d83d4f513c"
+    },
+    "fixtures/detail-202-https-www-jimnortontoyota-com-vehicle-used-2025-chevrolet-silverado-1.html": {
+      "bytes": 573303,
+      "sha256": "c5171f4eaf0cec596e04172447ca4e992e1f3ac8ea2a31c64c7be3cec6214094"
+    },
+    "fixtures/detail-203-https-www-jimnortontoyota-com-vehicle-used-2018-chevrolet-silverado-1.html": {
+      "bytes": 560142,
+      "sha256": "f85dc8a8bdad206d7c2c02537db69b032ddb6498ffd84a700127c6a6a2dccc7a"
+    },
+    "fixtures/detail-204-https-www-jimnortontoyota-com-vehicle-used-2025-kia-telluride-5xyp64g.html": {
+      "bytes": 571771,
+      "sha256": "f82b0336cdfe91ad5b962f3d43c80902e0a4760c4f949a438f2d7bbaca812a44"
+    },
+    "fixtures/detail-205-https-www-jimnortontoyota-com-vehicle-used-2024-toyota-4runner-jtemu5.html": {
+      "bytes": 540554,
+      "sha256": "97e247df384be78ebeffe2c3ea7da6d5c68b3907388e782f948804e4cbffc33c"
+    },
+    "fixtures/detail-206-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-camry-4t1daack.html": {
+      "bytes": 798832,
+      "sha256": "fcaa72977caf6a9406910a6cb5190413008cd38b72e79e3fe0aca0967ff08f23"
+    },
+    "fixtures/detail-207-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-sienna-5tdyrke.html": {
+      "bytes": 548245,
+      "sha256": "bc70a0246ddfc66aa1266fbee5a1f280ab55cc9b12064572af3504e1712af1b9"
+    },
+    "fixtures/detail-208-https-www-jimnortontoyota-com-vehicle-used-2026-toyota-grand-highland.html": {
+      "bytes": 641737,
+      "sha256": "66703d21bde24befadaa13830b28878e17b6676eaaafeea96ca0366c88439caa"
+    },
+    "fixtures/detail-209-https-www-jimnortontoyota-com-vehicle-used-2021-gmc-sierra-1500-3gtp9.html": {
+      "bytes": 572118,
+      "sha256": "3e1f2d4232a2e787ce5de3c23fe43909f05ab9d49ed3aa784da01c0bd629a7a3"
+    },
+    "fixtures/detail-21-https-www-jimnortontoyota-com-vehicle-used-2023-toyota-4runner-jtefu5j.html": {
+      "bytes": 717223,
+      "sha256": "929a6cb6905a084e16f892bad932728ec7334560b67518c5275919f8364a99f0"
+    },
+    "fixtures/detail-210-https-www-jimnortontoyota-com-vehicle-used-2020-ford-f-150-1ftew1ep1l.html": {
+      "bytes": 646811,
+      "sha256": "512fb15166357240b41a6b393ce6b8fb284aceed147229432d20633b7b29addd"
+    },
+    "fixtures/detail-211-https-www-jimnortontoyota-com-vehicle-used-2021-toyota-rav4-jtmh1rfv3.html": {
+      "bytes": 553784,
+      "sha256": "b685615d4b12d4a200b591c187747b545674e82b840914f4b611351e05fc9d8e"
+    },
+    "fixtures/detail-212-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-tacoma-3tmlb5j.html": {
+      "bytes": 544170,
+      "sha256": "6367ebeca4017fc025881e6ec25961186bd34534d05db8273ac5c95114840713"
+    },
+    "fixtures/detail-213-https-www-jimnortontoyota-com-vehicle-used-2025-jeep-compass-3c4njdcn.html": {
+      "bytes": 627738,
+      "sha256": "902a7844d3c6ed6e0efbf678e4e83f6619d81d2f55c8f789af371825c6a30b02"
+    },
+    "fixtures/detail-214-https-www-jimnortontoyota-com-vehicle-used-2023-nissan-frontier-1n6ed.html": {
+      "bytes": 632910,
+      "sha256": "e785929a64ae33b994f748fb0be6a0d27e1b2112d25868c4bc75becbbb57943f"
+    },
+    "fixtures/detail-215-https-www-jimnortontoyota-com-vehicle-used-2020-toyota-avalon-4t1cz1f.html": {
+      "bytes": 532394,
+      "sha256": "f26e0d0f3b66fb5f3741dd6faa97ba105338b1b9bc8d90b05ddca2ba665b456b"
+    },
+    "fixtures/detail-216-https-www-jimnortontoyota-com-vehicle-used-2023-jeep-grand-cherokee-1.html": {
+      "bytes": 565250,
+      "sha256": "ab5cbbed78cba35c2d85d520f9664b8411789de0f329ca17bfc06e79035ebc0f"
+    },
+    "fixtures/detail-217-https-www-jimnortontoyota-com-vehicle-used-2024-infiniti-qx60-5n1dl1f.html": {
+      "bytes": 575610,
+      "sha256": "0c985245238fc2576b4c0895b8d4571a6e5d5c0606b489339c7bf556d2a140cd"
+    },
+    "fixtures/detail-218-https-www-jimnortontoyota-com-vehicle-used-2022-toyota-tundra-5tfna5d.html": {
+      "bytes": 587602,
+      "sha256": "7dc248ae7bc6728b4a2a7613775791792262d6441f1cc2a5c0bcc1b02ae5ef5c"
+    },
+    "fixtures/detail-219-https-www-jimnortontoyota-com-vehicle-used-2021-toyota-rav4-hybrid-4t.html": {
+      "bytes": 586275,
+      "sha256": "8da47643f5c7f2bce334af0be46fa19b2a5d2361a88a70dc979909186b76069e"
+    },
+    "fixtures/detail-22-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-rav4-2t3w1rfvxs.html": {
+      "bytes": 605537,
+      "sha256": "d8675dfc5cdc9a83ffab21468f26c004874da0696cd76ace6538aa0a3768702f"
+    },
+    "fixtures/detail-220-https-www-jimnortontoyota-com-vehicle-used-2023-mazda-cx-5-jm3kfbdm0p.html": {
+      "bytes": 568687,
+      "sha256": "240bba77ff0abc36b566b1391d6f911d556ecb9f1b43d4b026d80b32ec4d6b2c"
+    },
+    "fixtures/detail-221-https-www-jimnortontoyota-com-vehicle-used-2019-toyota-tacoma-5tfsz5a.html": {
+      "bytes": 552334,
+      "sha256": "5838d638d15f3601554128e02dceb65b52eeaef53ff78dc4c281b3738440ffb1"
+    },
+    "fixtures/detail-222-https-www-jimnortontoyota-com-vehicle-used-2024-toyota-corolla-cross-.html": {
+      "bytes": 577780,
+      "sha256": "33353095878ec8020976f0b1265dc4274d19b70643b17f1c639d6d372b9b6b7c"
+    },
+    "fixtures/detail-223-https-www-jimnortontoyota-com-vehicle-used-2022-toyota-tacoma-3tyax5g.html": {
+      "bytes": 575084,
+      "sha256": "e5404e465aa00cdf5d3408903399a0e40ab744e7b34bff69078a3eb8b151edf8"
+    },
+    "fixtures/detail-224-https-www-jimnortontoyota-com-vehicle-used-2016-toyota-4runner-jtebu5.html": {
+      "bytes": 569009,
+      "sha256": "8758ad0de5b58344e4e0b0db4458314a6b4199ab75bc9b6d5546619d4922c6c4"
+    },
+    "fixtures/detail-225-https-www-jimnortontoyota-com-vehicle-used-2018-toyota-camry-4t1b11hk.html": {
+      "bytes": 619975,
+      "sha256": "f25a1f0461884416010b21dd4c6159a37f7e59a45453958c248b964880ad85d8"
+    },
+    "fixtures/detail-226-https-www-jimnortontoyota-com-vehicle-used-2026-toyota-sienna-5tdyrke.html": {
+      "bytes": 542854,
+      "sha256": "72171da021c4a92d941b63b2f9f82597721ecba9f54875cd0ae840bdf30c2266"
+    },
+    "fixtures/detail-227-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-tundra-hybrid-.html": {
+      "bytes": 717810,
+      "sha256": "d9cec86ae2a08cbfe8dd6ef9261476da3c055762ef9bf4ae4b03afaf211544ca"
+    },
+    "fixtures/detail-228-https-www-jimnortontoyota-com-vehicle-used-2026-toyota-sienna-5tdyrke.html": {
+      "bytes": 547578,
+      "sha256": "627d0fc4c67b39a2a3ebe59f7480766d8bb0dc015a990c3eca5f8fc61556bf80"
+    },
+    "fixtures/detail-229-https-www-jimnortontoyota-com-vehicle-used-2023-toyota-4runner-jteku5.html": {
+      "bytes": 582072,
+      "sha256": "46edd5e99d72b60d575a36ac3814b9c130cccfefe8d0377ba7b68292610ac0f1"
+    },
+    "fixtures/detail-23-https-www-jimnortontoyota-com-vehicle-used-2022-jeep-renegade-zacnjdb1.html": {
+      "bytes": 589070,
+      "sha256": "9ad999b266f09bbd00a16f35c2df4ddf2acd6a0693e4f37f7e6e1bd6aca012eb"
+    },
+    "fixtures/detail-230-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-corolla-5yfb4m.html": {
+      "bytes": 542437,
+      "sha256": "8ad27cd278bd4bd3b85121af490492edf513af1b286236821f519aed88174b79"
+    },
+    "fixtures/detail-231-https-www-jimnortontoyota-com-vehicle-used-2021-toyota-sienna-5tdkrke.html": {
+      "bytes": 525284,
+      "sha256": "9fb40853c97eba9b84232432088593ca191289c3924ecb362f3fd963c62239fa"
+    },
+    "fixtures/detail-232-https-www-jimnortontoyota-com-vehicle-used-2022-nissan-frontier-1n6ed.html": {
+      "bytes": 560236,
+      "sha256": "f42043141d99f8aeef37c8c1f0ebab2767e38e52b18f14a6533291513723caf7"
+    },
+    "fixtures/detail-233-https-www-jimnortontoyota-com-vehicle-used-2018-nissan-sentra-3n1ab7a.html": {
+      "bytes": 647773,
+      "sha256": "241ffdbb650de2edf6d42548e7f9f9a531776f09996a53db05bc9a62d0396e82"
+    },
+    "fixtures/detail-234-https-www-jimnortontoyota-com-vehicle-used-2019-nissan-altima-1n4bl4c.html": {
+      "bytes": 539021,
+      "sha256": "25eaeaedd6055ba712d91c38fff17d9a29b38493b65fee57c5f87767f97cd525"
+    },
+    "fixtures/detail-235-https-www-jimnortontoyota-com-vehicle-used-2020-chevrolet-silverado-2.html": {
+      "bytes": 566258,
+      "sha256": "e5dd9dd4a7e11d88a536f49505f806b9c76c76ac75e3ae62f316a713093a8e39"
+    },
+    "fixtures/detail-236-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-camry-4t1daack.html": {
+      "bytes": 570179,
+      "sha256": "3d443cd86d46cfd2ea39cb06e6c23a7b44f8fe5f6234e05d4d2b30fd5cc0235e"
+    },
+    "fixtures/detail-237-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-rav4-2t3w1rfvx.html": {
+      "bytes": 652660,
+      "sha256": "8fd9c5f43636c63017ae4838d7c38183d048a88e651eea53949db1d46f2e2bdb"
+    },
+    "fixtures/detail-238-https-www-jimnortontoyota-com-vehicle-used-2023-toyota-4runner-jtefu5.html": {
+      "bytes": 580296,
+      "sha256": "8c63360ee36eebe480eb1923afd175a6b18df1f9b82adcf57697531dd2f4dcce"
+    },
+    "fixtures/detail-239-https-www-jimnortontoyota-com-vehicle-used-2023-toyota-camry-4t1kz1ak.html": {
+      "bytes": 568279,
+      "sha256": "48794cb4cb2ef7252fe016f556a654857f9a9017f11f4aa61fda8e24e156af7d"
+    },
+    "fixtures/detail-24-https-www-jimnortontoyota-com-vehicle-used-2013-mercedes-benz-e-class-.html": {
+      "bytes": 579540,
+      "sha256": "bd52b2040d1868ccb5e526e91da79cbe16d856d880f9c9aac5a55c76740112bb"
+    },
+    "fixtures/detail-240-https-www-jimnortontoyota-com-vehicle-used-2026-toyota-tacoma-hybrid-.html": {
+      "bytes": 572262,
+      "sha256": "701b4ba3964feb6bc1d1358bee3fee58daea80090b17454c84e71137873fc1ee"
+    },
+    "fixtures/detail-241-https-www-jimnortontoyota-com-vehicle-used-2016-toyota-4runner-jtebu5.html": {
+      "bytes": 571409,
+      "sha256": "b01e6796d5545bbb91b9da695e52521495d707033100deabe0beb77f89a2620a"
+    },
+    "fixtures/detail-242-https-www-jimnortontoyota-com-vehicle-used-2017-toyota-prius-prime-jt.html": {
+      "bytes": 758411,
+      "sha256": "cece1dc7390c52f589ad56d972231b6f38a5c8e1495f50d9ba487502cf580370"
+    },
+    "fixtures/detail-243-https-www-jimnortontoyota-com-vehicle-used-2023-honda-civic-2hgfe1f90.html": {
+      "bytes": 563997,
+      "sha256": "2709b2892149142c4773dcb37a625b8aa836d60aa1f61c6475e06090ea8670f3"
+    },
+    "fixtures/detail-244-https-www-jimnortontoyota-com-vehicle-used-2019-toyota-camry-4t1b11hk.html": {
+      "bytes": 564720,
+      "sha256": "5e6b71a66470798d2fdaa3f90402d8cbf56d2109d499a7bfa4c62da7a706a8ef"
+    },
+    "fixtures/detail-245-https-www-jimnortontoyota-com-vehicle-used-2025-mazda-mx-5-miata-rf-j.html": {
+      "bytes": 608768,
+      "sha256": "c301b668ba5496e9f434e0fb380a216ce39abbd815840e58b12ea870edc983ef"
+    },
+    "fixtures/detail-246-https-www-jimnortontoyota-com-vehicle-used-2023-toyota-tacoma-3tmcz5a.html": {
+      "bytes": 534952,
+      "sha256": "203e1963bb54e68d4d6585da63487e4cdd689a482abcdc31e297beba9942b4f8"
+    },
+    "fixtures/detail-247-https-www-jimnortontoyota-com-vehicle-used-2026-toyota-prius-jtdacaau.html": {
+      "bytes": 542483,
+      "sha256": "fcf2e04bcb7d031d1f6872b2a312f68ace9c9388adc75f81d49ba736fa48f5de"
+    },
+    "fixtures/detail-248-https-www-jimnortontoyota-com-vehicle-used-2019-toyota-highlander-5td.html": {
+      "bytes": 568242,
+      "sha256": "bbf33ec31e129c7dec141bf7d0c9ebcab94ff7fc29395f2d198f14e71d7bc859"
+    },
+    "fixtures/detail-249-https-www-jimnortontoyota-com-vehicle-used-2026-toyota-camry-4t1daack.html": {
+      "bytes": 567559,
+      "sha256": "c0d44d2678c9d05cd11df4e1b2eb6bd4152d8dbf005b834d579ed978ec2d00ba"
+    },
+    "fixtures/detail-25-https-www-jimnortontoyota-com-vehicle-used-2023-toyota-tacoma-3tyez5cn.html": {
+      "bytes": 594670,
+      "sha256": "b433d4a0c138e9be05d74d26415ce729cc93c7b715b53f107031c989244c0735"
+    },
+    "fixtures/detail-26-https-www-jimnortontoyota-com-vehicle-used-2019-toyota-camry-4t1b11hk5.html": {
+      "bytes": 606984,
+      "sha256": "315630c54f4b57ba0741740d3c05cf2435e984831944813a3c438525226b592d"
+    },
+    "fixtures/detail-27-https-www-jimnortontoyota-com-vehicle-used-2024-toyota-tacoma-hybrid-3.html": {
+      "bytes": 805851,
+      "sha256": "1cd0f13886938e1f8dc362df77a6ce6ffb22983bc92453750dc17b34cd79f3ee"
+    },
+    "fixtures/detail-28-https-www-jimnortontoyota-com-vehicle-used-2020-jeep-gladiator-1c6jjtb.html": {
+      "bytes": 592268,
+      "sha256": "26ebcec510b477b3e2688f67754d356818dd6295bea6f0fe85ed7601d675e214"
+    },
+    "fixtures/detail-29-https-www-jimnortontoyota-com-vehicle-used-2024-chevrolet-silverado-15.html": {
+      "bytes": 662291,
+      "sha256": "409e10fc8d8eae70c8462c2b68208f18c07ba7d7fe37c2150fa32b89b253e32e"
+    },
+    "fixtures/detail-3-https-www-jimnortontoyota-com-vehicle-used-2022-jeep-wrangler-1c4jjxp68.html": {
+      "bytes": 621622,
+      "sha256": "9b25e0680ff3dbbcbb7a91ecc7c910ed54cc481e66163b4715025b37e3317f75"
+    },
+    "fixtures/detail-30-https-www-jimnortontoyota-com-vehicle-used-2025-ford-explorer-1fmwk8gc.html": {
+      "bytes": 590848,
+      "sha256": "b1f487661712068726473b3dff77e52139baed841c2f431bbfc717eef452e7a0"
+    },
+    "fixtures/detail-31-https-www-jimnortontoyota-com-vehicle-used-2025-hyundai-santa-fe-5nmp3.html": {
+      "bytes": 603845,
+      "sha256": "0ca368b70e812901fcbebb7797199689e28f132fd8ea2632b612fcaf84ea73d2"
+    },
+    "fixtures/detail-32-https-www-jimnortontoyota-com-vehicle-used-2021-ford-bronco-1fmee5dpxm.html": {
+      "bytes": 595634,
+      "sha256": "2e00089f5f5cd081707cf53d45222ba61b0d97bf87d167f06034b0ae7a7d961c"
+    },
+    "fixtures/detail-33-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-rav4-2t3w1rfv3s.html": {
+      "bytes": 632246,
+      "sha256": "dac3a008039c1b66a11eab00b4373e72581fa3c9ba400fccacc5e33faebcbcf0"
+    },
+    "fixtures/detail-34-https-www-jimnortontoyota-com-vehicle-used-2025-nissan-rogue-5n1bt3ba6.html": {
+      "bytes": 599760,
+      "sha256": "c8a76bf4d720d57f3692c254610d3d296aaf3665c5275acdc09a390d07e4fdfa"
+    },
+    "fixtures/detail-35-https-www-jimnortontoyota-com-vehicle-used-2025-genesis-gv70-5nmmcdtc1.html": {
+      "bytes": 632156,
+      "sha256": "afb4b1890c0cbb2cc16ab450223bff788b0931aaedf3864daf6e526408bd1830"
+    },
+    "fixtures/detail-36-https-www-jimnortontoyota-com-vehicle-used-2021-toyota-tacoma-3tyax5gn.html": {
+      "bytes": 710103,
+      "sha256": "285110d6ad8b7093ba48b5e2b0944e4fb3c2bba0cf3ede0d3563da705d3e4ac1"
+    },
+    "fixtures/detail-37-https-www-jimnortontoyota-com-vehicle-used-2024-toyota-rav4-2t3c1rfv3r.html": {
+      "bytes": 640411,
+      "sha256": "c804bdeb7215c4c980323e46a2886c295cf617caace999867fd01eb34c37170c"
+    },
+    "fixtures/detail-38-https-www-jimnortontoyota-com-vehicle-used-2025-nissan-sentra-3n1ab8cv.html": {
+      "bytes": 619377,
+      "sha256": "936ae9e0659a74537fe61a9ff7a8fe90d79591977f34e1d2757aaad062dafb42"
+    },
+    "fixtures/detail-39-https-www-jimnortontoyota-com-vehicle-used-2025-hyundai-kona-km8hbcab5.html": {
+      "bytes": 603329,
+      "sha256": "8b4668f08ca02fab8502ddfe0ebda96ce5ba2099e69df69b408923e767caeb1f"
+    },
+    "fixtures/detail-4-https-www-jimnortontoyota-com-vehicle-used-2024-nissan-frontier-1n6ed1e.html": {
+      "bytes": 716348,
+      "sha256": "f11ad0416a5089929f24e530310942e3d785e1a1d752f5edbf73ff8ced9eb0f6"
+    },
+    "fixtures/detail-40-https-www-jimnortontoyota-com-vehicle-used-2025-hyundai-kona-km8hbcab9.html": {
+      "bytes": 618609,
+      "sha256": "d0a8dd32ae7c44a101a449a0168b4012ee664379ff6ade3d8e6d0d714a6b000c"
+    },
+    "fixtures/detail-41-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-rav4-2t3w1rfv6s.html": {
+      "bytes": 602797,
+      "sha256": "26408ea2685f66c0c7d1e229ed9828955d0fbb0e0b69e61a57402215b22f00b0"
+    },
+    "fixtures/detail-42-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-tacoma-hybrid-3.html": {
+      "bytes": 809683,
+      "sha256": "b2e6c4939b76ad8d49fdb1f44f9911d20d929337d6e0858cc583706c425d4252"
+    },
+    "fixtures/detail-43-https-www-jimnortontoyota-com-vehicle-used-2026-dodge-durango-1c4rdjdg.html": {
+      "bytes": 621699,
+      "sha256": "56c87c4dbd51f2e8a06851a44d7b45f4776e26b24fd45a32c8a0f9934c50e086"
+    },
+    "fixtures/detail-44-https-www-jimnortontoyota-com-vehicle-used-2021-toyota-camry-4t1g11ak0.html": {
+      "bytes": 629334,
+      "sha256": "5df9e7a2f487a9388f29d3f68c08bdd3c000595076825ad472b9615318ec3379"
+    },
+    "fixtures/detail-45-https-www-jimnortontoyota-com-vehicle-used-2017-hyundai-tucson-km8j33a.html": {
+      "bytes": 616080,
+      "sha256": "9ca1161e03a91fc94dd24df994083cf50ad2fc32e397446145b55611100941bc"
+    },
+    "fixtures/detail-46-https-www-jimnortontoyota-com-vehicle-used-2019-bmw-x2-wbxyj5c55k5n128.html": {
+      "bytes": 717664,
+      "sha256": "e89ac85fb97b69bce9a733951dd1dfb3505026fa7ccd708f0cafe9234b85d8c3"
+    },
+    "fixtures/detail-47-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-rav4-2t3w1rfv6s.html": {
+      "bytes": 611101,
+      "sha256": "339863872a4d68772cee3c69237b62d4d2c9ae899c36eeb98cfbd7c7a7aebe67"
+    },
+    "fixtures/detail-48-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-highlander-5tdk.html": {
+      "bytes": 634369,
+      "sha256": "2f07ae10b008cdfb046c7b84ad43e5245c46f3503603fe461d52c814dcb82a1a"
+    },
+    "fixtures/detail-49-https-www-jimnortontoyota-com-vehicle-used-2024-chevrolet-traverse-1gn.html": {
+      "bytes": 609941,
+      "sha256": "e03e87d62d5d955765fd645f9f9cd7555b254341f73a6fc2e30e6801480025fd"
+    },
+    "fixtures/detail-5-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-rav4-2t3w1rfv2sw.html": {
+      "bytes": 616882,
+      "sha256": "1871bf4e8cd95562edbb4369a924fac7563b0092ffd9210ab7dcf090894c24e0"
+    },
+    "fixtures/detail-50-https-www-jimnortontoyota-com-vehicle-used-2013-ford-f-150-1ftfw1r67df.html": {
+      "bytes": 588209,
+      "sha256": "92742a98edcc7072b6d8c3ef4503fae83b2ed1db8509aaf5036fb32019f2a276"
+    },
+    "fixtures/detail-51-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-corolla-5yft4mc.html": {
+      "bytes": 622805,
+      "sha256": "a640a008164f49e98c4aac42ab9b547153106c919439faeb3351fe6c6be93f4e"
+    },
+    "fixtures/detail-52-https-www-jimnortontoyota-com-vehicle-used-2026-toyota-tacoma-3tylb5jn.html": {
+      "bytes": 651719,
+      "sha256": "40c9fdb979d053783df4a696181c7eea65d0f24f826a5af6ca74c4e3597dd354"
+    },
+    "fixtures/detail-53-https-www-jimnortontoyota-com-vehicle-used-2021-chevrolet-traverse-1gn.html": {
+      "bytes": 646832,
+      "sha256": "c136f3e11b7a809bdcd629ce52f0497c3a693fdf3dafa30b5b17add9cc2350c1"
+    },
+    "fixtures/detail-54-https-www-jimnortontoyota-com-vehicle-used-2025-jeep-compass-3c4njdan3.html": {
+      "bytes": 625357,
+      "sha256": "1cc91ed433a5fa1a3c2bb75b150dc330cd9ee01ff5af95f77c7f28db431727b2"
+    },
+    "fixtures/detail-55-https-www-jimnortontoyota-com-vehicle-used-2024-mazda-mazda3-3mzbpabm0.html": {
+      "bytes": 631672,
+      "sha256": "7631577a4992bf92cd282e87ee0874ab38eedd19b26d5637acdd7923d01a2acc"
+    },
+    "fixtures/detail-56-https-www-jimnortontoyota-com-vehicle-used-2023-toyota-corolla-hybrid-.html": {
+      "bytes": 637876,
+      "sha256": "f64d7de761df899b709c40a0c9f22d8d2738f621856a5f89b2b59d0ee93dceba"
+    },
+    "fixtures/detail-57-https-www-jimnortontoyota-com-vehicle-used-2024-jeep-compass-3c4njdcn9.html": {
+      "bytes": 631552,
+      "sha256": "49f2946026112906f1690f05c073cb15c8f7c0138609b2b92baf4c25c771611f"
+    },
+    "fixtures/detail-58-https-www-jimnortontoyota-com-vehicle-used-2018-honda-odyssey-5fnrl6h9.html": {
+      "bytes": 561257,
+      "sha256": "81aba0d908ce768c90ac49f73b5416c09c9ba9a9bbccae7c142b3bd9937c8d9b"
+    },
+    "fixtures/detail-59-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-crown-signia-jt.html": {
+      "bytes": 631197,
+      "sha256": "201b38dd22b8ca98b58d438274c0bde9f35d71931e0ee9f05cc99d071ad58ef3"
+    },
+    "fixtures/detail-6-https-www-jimnortontoyota-com-vehicle-used-2025-jeep-compass-3c4njdcn2s.html": {
+      "bytes": 588037,
+      "sha256": "b6fcdcbdd9de0c293b944da3dd9846c4308c60185a0f168d581b14cbf8c0d47d"
+    },
+    "fixtures/detail-60-https-www-jimnortontoyota-com-vehicle-used-2022-rivian-r1t-7fctgaaa9nn.html": {
+      "bytes": 617265,
+      "sha256": "3e6ee55389f4ae444af3e2c7e26c9b3e29c12aa1548093548c2056c3423c1840"
+    },
+    "fixtures/detail-61-https-www-jimnortontoyota-com-vehicle-used-2025-honda-cr-v-hybrid-7far.html": {
+      "bytes": 632570,
+      "sha256": "c33372696276597f8e73e2e708c0332d5cb8142cd21d59b8a05bc910e9f3d68e"
+    },
+    "fixtures/detail-62-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-4runner-jteva5b.html": {
+      "bytes": 616339,
+      "sha256": "7fb0eec9ecad3201fab50c6130817a35ff8961822c630fa54256518d7abd87df"
+    },
+    "fixtures/detail-63-https-www-jimnortontoyota-com-vehicle-used-2020-toyota-avalon-4t1fz1fb.html": {
+      "bytes": 611514,
+      "sha256": "aeed6e2c54f34aabff292503b226507f9fdf0398ba9dbfb18bfd3ec52ce80ba8"
+    },
+    "fixtures/detail-64-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-rav4-2t3w1rfv5s.html": {
+      "bytes": 620668,
+      "sha256": "2c37d28dd95db0299354058272282e49fa66fe025951932da38fd65d80aee90c"
+    },
+    "fixtures/detail-65-https-www-jimnortontoyota-com-vehicle-used-2021-chrysler-pacifica-hybr.html": {
+      "bytes": 876136,
+      "sha256": "6ac7bb64444c67d19b306bb5265546a72bd3ddf8fe90b1e704f5ee94d1636625"
+    },
+    "fixtures/detail-66-https-www-jimnortontoyota-com-vehicle-used-2026-hyundai-santa-fe-5nmp2.html": {
+      "bytes": 624538,
+      "sha256": "5855d2eeb5ed6476b5f8be24effcf6c422698a3536aea3aa92cda7c334d73d47"
+    },
+    "fixtures/detail-67-https-www-jimnortontoyota-com-vehicle-used-2024-toyota-crown-jtdaaaaf4.html": {
+      "bytes": 622773,
+      "sha256": "a09b3d80dd64ee6a0a586b456a05fe330c6d52a5abf13a3c562c96690c5ad61f"
+    },
+    "fixtures/detail-68-https-www-jimnortontoyota-com-vehicle-used-2025-hyundai-santa-fe-5nmp5.html": {
+      "bytes": 648604,
+      "sha256": "c59f979252147216f087b3c91194915d4721373a7363930d7f206f8192298328"
+    },
+    "fixtures/detail-69-https-www-jimnortontoyota-com-vehicle-used-2023-toyota-4runner-jtelu5j.html": {
+      "bytes": 635825,
+      "sha256": "202ac82fbaf5c8127fab1d01979bd292a8b4d5fbbb3d78d9841d126802fc4cf9"
+    },
+    "fixtures/detail-7-https-www-jimnortontoyota-com-vehicle-used-2025-mazda-cx-5-jm3kfbcm0s06.html": {
+      "bytes": 639985,
+      "sha256": "76f62517838a69bbbb9ab410feac922120d947ab52738f7c4a4892c318c7be0a"
+    },
+    "fixtures/detail-70-https-www-jimnortontoyota-com-vehicle-used-2017-toyota-sienna-5tdkz3dc.html": {
+      "bytes": 630366,
+      "sha256": "6f06df65af45316b6eb4d29fd50ad10a7f7723eda32b207d433a20d290df4a8f"
+    },
+    "fixtures/detail-71-https-www-jimnortontoyota-com-vehicle-used-2025-mazda-cx-5-jm3kfbcm1s0.html": {
+      "bytes": 636246,
+      "sha256": "87ec34137eeac3e80c8ea1d1c791b029fe26c8fc078c8af868ff572e3a3b909c"
+    },
+    "fixtures/detail-72-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-corolla-5yfb4md.html": {
+      "bytes": 714229,
+      "sha256": "d497736fa90b371a7185c949b6d8269c838f5fc311286411e21984439baf8f66"
+    },
+    "fixtures/detail-73-https-www-jimnortontoyota-com-vehicle-used-2019-jeep-cherokee-1c4pjmbn.html": {
+      "bytes": 633328,
+      "sha256": "8f6bf4558654fa2e26c64078a5f468ed3acbd2f22d2a56e54ebcb02a7d0864c6"
+    },
+    "fixtures/detail-74-https-www-jimnortontoyota-com-vehicle-used-2021-toyota-camry-4t1g11ak2.html": {
+      "bytes": 539144,
+      "sha256": "1ec02b454f28f2c95bcc2248cd8da83173e4d11415f2b19d9f90d4b5e416aa77"
+    },
+    "fixtures/detail-75-https-www-jimnortontoyota-com-vehicle-used-2024-hyundai-santa-fe-5nmp1.html": {
+      "bytes": 633657,
+      "sha256": "16b420bf635455d111d647d5b86f96754ec8ab66ad256c2caeab104eebaddf04"
+    },
+    "fixtures/detail-76-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-rav4-2t3w1rfv2s.html": {
+      "bytes": 723273,
+      "sha256": "985bab27aefb050b222ad5b24c1d639833bd89890d1830f6926e1a12a726872e"
+    },
+    "fixtures/detail-77-https-www-jimnortontoyota-com-vehicle-used-2026-toyota-sienna-5tdyrkec.html": {
+      "bytes": 629559,
+      "sha256": "cc8dffbddb39e955a50f83f986ce029ac37999d5a88005e93ff35869716ada5d"
+    },
+    "fixtures/detail-78-https-www-jimnortontoyota-com-vehicle-used-2025-honda-cr-v-hybrid-2hkr.html": {
+      "bytes": 640199,
+      "sha256": "62869a40c17faa1761b3a9f5cf2a901c3bf85086d4a68709581a27ffe33117e9"
+    },
+    "fixtures/detail-79-https-www-jimnortontoyota-com-vehicle-used-2015-dodge-challenger-2c3cd.html": {
+      "bytes": 710609,
+      "sha256": "c4c97f6286ffc9fe59f6ee353dc55aa434368996c2e0e45334add2de0adb4074"
+    },
+    "fixtures/detail-8-https-www-jimnortontoyota-com-vehicle-used-2023-toyota-rav4-hybrid-4t3r.html": {
+      "bytes": 592418,
+      "sha256": "425fcdd55b0e96275f066ff1d0f2c041febc5ee1810558f427d33f3a7d7c2023"
+    },
+    "fixtures/detail-80-https-www-jimnortontoyota-com-vehicle-used-2026-toyota-4runner-i-force.html": {
+      "bytes": 631487,
+      "sha256": "6b2c4994a0df44c7d047d0df4c73307da36383231bc3d9e8ec9aaad93ac38860"
+    },
+    "fixtures/detail-81-https-www-jimnortontoyota-com-vehicle-used-2022-ford-bronco-1fmde5dh3n.html": {
+      "bytes": 633397,
+      "sha256": "cd67a77d69ad1e0287b2ca7b2c4eabc6e97233870ee1d421c1661c47928e69dd"
+    },
+    "fixtures/detail-82-https-www-jimnortontoyota-com-vehicle-used-2017-dodge-challenger-2c3cd.html": {
+      "bytes": 716859,
+      "sha256": "dd461925959861396284c34098bf3abb22f9930b798ed4a0b143e27a93e163c8"
+    },
+    "fixtures/detail-83-https-www-jimnortontoyota-com-vehicle-used-2026-toyota-tundra-5tfna5db.html": {
+      "bytes": 565072,
+      "sha256": "69bd94c8ef56f257e4e7c63959bad2d2ead5afa3d1daf1a98568ee5cf7e28325"
+    },
+    "fixtures/detail-84-https-www-jimnortontoyota-com-vehicle-used-2022-ford-f-350sd-1ft8w3bt4.html": {
+      "bytes": 614828,
+      "sha256": "68208a4b9285cda47cfc0ed2d2fe204041f077376dd010035e8072a74ed09926"
+    },
+    "fixtures/detail-85-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-corolla-5yft4mc.html": {
+      "bytes": 635827,
+      "sha256": "874722bec249d4b51861ac2b6eb2ef8408c663fd7da785df8cc54d0cbc7f4f8a"
+    },
+    "fixtures/detail-86-https-www-jimnortontoyota-com-vehicle-used-2024-toyota-rav4-hybrid-4t3.html": {
+      "bytes": 711899,
+      "sha256": "38927919413e25451f7b507987def7a6e87bf2355c2b0524ffb9b29ba8e80c07"
+    },
+    "fixtures/detail-87-https-www-jimnortontoyota-com-vehicle-used-2025-ford-maverick-3fttw8ja.html": {
+      "bytes": 623692,
+      "sha256": "231c3dac690d83311dc07154d9759a1d221a1e0c4fda3ee4a99036bcd7f0fad1"
+    },
+    "fixtures/detail-88-https-www-jimnortontoyota-com-vehicle-used-2024-gmc-sierra-2500hd-1gt4.html": {
+      "bytes": 627772,
+      "sha256": "95469cc4b8ea0479d2b6b93b2e0ef73a52c23258fd801ffa084d16741922f3cc"
+    },
+    "fixtures/detail-89-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-grand-highlande.html": {
+      "bytes": 625253,
+      "sha256": "d6cf6dafc5a771b4cb903f7a453fb21aab8023e6e30419a681abc19c76ade562"
+    },
+    "fixtures/detail-9-https-www-jimnortontoyota-com-vehicle-used-2023-gmc-sierra-1500-3gtuude.html": {
+      "bytes": 652364,
+      "sha256": "2cccb7f4ffbe7e19979011a629838bbe7ecd6ab9f643e2d18bf26964c56b89fe"
+    },
+    "fixtures/detail-90-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-4runner-jteva5b.html": {
+      "bytes": 635348,
+      "sha256": "7104b315e3177cc5895e99022f71c9c85d0679992015d95333d785d7ed2c95c2"
+    },
+    "fixtures/detail-91-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-rav4-2t3p1rfv8s.html": {
+      "bytes": 717036,
+      "sha256": "f4d2990c8d0bfd50ac789affca36f2ea169cb567f316bc6ea6d22715e2a73775"
+    },
+    "fixtures/detail-92-https-www-jimnortontoyota-com-vehicle-used-2016-ford-taurus-1fahp2f86g.html": {
+      "bytes": 616136,
+      "sha256": "e3939268cd639fa17312c1d018ff1b2256d9d3d29451fa47d3ea951c1245eb1d"
+    },
+    "fixtures/detail-93-https-www-jimnortontoyota-com-vehicle-used-2024-toyota-rav4-prime-jtme.html": {
+      "bytes": 639987,
+      "sha256": "9782691100f101696ea941759609216cd092322344dd932c5d581020586e785e"
+    },
+    "fixtures/detail-94-https-www-jimnortontoyota-com-vehicle-used-2025-nissan-sentra-3n1ab8cv.html": {
+      "bytes": 636832,
+      "sha256": "e1507dcdf4b74b3f00db398964a74b023ba78405ace10cdd70ab542ff3c3e154"
+    },
+    "fixtures/detail-95-https-www-jimnortontoyota-com-vehicle-used-2025-toyota-tacoma-3tmlb5jn.html": {
+      "bytes": 638732,
+      "sha256": "22fdc515b99d9b350ce580cd981682e7d46d39786a5f921860919021d2598a2d"
+    },
+    "fixtures/detail-96-https-www-jimnortontoyota-com-vehicle-used-2021-nissan-titan-1n6aa1ed6.html": {
+      "bytes": 641328,
+      "sha256": "65c1b875f53a567b8f5a00faef7bcf15e182f21e2f4eec6851fd6f7caa7e223a"
+    },
+    "fixtures/detail-97-https-www-jimnortontoyota-com-vehicle-used-2025-chevrolet-colorado-1gc.html": {
+      "bytes": 638603,
+      "sha256": "26da6949ac8a99809f2f67a539ed0c44d9eef70a0c793867cc597a01accb0163"
+    },
+    "fixtures/detail-98-https-www-jimnortontoyota-com-vehicle-used-2021-ford-f-150-1ftfw1e85mk.html": {
+      "bytes": 619451,
+      "sha256": "5bf2839ddbfc669be426e94910cdd3523a41027f6be62c553aeeaee40a2e556a"
+    },
+    "fixtures/detail-99-https-www-jimnortontoyota-com-vehicle-used-2019-gmc-sierra-1500-3gtu9d.html": {
+      "bytes": 721787,
+      "sha256": "5e157a6e9e0211c11a8355a29d2fc374f721f7e2350a1ce8a9fcb469f5f6da95"
+    },
+    "fixtures/listing-1-https-www-jimnortontoyota-com-used-vehicles.html": {
+      "bytes": 1171146,
+      "sha256": "78504d1fb93027b5d8191ac28e89e09a76168bf56e28709d505700ea44941e6f"
+    },
+    "fixtures/listing-10-https-www-jimnortontoyota-com-used-vehicles-pg-10.html": {
+      "bytes": 1140988,
+      "sha256": "8d7e2fa23ba5b86674a1284b2da8a009b1bc0ea0a9ff5b36eab98d7389b96537"
+    },
+    "fixtures/listing-11-https-www-jimnortontoyota-com-used-vehicles-pg-11.html": {
+      "bytes": 795717,
+      "sha256": "e1db316df48b710126dc2c006fbb73f462154ba5079c36d3cfef0d58ed6673cc"
+    },
+    "fixtures/listing-2-https-www-jimnortontoyota-com-used-vehicles-pg-2.html": {
+      "bytes": 1138276,
+      "sha256": "69285351c7b010809384ad24fa1bd22bbdea5e2510ee175bca83eb618bbf30f1"
+    },
+    "fixtures/listing-3-https-www-jimnortontoyota-com-used-vehicles-pg-3.html": {
+      "bytes": 1137266,
+      "sha256": "2c62373888a4f80de81b7ed66acae2bb3ca1731faef40983f71192e771d073e3"
+    },
+    "fixtures/listing-4-https-www-jimnortontoyota-com-used-vehicles-pg-4.html": {
+      "bytes": 1165201,
+      "sha256": "c90bded7c74cb9fb714cbce1b9e8d490110ac92981df75809d6615a8ab2cf954"
+    },
+    "fixtures/listing-5-https-www-jimnortontoyota-com-used-vehicles-pg-5.html": {
+      "bytes": 1193413,
+      "sha256": "f9f8b14df66d7c48da1c4e2ccfbbab45ce729b52b44f107cf46cfd2fb115d1d1"
+    },
+    "fixtures/listing-6-https-www-jimnortontoyota-com-used-vehicles-pg-6.html": {
+      "bytes": 1161093,
+      "sha256": "490d30232922269eea90c432654acabef29a1974bc0158230478e808540c3f1f"
+    },
+    "fixtures/listing-7-https-www-jimnortontoyota-com-used-vehicles-pg-7.html": {
+      "bytes": 1169884,
+      "sha256": "9d97387bb9ca203e6f2671c037fd630eeb96120b538f26eaee6fe5f0e34680d8"
+    },
+    "fixtures/listing-8-https-www-jimnortontoyota-com-used-vehicles-pg-8.html": {
+      "bytes": 1131952,
+      "sha256": "02153e3f7851cadcf50ae6e972056e776786fa8ab54c9a94f4de6e6e3e9eef3b"
+    },
+    "fixtures/listing-9-https-www-jimnortontoyota-com-used-vehicles-pg-9.html": {
+      "bytes": 1144460,
+      "sha256": "bd0c8e75c5507c25988f8872d2028f43ee05cd7260dbafaf9ff54223b690aee5"
+    },
+    "qa/attempt-01-full-replay.json": {
+      "bytes": 8466,
+      "sha256": "45387400d18879887a9f966706d816c80bc50b48a5c405f93e19f98bb5670386"
+    },
+    "records.jsonl": {
+      "bytes": 2589920,
+      "sha256": "4f3e557732120a9a08b9f0dea82a733609243d5f42d6934c1fd1c7742ea55837"
+    },
+    "spec.json": {
+      "bytes": 1783,
+      "sha256": "e364fb46b920366d618b4c516a612e2dcba0e45b760801f8ec6860e6446f8023"
+    }
+  },
+  "generation": 1,
+  "origin": "https://www.jimnortontoyota.com",
+  "parent_run_id": null,
+  "promoted": false,
+  "qa": {
+    "blocked_record_count": 1,
+    "blocked_record_samples": [
+      "5TDYRKEC3TS298102"
+    ],
+    "complete_snapshot": true,
+    "cross_vehicle_photo_duplicate_count": 0,
+    "cross_vehicle_photo_samples": [],
+    "discovered_detail_count": 249,
+    "duplicate_detail_urls": [],
+    "duplicate_vins": [],
+    "expected_total": 249,
+    "field_coverage": {
+      "color_ext": 1.0,
+      "color_int": 0.996,
+      "description": 1.0,
+      "detail_url": 1.0,
+      "drivetrain": 1.0,
+      "features": 1.0,
+      "make": 1.0,
+      "mileage": 1.0,
+      "model": 1.0,
+      "photo": 1.0,
+      "photos": 1.0,
+      "price": 1.0,
+      "stock_number": 1.0,
+      "transmission": 1.0,
+      "trim": 0.992,
+      "vin": 1.0,
+      "year": 1.0
+    },
+    "full_resolution_vehicle_coverage": 0.996,
+    "issues": [
+      "full_resolution_photo_coverage:1.00<1.00",
+      "multi_photo_vehicle_coverage:1.00<1.00",
+      "photo_count_min:1<2"
+    ],
+    "malformed_vins": [],
+    "multi_photo_vehicle_coverage": 0.996,
+    "passed": false,
+    "photo_count_median": 32.0,
+    "photo_count_min": 1,
+    "photo_counts": {
+      "1C4HJXDG6KW677487": 13,
+      "1C4HJXEN9PW665709": 33,
+      "1C4HJXFG9PW658128": 33,
+      "1C4JJXP68NW103174": 32,
+      "1C4PJMBN5KD157398": 33,
+      "1C4RDJDG7TC189273": 32,
+      "1C4RJFAG3NC149009": 34,
+      "1C4RJHAG2PC546077": 33,
+      "1C4RJHAGXPC520066": 10,
+      "1C6HJTAG9LL126817": 32,
+      "1C6JJTBG5LL197867": 33,
+      "1FA6P8TH2N5131095": 11,
+      "1FA6P8TH5R5104740": 32,
+      "1FAHP2F86GG125051": 32,
+      "1FMDE5DH3NLB47785": 33,
+      "1FMEE5DPXMLA86574": 33,
+      "1FMJU1M81SEA30754": 6,
+      "1FMWK8GC6SGB01164": 33,
+      "1FT8W3BT4NED04694": 32,
+      "1FTEW1E49LFA09724": 11,
+      "1FTEW1E51KKF01338": 14,
+      "1FTEW1EP1LFA36989": 12,
+      "1FTFW1E85MKE97442": 33,
+      "1FTFW1R67DFD58642": 34,
+      "1FTFW1RG0KFB16698": 33,
+      "1FTWW31R28EA44510": 32,
+      "1G1JA5SH5D4108316": 10,
+      "1G1ZD5ST1SF128384": 32,
+      "1GC4YPEY0LF163315": 12,
+      "1GCPTEEK0S1183703": 33,
+      "1GKS2HKJ6HR199395": 12,
+      "1GNEVJKS4RJ222244": 35,
+      "1GNEVJKW6MJ180123": 35,
+      "1GT49NEY5RF180489": 33,
+      "1GTUUDED3TZ239809": 32,
+      "1GTUUGE87SZ325451": 33,
+      "1HGCY2F70RA024183": 33,
+      "1N4BL4CV8KC181774": 3,
+      "1N6AA1ED6MN518106": 34,
+      "1N6ED1EJXNN680322": 11,
+      "1N6ED1EK1RN628690": 33,
+      "1N6ED1EK9PN622875": 32,
+      "2C3CDXGJ3PH701943": 11,
+      "2C3CDZAG2FH843594": 31,
+      "2C3CDZGG7HH592808": 34,
+      "2C4RC1BG1RR115904": 33,
+      "2C4RC1S76MR517829": 37,
+      "2GCVKPEC9K1117773": 3,
+      "2HGFE1F90PH314360": 9,
+      "2HGFE4F89TH326171": 33,
+      "2HKRS6H91SH815823": 33,
+      "2LMPJ6L99KBL53086": 35,
+      "2T36CRAV1TW010598": 2,
+      "2T36DRBV6TW000614": 33,
+      "2T36DRBVXTW002494": 32,
+      "2T3C1RFV3RW329009": 34,
+      "2T3EWRFV0KW036149": 32,
+      "2T3H1RFV5KW041228": 32,
+      "2T3H1RFVXPC237495": 12,
+      "2T3P1RFV6SW534668": 32,
+      "2T3P1RFV8SW566893": 32,
+      "2T3R6RFV1LW001476": 11,
+      "2T3W1RFV2SC320628": 34,
+      "2T3W1RFV2SC341253": 35,
+      "2T3W1RFV2SW377541": 33,
+      "2T3W1RFV2SW407525": 34,
+      "2T3W1RFV3SW388211": 32,
+      "2T3W1RFV5SW382278": 32,
+      "2T3W1RFV6SW377543": 33,
+      "2T3W1RFV6SW388719": 32,
+      "2T3W1RFV7SC325016": 33,
+      "2T3W1RFVXSC320604": 33,
+      "2T3W1RFVXSW443401": 12,
+      "3C4NJDAN3ST530148": 33,
+      "3C4NJDCN0ST550502": 3,
+      "3C4NJDCN2ST597076": 33,
+      "3C4NJDCN9RT595643": 32,
+      "3FA6P0H7XHR221324": 10,
+      "3FTTW8JA4SRB05516": 33,
+      "3GCPABEK0RG203500": 34,
+      "3GCPABEK6SG123060": 10,
+      "3GCPCPEH2JG165459": 10,
+      "3GCPYCEF8LG183069": 33,
+      "3GNAXTEG6TL294512": 33,
+      "3GNKBERS5SS196315": 33,
+      "3GNKBERS6MS513571": 33,
+      "3GTP9EED8MG288428": 12,
+      "3GTU9DED6KG135413": 34,
+      "3GTUUDE8XPG119188": 33,
+      "3GYFNBE31GS510963": 35,
+      "3MZBPABM0RM426403": 32,
+      "3N1AB7AP9JY279056": 11,
+      "3N1AB8CV3SY365790": 32,
+      "3N1AB8CV4SY288668": 33,
+      "3N8AP6DD6SL307425": 33,
+      "3TMCZ5AN0MM431970": 35,
+      "3TMCZ5AN7PM642457": 12,
+      "3TMCZ5AN8PM622055": 33,
+      "3TMDZ5BNXPM161797": 33,
+      "3TMLB5JN6SM105561": 33,
+      "3TMLB5JN9SM095351": 3,
+      "3TYAX5GN3MT015856": 31,
+      "3TYAX5GNXNT042313": 15,
+      "3TYEZ5CN6PT037842": 35,
+      "3TYLB5JN9TT121582": 11,
+      "3TYLC5LN2RT001061": 33,
+      "3TYLC5LN2ST037483": 34,
+      "3TYLC5LN3ST022832": 10,
+      "3TYLC5LN3ST033927": 33,
+      "3TYLC5LNXTT070104": 10,
+      "3VVNB7AX0PM122161": 33,
+      "4JGDA5HB8HA905900": 35,
+      "4T1B11HK5JU064946": 3,
+      "4T1B11HK5KU163607": 33,
+      "4T1B11HKXKU719345": 11,
+      "4T1C11AK3RU214756": 3,
+      "4T1C11AK6MU564536": 32,
+      "4T1CZ1FB9LU045660": 12,
+      "4T1DAACK0SU084913": 32,
+      "4T1DAACK4TU260637": 10,
+      "4T1DAACK6SU120331": 32,
+      "4T1DAACK6SU588432": 32,
+      "4T1DAACK7SU179291": 11,
+      "4T1DAACKXSU635381": 2,
+      "4T1DBADK7SU016085": 34,
+      "4T1FZ1FB0LU039274": 34,
+      "4T1G11AK0MU562301": 32,
+      "4T1G11AK2MU425764": 2,
+      "4T1K61AK4LU978121": 33,
+      "4T1KZ1AK6PU083338": 11,
+      "4T3D6RFV7MU057384": 16,
+      "4T3RWRFV7PU105718": 33,
+      "4T3T6RFV2RU141275": 62,
+      "5FNRL6H95JB059150": 13,
+      "5FNYF9H88TB041773": 35,
+      "5N1BT3BA6SC768537": 32,
+      "5N1DL1FS5RC346463": 14,
+      "5NMJBCDE6SH545192": 32,
+      "5NMMCDTC1SH028530": 34,
+      "5NMP1DGL3RH052111": 33,
+      "5NMP2DGL8TH158462": 33,
+      "5NMP3DGL0SH097460": 34,
+      "5NMP5DGL4SH110902": 34,
+      "5TDAAAA51RS011973": 33,
+      "5TDAAAA54TS041105": 32,
+      "5TDAAAA5XTS043103": 34,
+      "5TDAAAB50SS091481": 33,
+      "5TDAAAB52RS044074": 34,
+      "5TDESKFC9NS069125": 37,
+      "5TDJRKEC2SS274468": 10,
+      "5TDKBRCH0SS687005": 8,
+      "5TDKDRBH1SS586244": 33,
+      "5TDKDRBH6SS586112": 34,
+      "5TDKRKEC3MS056322": 10,
+      "5TDKZ3DC3HS872895": 33,
+      "5TDYK3EHXCS068675": 33,
+      "5TDYRKEC3TS298102": 1,
+      "5TDYRKEC5TS294777": 34,
+      "5TDYRKEC7TS300997": 34,
+      "5TDYRKEC9TS308485": 3,
+      "5TDYRKECXSS259716": 3,
+      "5TDYZRFH6KS348718": 12,
+      "5TFDY5F17KX841248": 34,
+      "5TFHW5F12JX694181": 11,
+      "5TFHY5F14LX936806": 12,
+      "5TFJA5DB8SX328447": 35,
+      "5TFLA5DBXSX287599": 34,
+      "5TFMC5DB8TX135823": 8,
+      "5TFNA5DB1NX033311": 18,
+      "5TFNA5DB1TX400673": 12,
+      "5TFPC5DB3SX105317": 3,
+      "5TFRZ5CN9HX025287": 34,
+      "5TFSZ5AN2KX172076": 8,
+      "5TFWA5DBXSX329475": 3,
+      "5TFWC5DB3TX123619": 35,
+      "5XYP64GC6SG588844": 10,
+      "5YFB4MDE0TP362821": 32,
+      "5YFB4MDE1SP260068": 32,
+      "5YFB4MDE5SP257688": 32,
+      "5YFB4MDE7SP259152": 3,
+      "5YFB4MDE8SP285680": 32,
+      "5YFB4MDE9SP278849": 32,
+      "5YFB4MDEXRP145978": 3,
+      "5YFP4MCE8SP248149": 3,
+      "5YFP4MCEXSP235290": 35,
+      "5YFT4MCE3SP241785": 34,
+      "5YFT4MCE3SP241804": 32,
+      "5YFT4MCE8SP242110": 32,
+      "7FARS6H84SE003071": 33,
+      "7FCTGAAA9NN014845": 32,
+      "7MUCAAAG4NV024050": 11,
+      "7MUDAAAG8RV091471": 14,
+      "JF1ZNBE15S8760182": 8,
+      "JM1NDAM70S0651915": 3,
+      "JM3KFBCM0S0673043": 34,
+      "JM3KFBCM1S0691213": 32,
+      "JM3KFBCM6S0672267": 3,
+      "JM3KFBDM0P0231403": 11,
+      "JM3KKEHA4R1157459": 34,
+      "JN8AY2NE4K9758035": 34,
+      "JN8BT3BA2PW418787": 17,
+      "JTDAAAAF4R3026509": 32,
+      "JTDACAAJ7S3026136": 34,
+      "JTDACAAU3S3060472": 31,
+      "JTDACAAU9S3055762": 9,
+      "JTDACAAU9T3074412": 3,
+      "JTDBCMFE4PJ003451": 33,
+      "JTDBCMFE9R3032404": 33,
+      "JTDKARFP2H3022168": 3,
+      "JTEBU5JR4G5288878": 12,
+      "JTEBU5JR5F5224170": 33,
+      "JTEBU5JR7L5749937": 34,
+      "JTEBU5JR9G5284874": 13,
+      "JTEFU5JR8P5291087": 16,
+      "JTEFU5JR8P5299061": 33,
+      "JTEKU5JR2P6152615": 34,
+      "JTEKU5JR3P6182688": 15,
+      "JTELU5JR6P6173410": 33,
+      "JTEMU5JR5R6287082": 3,
+      "JTEMU5JR8R6252522": 3,
+      "JTERU5JR9R6233094": 34,
+      "JTEVA5BR6S5031802": 32,
+      "JTEVA5BR6S5038300": 2,
+      "JTEVA5BR9S5037948": 32,
+      "JTEVB5BR1T5032578": 33,
+      "JTHD51FF7L5013046": 34,
+      "JTHGA1D26L5105449": 34,
+      "JTHGZ1E23N5024516": 34,
+      "JTJAM7BX1M5270047": 21,
+      "JTMB6RFV7SJ084412": 35,
+      "JTMB6RFV8SJ077954": 35,
+      "JTMEB3FV5RD171837": 33,
+      "JTMH1RFV3MD071179": 8,
+      "KL4CJASB7KB716877": 10,
+      "KM8HBCAB5SU289866": 32,
+      "KM8HBCAB9SU239827": 32,
+      "KM8J33A2XHU394765": 32,
+      "KMHRC8A39SU392246": 32,
+      "KNDJ23AU9P7858666": 32,
+      "KNDPZDDH1R7123788": 9,
+      "LRBAZLR45PD066935": 32,
+      "SADFP2FX9L1013547": 33,
+      "WA1FAAFY5R2116302": 33,
+      "WBXYJ5C55K5N12883": 34,
+      "WDDHH8JB2DA660699": 32,
+      "ZACCJBCT3GPD51498": 11,
+      "ZACNJABB8LPM02691": 33,
+      "ZACNJDB15NPN97094": 33,
+      "ZACNJDB1XPPP59837": 10
+    },
+    "publishable_record_count": 248,
+    "record_count": 249,
+    "surrogate_vin_count": 0,
+    "warnings": [
+      "vehicles_with_single_gallery_photo"
+    ]
+  },
+  "robots_policy": "owner_authorized_override",
+  "run_id": "full-20260825T043406Z",
+  "schema": "weaver.vehicle-manifest",
+  "spec_sha256": "e364fb46b920366d618b4c516a612e2dcba0e45b760801f8ec6860e6446f8023",
+  "status": "partial"
+}

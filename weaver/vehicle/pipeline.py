@@ -1,0 +1,496 @@
+"""Vehicle preset execution seam for the existing Weaver run lifecycle."""
+
+from __future__ import annotations
+
+import asyncio
+from datetime import datetime, timezone
+import ipaddress
+import json
+import os
+from typing import Any
+from urllib.parse import urlsplit
+
+from .artifacts import (
+    MAX_ACTIVE_POINTER_BYTES,
+    VehicleArtifactIntegrityError,
+    VehicleArtifactStore,
+    _active_key,
+    load_verified_active_detail_cache,
+)
+from ..jobs import data_root
+from ..models import FieldSpec as WeaverFieldSpec, ScrapeSpec as WeaverScrapeSpec, SourceResult, VerificationReport
+from .models import parse_spec, spec_sha256
+from .replay import CrawlLimits, replay_fixtures
+from .transport import PersistentDealerSession, capture_dealer_fixtures, discover_vehicle_evidence
+
+
+def _origin_from_url(url: str) -> str:
+    if not isinstance(url, str) or not url.strip():
+        raise ValueError("vehicle URL must be an http(s) URL")
+    try:
+        parsed = urlsplit(url.strip())
+        port = parsed.port
+    except (UnicodeError, ValueError) as exc:
+        raise ValueError("vehicle URL must be a valid http(s) URL") from exc
+    scheme = parsed.scheme.lower()
+    if scheme not in {"http", "https"} or not parsed.hostname:
+        raise ValueError("vehicle URL must be an http(s) URL")
+    if parsed.username or parsed.password:
+        raise ValueError("vehicle URL cannot contain credentials")
+    if port not in {None, 80, 443}:
+        raise ValueError("vehicle URL must use a supported web port")
+    try:
+        ipaddress.ip_address(parsed.hostname)
+    except ValueError:
+        pass
+    else:
+        raise ValueError("vehicle URL cannot use an IP-literal host")
+    try:
+        host = parsed.hostname.encode("idna").decode("ascii").lower()
+    except UnicodeError as exc:
+        raise ValueError("vehicle URL hostname is invalid") from exc
+    default_port = 443 if scheme == "https" else 80
+    netloc = host if port in {None, default_port} else f"{host}:{port}"
+    return f"{scheme}://{netloc}"
+
+
+def _load_active_spec(origin: str):
+    try:
+        bound_origin = _origin_from_url(origin)
+    except ValueError:
+        return None
+    path = data_root() / "vehicle-active" / f"{_active_key(bound_origin)}.json"
+    if not path.is_file():
+        return None
+    try:
+        if path.stat().st_size > MAX_ACTIVE_POINTER_BYTES:
+            return None
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            return None
+        if payload.get("schema") != "weaver.vehicle-active":
+            return None
+        if payload.get("origin") != bound_origin:
+            return None
+        qa = payload.get("qa")
+        if not isinstance(qa, dict):
+            return None
+        if qa.get("passed") is not True or qa.get("complete_snapshot") is not True:
+            return None
+        parsed = parse_spec(payload["spec"])
+        if parsed.origin != bound_origin:
+            return None
+        if payload.get("spec_sha256") != spec_sha256(parsed):
+            return None
+        return parsed
+    except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError):
+        return None
+
+
+_VEHICLE_FIELD_CONTRACT: tuple[tuple[str, str, bool, bool], ...] = (
+    ("vin", "str", False, True),
+    ("vin_is_surrogate", "bool", False, False),
+    ("stock_number", "str", False, False),
+    ("year", "integer", False, True),
+    ("make", "str", False, True),
+    ("model", "str", False, True),
+    ("trim", "str", False, False),
+    ("name", "str", False, False),
+    ("price", "money", False, True),
+    ("mileage", "number", False, True),
+    ("distance_unit", "str", False, False),
+    ("color_ext", "str", False, True),
+    ("color_int", "str", False, False),
+    ("transmission", "str", False, False),
+    ("drivetrain", "str", False, False),
+    ("engine", "str", False, False),
+    ("fuel", "str", False, False),
+    ("body_type", "str", False, False),
+    ("condition", "str", False, False),
+    ("description", "str", False, True),
+    ("features", "list", True, False),
+    ("photos", "image", True, True),
+    ("photo", "image", False, True),
+    ("detail_url", "url", False, True),
+    ("source_listing_url", "url", False, False),
+)
+
+
+def _source_facade(record: Any, spec: Any, replay: Any, manifest: Any) -> SourceResult:
+    fields = [
+        WeaverFieldSpec(
+            name=name,
+            selector="[data-vehicle]",
+            type=field_type,
+            multiple=multiple,
+            required=required,
+        )
+        for name, field_type, multiple, required in _VEHICLE_FIELD_CONTRACT
+    ]
+    null_rate = 0.0
+    if replay.records:
+        required_names = tuple(
+            name for name, _field_type, _multiple, required in _VEHICLE_FIELD_CONTRACT if required
+        )
+        null_rate = sum(
+            1
+            for row in replay.records
+            for name in required_names
+            if row.get(name) in (None, "", [])
+        ) / (len(replay.records) * len(required_names))
+    verification = VerificationReport(
+        attempt=1,
+        passed=_complete_replay(replay),
+        row_count=len(replay.records),
+        field_count=len(fields),
+        null_rate=null_rate,
+        duplicate_rate=0.0,
+        issues=list(replay.qa.issues),
+    )
+    return SourceResult(
+        url=record.request.urls[0],
+        final_url=spec.start_urls[0],
+        category="automotive",
+        rows=[dict(row) for row in replay.records],
+        spec=WeaverScrapeSpec(
+            source_url=spec.start_urls[0],
+            category="automotive",
+            strategy="css",
+            render_mode="browser",
+            max_items=len(replay.records) or 1,
+            max_pages=len(replay.evidence.listing_pages) or 1,
+            min_rows=1,
+            robots_policy="owner_authorized_override",
+            container="vehicle-v2",
+            fields=fields,
+            requested_field_names=[field.name for field in fields],
+        ),
+        verification=verification,
+        fixture_name=str((manifest.parent / "fixtures").relative_to(record.run_dir)),
+        scraper_name="vehicle-v2/deterministic-runtime",
+        robots_url="",
+        robots_allowed=None,
+        robots_policy="owner_authorized_override",
+        robots_reason="Customer-owned authorization attestation; robots policy intentionally not consulted",
+        pages_scraped=len(replay.evidence.listing_pages),
+        pagination_stop_reason=replay.evidence.stop_reason,
+        page_urls=list(replay.evidence.listing_pages),
+    )
+
+
+def _complete_replay(replay: Any) -> bool:
+    return bool(replay.qa.passed and replay.qa.complete_snapshot)
+
+
+async def _discover_and_infer(
+    record: Any,
+    session: PersistentDealerSession,
+    *,
+    source_id: str,
+    requested_origin: str,
+) -> tuple[Any, dict[str, Any]]:
+    """Rediscover current evidence and infer one locally replay-gated spec."""
+
+    from .infer import infer_vehicle_spec
+
+    listing_url, listing_html, detail_url, detail_html, candidates = (
+        await discover_vehicle_evidence(
+            record.request.urls[0],
+            session,
+            max_candidates=8,
+        )
+    )
+    await record.emit(
+        "vehicle_discovery",
+        {
+            "selected_url": listing_url,
+            "representative_detail_url": detail_url,
+            "candidates_considered": len(candidates),
+        },
+        source_id,
+    )
+    inferred, inference_meta = await asyncio.to_thread(
+        infer_vehicle_spec,
+        listing_html,
+        listing_url,
+        detail_html=detail_html,
+        detail_url=detail_url,
+        start_urls=[listing_url],
+        api_key=os.getenv("OPENAI_API_KEY"),
+        max_attempts=3,
+    )
+    candidate = parse_spec(inferred)
+    if candidate.origin != requested_origin:
+        raise ValueError("inferred vehicle spec escaped the authorized origin")
+    return candidate, dict(inference_meta)
+
+
+async def run_vehicle_pipeline(record: Any) -> None:
+    """Run an authorized vehicle job without generic robots or codegen paths."""
+
+    options = record.request.options
+    if options.preset != "automotive.vehicle-v2":
+        raise ValueError("vehicle pipeline called without automotive.vehicle-v2 preset")
+    if not options.authorization or not options.authorization.owner_authorized:
+        raise PermissionError("vehicle preset requires owner authorization")
+    record.summary.status = "running"
+    record.persist_summary()
+    await record.emit("run", {"id": record.summary.id, "status": "running", "url_count": len(record.request.urls), "preset": "automotive.vehicle-v2"})
+    source_id = "source-1"
+    # Copy per-run Cloudflare Access credentials exactly once. They are
+    # supplied by the authenticated AutoPosting server, never serialized into
+    # the request/artifacts, and are cleared from the in-memory RunRecord in
+    # the finally block below on every terminal path.
+    run_access_id = getattr(record, "vehicle_cf_access_client_id", None)
+    run_access_secret = getattr(record, "vehicle_cf_access_client_secret", None)
+    try:
+        requested_origin = _origin_from_url(record.request.urls[0])
+        active_spec = _load_active_spec(requested_origin) if not options.vehicle_spec else None
+        spec = parse_spec(options.vehicle_spec) if options.vehicle_spec else active_spec
+        active_before = spec_sha256(active_spec) if active_spec is not None else None
+        verified_detail_cache: dict[str, Any] = {}
+        if active_spec is not None:
+            try:
+                verified_detail_cache = load_verified_active_detail_cache(
+                    data_root(),
+                    requested_origin,
+                    active_spec,
+                )
+            except VehicleArtifactIntegrityError:
+                # First runs, legacy LKGs, deleted source runs, and any integrity
+                # drift all take the same safe path: hydrate every VDP normally.
+                verified_detail_cache = {}
+        attestation = options.authorization.model_dump(mode="json")
+        # This is an observable configuration fact, never a credential value.
+        attestation["cf_access_configured"] = bool(
+            (
+                (run_access_id or "").strip()
+                and (run_access_secret or "").strip()
+            )
+            or (
+                os.getenv("WEAVER_CF_ACCESS_CLIENT_ID", "").strip()
+                and os.getenv("WEAVER_CF_ACCESS_CLIENT_SECRET", "").strip()
+                and os.getenv("WEAVER_CF_ACCESS_ORIGIN", "").strip()
+            )
+        )
+        limits = CrawlLimits(
+            max_listing_pages=options.max_pages,
+            max_records=options.max_items,
+            max_detail_pages=options.max_items,
+        )
+        await record.emit("phase", {"name": "vehicle_authorization", "label": "checking customer authorization attestation"}, source_id)
+        await record.log("Customer-owned vehicle mode authorized; robots policy is owner_authorized_override", "ok", source_id)
+        await record.emit("phase", {"name": "vehicle_fetch", "label": "capturing inventory and VDP fixtures"}, source_id)
+
+        # The one persistent dealer session owns every network step in this
+        # run, including rediscovery after a stale active spec. Replay itself is
+        # local but intentionally occurs before the context closes so a failed
+        # active attempt can immediately reuse challenge cookies and storage.
+        session_origin = spec.origin if spec is not None else requested_origin
+        attempt_reports: list[Any] = []
+        async with PersistentDealerSession(
+            session_origin,
+            access_client_id=run_access_id,
+            access_client_secret=run_access_secret,
+        ) as session:
+            if spec is None:
+                spec, _ = await _discover_and_infer(
+                    record,
+                    session,
+                    source_id=source_id,
+                    requested_origin=requested_origin,
+                )
+
+            active_attempt_error: Exception | None = None
+            try:
+                if verified_detail_cache:
+                    fixtures = await capture_dealer_fixtures(
+                        spec,
+                        session,
+                        limits=limits,
+                        verified_detail_cache=verified_detail_cache,
+                    )
+                else:
+                    fixtures = await capture_dealer_fixtures(
+                        spec,
+                        session,
+                        limits=limits,
+                    )
+                await record.emit(
+                    "phase",
+                    {
+                        "name": "vehicle_replay",
+                        "label": "replaying deterministic vehicle extractor",
+                    },
+                    source_id,
+                )
+                replay = replay_fixtures(
+                    spec,
+                    fixtures,
+                    max_listing_pages=limits.max_listing_pages,
+                    max_records=limits.max_records,
+                    max_detail_pages=limits.max_detail_pages,
+                )
+                attempt_reports.append(replay.qa)
+            except Exception as exc:
+                if active_spec is None:
+                    raise
+                active_attempt_error = exc
+
+            needs_replacement = bool(
+                active_spec is not None
+                and (
+                    active_attempt_error is not None
+                    or not _complete_replay(replay)
+                )
+            )
+            if needs_replacement:
+                reason = (
+                    f"capture failed with {type(active_attempt_error).__name__}"
+                    if active_attempt_error is not None
+                    else "deterministic QA rejected the active spec"
+                )
+                await record.log(
+                    f"Active vehicle spec {reason}; rediscovering current inventory evidence",
+                    "warn",
+                    source_id,
+                )
+                await record.emit(
+                    "phase",
+                    {
+                        "name": "vehicle_repair",
+                        "label": "active spec failed; rediscovering and inferring a bounded replacement",
+                    },
+                    source_id,
+                )
+                candidate, _ = await _discover_and_infer(
+                    record,
+                    session,
+                    source_id=source_id,
+                    requested_origin=requested_origin,
+                )
+                candidate_fixtures = await capture_dealer_fixtures(
+                    candidate,
+                    session,
+                    limits=limits,
+                )
+                candidate_replay = replay_fixtures(
+                    candidate,
+                    candidate_fixtures,
+                    max_listing_pages=limits.max_listing_pages,
+                    max_records=limits.max_records,
+                    max_detail_pages=limits.max_detail_pages,
+                )
+                attempt_reports.append(candidate_replay.qa)
+                # A failed candidate is still useful immutable diagnostic
+                # evidence for this run, but promotion remains independently
+                # gated on passed+complete below. It can never overwrite LKG.
+                spec = candidate
+                fixtures = candidate_fixtures
+                replay = candidate_replay
+
+            transport_mode = session.last_mode
+
+        await record.emit(
+            "vehicle_transport",
+            {
+                "mode": transport_mode,
+                "listing_pages": len(fixtures.listing_pages),
+                "detail_pages": len(fixtures.detail_pages),
+                "detail_reuse_eligible": fixtures.reuse_eligible_count,
+                "detail_reused": len(fixtures.reused_detail_fixture_paths),
+                "detail_refetched": fixtures.reuse_refetched_count,
+            },
+            source_id,
+        )
+        if spec is None:  # Defensive type/runtime closure after URL inference.
+            raise RuntimeError("vehicle pipeline produced no validated spec")
+
+        passed = _complete_replay(replay)
+        reuse_stats = {
+            "eligible": fixtures.reuse_eligible_count,
+            "reused": len(fixtures.reused_detail_fixture_paths),
+            "refetched": fixtures.reuse_refetched_count,
+        }
+        store = VehicleArtifactStore(
+            record.run_dir,
+            record.summary.id,
+            spec.origin,
+            record.parent_run_id,
+            record.generation,
+            attestation,
+        )
+        store.write_spec(spec)
+        for index, (url, html) in enumerate(fixtures.listing_pages.items(), start=1):
+            store.write_fixture(f"listing-{index}-{url}", html)
+        detail_fixture_paths: dict[str, Any] = {}
+        for index, (url, html) in enumerate(fixtures.detail_pages.items(), start=1):
+            reused_source = fixtures.reused_detail_fixture_paths.get(url)
+            path = (
+                store.link_fixture(f"detail-{index}-{url}", reused_source)
+                if reused_source is not None
+                else store.write_fixture(f"detail-{index}-{url}", html)
+            )
+            detail_fixture_paths[url] = path
+        for attempt, report in enumerate(attempt_reports, start=1):
+            store.write_qa(
+                attempt,
+                report,
+                stage="full_replay",
+                metadata={"reuse": reuse_stats},
+            )
+        store.write_records([dict(row) for row in replay.records])
+        if passed:
+            store.write_reuse_index(
+                spec,
+                [dict(row) for row in replay.records],
+                detail_fixture_paths,
+                fixtures.detail_etags,
+            )
+        run_status = "passed" if passed else "partial" if replay.records else "failed"
+        active_dir = data_root() / "vehicle-active"
+        manifest = store.finalize(
+            spec,
+            replay.qa,
+            status=run_status,
+            active_before=active_before,
+            active_dir=active_dir if run_status == "passed" else None,
+            reuse_stats=reuse_stats,
+        )
+        record.summary.status = run_status
+        record.summary.completed_at = datetime.now(timezone.utc)
+        record.summary.row_count = len(replay.records)
+        record.summary.source_count = 1
+        record.summary.errors = list(replay.qa.issues)
+        record.results.clear()
+        record.results.append(_source_facade(record, spec, replay, manifest))
+        record.summary.artifacts["vehicle_manifest"] = f"/api/runs/{record.summary.id}/artifacts/{manifest.relative_to(record.run_dir).as_posix()}"
+        record.summary.artifacts["vehicle_records"] = f"/api/runs/{record.summary.id}/artifacts/{(store.root / 'records.jsonl').relative_to(record.run_dir).as_posix()}"
+        await record.emit(
+            "qa",
+            {
+                "preset": "automotive.vehicle-v2",
+                **replay.qa.as_dict(),
+                "reuse": reuse_stats,
+            },
+            source_id,
+        )
+        await record.emit("artifact", {"name": "vehicle_manifest", "url": record.summary.artifacts["vehicle_manifest"]}, source_id)
+        record.persist_summary()
+        await record.emit("done", record.summary.model_dump(mode="json"))
+    except Exception as exc:
+        record.summary.status = "failed"
+        record.summary.completed_at = datetime.now(timezone.utc)
+        record.summary.errors.append(str(exc))
+        record.persist_summary()
+        error_payload = {"url": record.request.urls[0], "message": str(exc), "error_type": type(exc).__name__}
+        if getattr(exc, "owner_action_required", False):
+            error_payload.update({"error_code": getattr(exc, "code", "owner_action_required"), "owner_action_required": True})
+        await record.emit("error", error_payload, source_id)
+        await record.emit("done", record.summary.model_dump(mode="json"))
+    finally:
+        # Never retain customer service-token material in the process-local
+        # run registry after the crawl, even though persist_summary() already
+        # excludes these fields from disk.
+        record.vehicle_cf_access_client_id = None
+        record.vehicle_cf_access_client_secret = None

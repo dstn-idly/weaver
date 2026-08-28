@@ -41,7 +41,7 @@ from typing import Any, Iterable
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
 from scrapling import Selector
-from scrapling.fetchers import AsyncDynamicSession, FetcherSession
+from scrapling.fetchers import AsyncStealthySession, FetcherSession
 from scrapling.spiders import Request, Response, SessionManager, Spider
 from protego import Protego
 
@@ -53,8 +53,12 @@ ALLOWED_NETLOC = urlsplit(SPEC["source_url"]).netloc
 _ROBOTS_PARSER: Protego | None = None
 _BROWSER_DELAY = 1.0
 _PUBLIC_HOST_CACHE: dict[str, bool] = {{}}
+ROBOTS_POLICY = SPEC.get("robots_policy", "fail_closed")
+ROBOTS_BYPASS = ROBOTS_POLICY == "client_authorized_bypass"
 MAX_ITEMS = int(SPEC.get("max_items", 100))
 MAX_PAGES = int(SPEC.get("max_pages", 25))
+MIN_ROWS = int(SPEC.get("min_rows", 1))
+PRIORITIZED_FIELDS = [str(name) for name in SPEC.get("requested_field_names", []) if name]
 NEXT_SELECTOR = SPEC.get("next_page_selector")
 ACTIVE_FIELDS = [
     field for field in SPEC["fields"]
@@ -80,6 +84,9 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 def preflight_robots(url: str) -> float:
     """Fail closed if robots rules cannot be evaluated."""
     global _ROBOTS_PARSER, _BROWSER_DELAY
+    if ROBOTS_BYPASS:
+        print("[Weaver] robots.txt: CLIENT-AUTHORIZED BYPASS — not fetched or enforced", flush=True)
+        return _BROWSER_DELAY
     robots_url = _robots_url(url)
     opener = urllib.request.build_opener(_NoRedirect)
     lines: list[str] | None = None
@@ -120,6 +127,13 @@ def preflight_robots(url: str) -> float:
     return _BROWSER_DELAY
 
 
+def _robots_allows(url: str) -> bool:
+    return ROBOTS_BYPASS or (
+        _ROBOTS_PARSER is not None
+        and _ROBOTS_PARSER.can_fetch(url, "WeaverBot")
+    )
+
+
 async def _public_browser_url(url: str) -> bool:
     parsed = urlsplit(url)
     if parsed.scheme not in {{"http", "https"}} or not parsed.hostname:
@@ -157,8 +171,7 @@ async def _browser_page_setup(page: Any) -> None:
             if (
                 parsed.scheme not in {{"http", "https"}}
                 or parsed.netloc != ALLOWED_NETLOC
-                or _ROBOTS_PARSER is None
-                or not _ROBOTS_PARSER.can_fetch(request.url, "WeaverBot")
+                or not _robots_allows(request.url)
             ):
                 await route.abort()
                 return
@@ -363,7 +376,11 @@ def _detail_url_for(row: dict[str, Any]) -> str | None:
         return None
     if DETAIL.get("append_trailing_slash") and not parsed.path.endswith("/"):
         value = urlunsplit((parsed.scheme, parsed.netloc, parsed.path + "/", parsed.query, ""))
-    if _ROBOTS_PARSER is not None and not _ROBOTS_PARSER.can_fetch(value, "WeaverBot"):
+    if (
+        not ROBOTS_BYPASS
+        and _ROBOTS_PARSER is not None
+        and not _ROBOTS_PARSER.can_fetch(value, "WeaverBot")
+    ):
         return None
     return value
 
@@ -372,7 +389,7 @@ class GeneratedSpider(Spider):
     name = "weaver_generated"
     start_urls = [SPEC["source_url"]]
     allowed_domains = {{{hostname!r}}}
-    robots_txt_obey = True
+    robots_txt_obey = not ROBOTS_BYPASS
     concurrent_requests = 1
     concurrent_requests_per_domain = 1
     download_delay = 1.0
@@ -380,20 +397,25 @@ class GeneratedSpider(Spider):
 
     def configure_sessions(self, manager: SessionManager) -> None:
         if SPEC.get("render_mode") == "browser":
+            browser_options = {{
+                "max_pages": 1,
+                "headless": True,
+                "network_idle": False,
+                "timeout": 90_000,
+                "solve_cloudflare": True,
+                "page_setup": _browser_page_setup,
+                "retries": 3,
+                "wait": 1_500,
+            }}
+            if not ROBOTS_BYPASS:
+                browser_options.update({{
+                    "useragent": USER_AGENT,
+                    "extra_headers": {{"User-Agent": USER_AGENT}},
+                    "google_search": False,
+                }})
             manager.add(
                 "default",
-                AsyncDynamicSession(
-                    max_pages=1,
-                    headless=True,
-                    network_idle=False,
-                    timeout=30_000,
-                    useragent=USER_AGENT,
-                    extra_headers={{"User-Agent": USER_AGENT}},
-                    google_search=False,
-                    page_setup=_browser_page_setup,
-                    retries=0,
-                    wait=750,
-                ),
+                AsyncStealthySession(**browser_options),
             )
         else:
             manager.add(
@@ -420,8 +442,7 @@ class GeneratedSpider(Spider):
             if (
                 next_parts.scheme not in {{"http", "https"}}
                 or next_parts.netloc != ALLOWED_NETLOC
-                or _ROBOTS_PARSER is None
-                or not _ROBOTS_PARSER.can_fetch(next_url, "WeaverBot")
+                or not _robots_allows(next_url)
             ):
                 print(f"[Weaver] detail redirect rejected: {{next_url}}", flush=True)
                 yield row
@@ -449,7 +470,7 @@ class GeneratedSpider(Spider):
             next_parts = urlsplit(next_url)
             if next_parts.scheme not in {{"http", "https"}} or next_parts.netloc != ALLOWED_NETLOC:
                 raise RuntimeError("Redirect left the generated scraper's allowed domain")
-            if _ROBOTS_PARSER is None or not _ROBOTS_PARSER.can_fetch(next_url, "WeaverBot"):
+            if not _robots_allows(next_url):
                 raise RuntimeError("Redirect target is disallowed by robots.txt")
             await asyncio.sleep(_BROWSER_DELAY)
             yield Request(next_url, callback=self.parse, meta={{"redirect_count": redirect_count + 1}})
@@ -517,7 +538,7 @@ class GeneratedSpider(Spider):
         if _canonical_url(next_url) in seen_urls:
             print(f"[Weaver] stop: next link cycles to {{next_url}}", flush=True)
             return
-        if _ROBOTS_PARSER is None or not _ROBOTS_PARSER.can_fetch(next_url, "WeaverBot"):
+        if not _robots_allows(next_url):
             print(f"[Weaver] stop: robots.txt disallows next page {{next_url}}", flush=True)
             return
         print(f"[Weaver] next page inferred: {{next_url}}", flush=True)
@@ -578,6 +599,18 @@ def _validate_runtime_contract(rows: Iterable[dict[str, Any]]) -> list[dict[str,
     materialized = list(rows)
     if not materialized:
         raise RuntimeError("Selector contract failed: the scraper returned zero rows")
+    if len(materialized) < MIN_ROWS:
+        raise RuntimeError(
+            f"Selector contract failed: expected at least {{MIN_ROWS}} records but received {{len(materialized)}}"
+        )
+    if PRIORITIZED_FIELDS and not any(
+        row.get(name) not in (None, "", [])
+        for row in materialized
+        for name in PRIORITIZED_FIELDS
+    ):
+        raise RuntimeError(
+            "Selector contract failed: none of the prioritized requested fields produced data"
+        )
     for field in ACTIVE_FIELDS + ACTIVE_DETAIL_FIELDS:
         if not field.get("required"):
             continue
@@ -603,6 +636,7 @@ def _report_failure(report_url: str, scraper_version: str, error: Exception) -> 
         "failed_url": SPEC["source_url"],
         "scraper_version": scraper_version,
         "selector": SPEC.get("container"),
+        "robots_policy": ROBOTS_POLICY,
         "observed_at": datetime.now(timezone.utc).isoformat(),
         "auto_rebuild": True,
     }}).encode("utf-8")

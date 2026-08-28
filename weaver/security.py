@@ -12,6 +12,16 @@ class UnsafeTargetError(ValueError):
     """Raised when a user-supplied target could reach a protected network."""
 
 
+class TargetResolutionError(UnsafeTargetError):
+    """A public-target DNS lookup produced no usable address.
+
+    This subtype is deliberately narrower than ``UnsafeTargetError`` so a
+    caller may apply a small transport retry to resolver failures without ever
+    retrying a successful resolution that was rejected as private, local, or
+    otherwise unsafe.
+    """
+
+
 @dataclass(frozen=True)
 class SafeTarget:
     url: str
@@ -62,11 +72,11 @@ async def validate_public_url(url: str) -> SafeTarget:
             type=socket.SOCK_STREAM,
         )
     except socket.gaierror as exc:
-        raise UnsafeTargetError(f"Could not resolve {hostname}") from exc
+        raise TargetResolutionError(f"Could not resolve {hostname}") from exc
 
     addresses = tuple(sorted({entry[4][0] for entry in info}))
     if not addresses:
-        raise UnsafeTargetError(f"Could not resolve {hostname}")
+        raise TargetResolutionError(f"Could not resolve {hostname}")
     if not _truthy("WEAVER_ALLOW_PRIVATE_NETWORKS"):
         protected = [address for address in addresses if _is_protected(address)]
         if protected:

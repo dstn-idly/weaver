@@ -42,8 +42,8 @@ _SYNONYMS = (
     {"news", "article", "articles", "story", "stories", "post", "posts", "blog", "blogs", "headline", "headlines", "summary", "summaries"},
 )
 _DATA_ROUTE_WORDS = {
-    "archive", "books", "catalog", "catalogue", "category", "collection", "inventory", "jobs",
-    "listings", "products", "search", "shop", "used", "vehicles",
+    "archive", "books", "career", "careers", "catalog", "catalogue", "category", "collection",
+    "inventory", "jobs", "listings", "openings", "products", "roles", "search", "shop", "used", "vehicles",
 }
 _NEGATIVE_ROUTE_WORDS = {
     "account", "apply", "cart", "checkout", "contact", "cookie", "finance", "legal", "login",
@@ -294,7 +294,27 @@ def assess_target_page(
         fields = tuple(field.name for field in analysis.spec.fields)
         repeated = len(rows) >= 2 and (analysis.spec.container != "body" or analysis.spec.strategy == "jsonld")
         rich = [name for name in fields if name not in {"name", "title", "text", "url", "link", "image"}]
-        dataset_quality = repeated and len(fields) >= 2 and bool(rich or analysis.spec.strategy == "jsonld")
+        record_urls: set[str] = set()
+        for row in rows:
+            for name in ("apply_url", "url", "ticket_url", "detail_url"):
+                value = row.get(name)
+                if isinstance(value, str) and value:
+                    record_urls.add(value)
+        routed_urls = 0
+        for record_url in record_urls:
+            route_tokens = _tokens(urlsplit(record_url).path)
+            if route_tokens & _DATA_ROUTE_WORDS and any(_matches(term, route_tokens) for term in terms):
+                routed_urls += 1
+        root_routed_collection = (
+            candidate.kind == "root"
+            and "title" in fields
+            and any(name in fields for name in ("apply_url", "url", "ticket_url", "detail_url"))
+            and len(record_urls) >= 3
+            and routed_urls * 5 >= len(record_urls) * 4
+        )
+        dataset_quality = repeated and len(fields) >= 2 and bool(
+            rich or analysis.spec.strategy == "jsonld" or root_routed_collection
+        )
         category_match = category_hint == "auto" or analysis.spec.category == category_hint
     except Exception:
         rows, fields, rich, dataset_quality, category_match = [], (), [], False, False
@@ -402,7 +422,7 @@ async def discover_target(
                 "intent": intent,
                 "from_url": page.url,
                 "candidate_count": len(next_candidates),
-                "message": f"Found {len(next_candidates)} permitted same-site link/search candidates",
+                "message": f"Found {len(next_candidates)} same-site candidates allowed by the active server policy",
             },
         )
         ordered = next_candidates

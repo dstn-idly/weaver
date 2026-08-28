@@ -1,0 +1,14 @@
+{
+  "active_before": null,
+  "authorization_attestation": {
+    "authorization": "owner_authorized_test",
+    "robots_policy": "vehicle_path_no_robots_request"
+  },
+  "generation": 1,
+  "parent_run_id": null,
+  "promoted": false,
+  "robots_policy": "owner_authorized_override",
+  "run_id": "sample-20260825T040645Z",
+  "spec_sha256": "e364fb46b920366d618b4c516a612e2dcba0e45b760801f8ec6860e6446f8023",
+  "status": "passed"
+}

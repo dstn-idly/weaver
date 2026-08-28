@@ -1,0 +1,219 @@
+"""The factory worker: link in → verified extension config + verdict out.
+
+One job at a time (the box also runs customer crawls). Each stage streams its
+decisions into the job's event feed. The Weaver run itself is created through
+the container's own HTTP API with a self-minted owner attestation — the exact
+production handoff, not a shortcut.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import os
+from typing import Any
+from urllib.parse import urlsplit
+
+import httpx
+
+from .attestation import mint_owner_attestation
+from .luna import luna_qa_review
+from .simulate import simulate_listing_config
+from .store import FactoryJob, FactoryStore
+from .translate import TranslateError, translate_spec_to_extension_config
+
+SELF_BASE = os.getenv("WEAVER_SELF_BASE_URL", "http://127.0.0.1:8000")
+POLL_SECONDS = 15
+MAX_RUN_MINUTES = 150
+
+
+def _auth_headers() -> dict[str, str]:
+    token = os.getenv("WEAVER_API_TOKEN", "").strip()
+    return {"Authorization": f"Bearer {token}"} if token else {}
+
+
+async def _api(client: httpx.AsyncClient, method: str, path: str, **kwargs: Any) -> httpx.Response:
+    response = await client.request(method, f"{SELF_BASE}{path}", headers=_auth_headers(), **kwargs)
+    response.raise_for_status()
+    return response
+
+
+async def _create_run(client: httpx.AsyncClient, job: FactoryJob) -> str:
+    attestation = mint_owner_attestation(job.origin, org=f"factory:{job.id}")
+    body = {
+        "urls": [job.url],
+        "options": {
+            "preset": "automotive.vehicle-v2",
+            # Mirror the production handoff's crawl budget: the model defaults
+            # (100 items / 25 pages) silently truncate a real lot.
+            "category": "automotive",
+            "output_format": "json",
+            "image_mode": "links",
+            "render_mode": "auto",
+            "max_items": 2000,
+            "max_pages": 200,
+            "use_ai": True,
+            "authorization": {
+                "owner_authorized": True,
+                "attested_by": "factory-prototype",
+                "authorization_reference": job.id,
+                "authorized_origin": job.origin,
+                "robots_policy": "owner_authorized_override",
+            },
+        },
+    }
+    headers = dict(_auth_headers())
+    headers["x-weaver-authorization-attestation"] = attestation
+    response = await client.post(f"{SELF_BASE}/api/runs", json=body, headers=headers)
+    response.raise_for_status()
+    return str(response.json()["id"])
+
+
+async def _poll_run(client: httpx.AsyncClient, store: FactoryStore, job: FactoryJob, run_id: str) -> dict[str, Any]:
+    last_status = ""
+    for _ in range(int(MAX_RUN_MINUTES * 60 / POLL_SECONDS)):
+        response = await _api(client, "GET", f"/api/runs/{run_id}")
+        run = response.json()
+        status = str(run.get("status"))
+        if status != last_status:
+            last_status = status
+            await store.emit(job, "run_status", {"run_id": run_id, "status": status, "row_count": run.get("row_count")})
+        if status in ("passed", "partial", "failed"):
+            return run
+        await asyncio.sleep(POLL_SECONDS)
+    raise TimeoutError(f"weaver run {run_id} exceeded the factory polling budget")
+
+
+async def _artifact(client: httpx.AsyncClient, run_id: str, name: str) -> Any:
+    response = await _api(client, "GET", f"/api/runs/{run_id}/artifacts/vehicle-v2/{name}")
+    if name.endswith(".jsonl"):
+        return [json.loads(line) for line in response.text.splitlines() if line.strip()]
+    return response.json()
+
+
+async def process_job(store: FactoryStore, job: FactoryJob) -> None:
+    job.state = "running"
+    job.stage = "crawl"
+    store.persist(job)
+    await store.emit(job, "stage", {"stage": "crawl", "detail": "creating an owner-attested verification run"})
+    async with httpx.AsyncClient(timeout=60.0, trust_env=False) as client:
+        run_id = await _create_run(client, job)
+        job.run_id = run_id
+        store.persist(job)
+        await store.emit(job, "run_created", {"run_id": run_id, "events_url": f"/api/runs/{run_id}/events"})
+
+        run = await _poll_run(client, store, job, run_id)
+        qa = {}
+        records: list[dict[str, Any]] = []
+        try:
+            manifest = await _artifact(client, run_id, "manifest.json")
+            qa = manifest.get("qa") or {}
+            records = await _artifact(client, run_id, "records.jsonl")
+        except httpx.HTTPStatusError:
+            await store.emit(job, "stage", {"stage": "crawl", "detail": "run published no artifacts"})
+        await store.emit(
+            job,
+            "crawl_done",
+            {
+                "status": run.get("status"),
+                "row_count": run.get("row_count"),
+                "errors": (run.get("errors") or [])[:8],
+                "qa_issues": (qa.get("issues") or [])[:8],
+            },
+        )
+        if run.get("status") == "failed":
+            raise RuntimeError(f"verification crawl failed: {(run.get('errors') or ['unknown'])[0]}")
+
+        job.stage = "translate"
+        store.persist(job)
+        spec = await _artifact(client, run_id, "spec.json")
+        (store.artifact_path(job, "weaver-spec.json")).write_text(json.dumps(spec, indent=1), encoding="utf-8")
+        try:
+            config, notes = translate_spec_to_extension_config(spec)
+        except TranslateError as error:
+            await store.emit(job, "translate_failed", {"error": str(error)})
+            raise
+        (store.artifact_path(job, "extension-config.json")).write_text(json.dumps(config, indent=1), encoding="utf-8")
+        await store.emit(job, "translated", {"config": config, "dropped": notes})
+
+        job.stage = "simulate"
+        store.persist(job)
+        known_vins = {
+            str(record.get("vin") or "").upper()
+            for record in records
+            if record.get("vin")
+        }
+
+        async def sim_emit(event_type: str, payload: dict[str, Any]) -> None:
+            await store.emit(job, event_type, payload)
+
+        simulation = await simulate_listing_config(config, job.url, known_vins=known_vins, emit=sim_emit)
+        (store.artifact_path(job, "simulation.json")).write_text(json.dumps(simulation, indent=1), encoding="utf-8")
+        await store.emit(job, "simulated", {k: v for k, v in simulation.items() if k != "pages"})
+
+        job.stage = "luna_qa"
+        store.persist(job)
+
+        async def luna_emit(event_type: str, payload: dict[str, Any]) -> None:
+            await store.emit(job, event_type, payload)
+
+        verdict = await luna_qa_review(qa=qa, samples=records[:3], simulation=simulation, emit=luna_emit)
+        (store.artifact_path(job, "luna-verdict.json")).write_text(json.dumps(verdict, indent=1), encoding="utf-8")
+
+        crawl_ok = run.get("status") == "passed"
+        job.verdict = (
+            "ship"
+            if crawl_ok and simulation.get("passed") and verdict.get("verdict") == "ship"
+            else "needs_repair"
+            if not crawl_ok or not simulation.get("passed") or verdict.get("verdict") == "needs_repair"
+            else "review"
+        )
+        job.state = "done"
+        job.stage = "done"
+        store.persist(job)
+        await store.emit(
+            job,
+            "done",
+            {
+                "verdict": job.verdict,
+                "crawl": run.get("status"),
+                "simulation_passed": simulation.get("passed"),
+                "luna": verdict.get("verdict"),
+            },
+        )
+
+
+async def factory_worker(store: FactoryStore) -> None:
+    while True:
+        job = store.next_queued()
+        if job is None:
+            store.wakeup.clear()
+            try:
+                await asyncio.wait_for(store.wakeup.wait(), timeout=30)
+            except asyncio.TimeoutError:
+                pass
+            continue
+        try:
+            await process_job(store, job)
+        except Exception as error:  # noqa: BLE001 - every failure must land on the portal
+            job.state = "failed"
+            job.stage = "failed"
+            job.error = str(error)[:400]
+            store.persist(job)
+            try:
+                await store.emit(job, "failed", {"error": job.error})
+            except Exception:  # noqa: BLE001
+                pass
+
+
+def parse_intake_url(raw: str) -> tuple[str, str]:
+    """Validate an intake link; return (url, origin). Deep checks happen in the run."""
+
+    candidate = (raw or "").strip()
+    parts = urlsplit(candidate)
+    if parts.scheme != "https" or not parts.hostname or "." not in parts.hostname:
+        raise ValueError("intake links must be https dealership URLs")
+    if len(candidate) > 2_048:
+        raise ValueError("intake link is too long")
+    origin = f"https://{parts.netloc.lower()}"
+    return candidate, origin

@@ -1,0 +1,36 @@
+{
+  "sites": [
+    {
+      "slug": "orlandonissan-com",
+      "name": "Sutherlin Nissan of Orlando",
+      "country": "US",
+      "homepage": "https://orlandonissan.com",
+      "expected_platform": "Team Velocity (Apollo)",
+      "inventory_hint": "/inventory/used"
+    },
+    {
+      "slug": "huberautomotive-com",
+      "name": "Huber Automotive (Heath, OH)",
+      "country": "US",
+      "homepage": "https://www.huberautomotive.com",
+      "expected_platform": "Dealer.com (Cox)",
+      "inventory_hint": "/promotions/used/index.htm"
+    },
+    {
+      "slug": "rideplaza-com",
+      "name": "Ride Plaza (Loganville, GA)",
+      "country": "US",
+      "homepage": "https://rideplaza.com",
+      "expected_platform": "unidentified",
+      "inventory_hint": "/used-cars-for-sale"
+    },
+    {
+      "slug": "centreautomobilesduquebec-com",
+      "name": "Centre Automobile du Quebec (Laval, QC)",
+      "country": "CA",
+      "homepage": "https://www.centreautomobilesduquebec.com",
+      "expected_platform": "ADWS",
+      "inventory_hint": "/fr/occasion"
+    }
+  ]
+}

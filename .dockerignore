@@ -1,7 +1,15 @@
 .git
 .env
+.env.*
 .venv
 __pycache__
 .pytest_cache
-data/runs
+data
+bench
+tests
+postman
+.claude
+.DS_Store
+requirements-dev.txt
+pytest.ini
 *.pyc

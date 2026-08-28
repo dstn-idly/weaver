@@ -187,3 +187,58 @@ async def test_news_intent_accepts_an_existing_repeated_blog_collection() -> Non
     assert outcome.page.url == "https://blog.example/"
     assert outcome.summary.method == "root"
     assert outcome.summary.pages_examined == ["https://blog.example/"]
+
+
+@pytest.mark.asyncio
+async def test_job_intent_accepts_root_title_and_routed_apply_links() -> None:
+    jobs = "".join(
+        f'<article class="job-card"><h2>Engineer {number}</h2>'
+        f'<a href="https://ats.example/jobs/{number}">Apply</a></article>'
+        for number in range(1, 5)
+    )
+    html = f"""
+    <html><head><title>Astranis Careers</title>
+      <meta name="description" content="Explore open roles and jobs at Astranis.">
+    </head><body><h1>Careers</h1><main>{jobs}</main></body></html>
+    """
+    home = FetchedPage("https://company.example/careers", 200, html, len(html), False)
+
+    outcome = await discover_target(
+        home,
+        home.url,
+        "open roles and job listings",
+        "jobs",
+        [],
+        use_ai=False,
+        render_mode="http",
+        max_pages=1,
+    )
+
+    assert outcome.page.url == home.url
+    assert outcome.summary.method == "root"
+
+
+@pytest.mark.asyncio
+async def test_job_intent_rejects_root_marketing_cards_without_job_routes() -> None:
+    cards = "".join(
+        f'<article class="promo-card"><h2>{label}</h2><a href="/company/{label.lower()}">Read</a></article>'
+        for label in ("Mission", "Values", "Benefits", "People")
+    )
+    html = f"""
+    <html><head><title>Company Careers</title>
+      <meta name="description" content="Learn about careers and open roles at Company.">
+    </head><body><h1>Careers</h1><main>{cards}</main></body></html>
+    """
+    home = FetchedPage("https://company.example/careers", 200, html, len(html), False)
+
+    with pytest.raises(TargetNotFoundError):
+        await discover_target(
+            home,
+            home.url,
+            "open roles and job listings",
+            "jobs",
+            [],
+            use_ai=False,
+            render_mode="http",
+            max_pages=1,
+        )

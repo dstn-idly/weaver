@@ -1,0 +1,88 @@
+{
+  "schema": "autoposting.vehicle-extraction",
+  "v": 2,
+  "origin": "https://www.jimnortontoyota.com",
+  "start_urls": [
+    "https://www.jimnortontoyota.com/used-vehicles/"
+  ],
+  "listing": {
+    "card_selector": "#srp-results .listing[data-vehicle-vin]",
+    "detail_link_selector": ".vehicle-info a",
+    "fields": {
+      "vin": {
+        "selector": ":scope",
+        "attribute": "data-vehicle-vin",
+        "transform": "vin"
+      },
+      "stock_number": {
+        "selector": ":scope",
+        "attribute": "data-vehicle-stock-number",
+        "transform": "text"
+      },
+      "year": {
+        "selector": ":scope",
+        "attribute": "data-vehicle-year",
+        "transform": "year"
+      },
+      "make": {
+        "selector": ":scope",
+        "attribute": "data-ag-make",
+        "transform": "text"
+      },
+      "model": {
+        "selector": ":scope",
+        "attribute": "data-ag-model",
+        "transform": "text"
+      },
+      "trim": {
+        "selector": ":scope",
+        "attribute": "data-ag-trim",
+        "transform": "text"
+      },
+      "price": {
+        "selector": ":scope",
+        "attribute": "data-ag-price",
+        "transform": "money"
+      },
+      "color_ext": {
+        "selector": ":scope",
+        "attribute": "data-ag-ext-color",
+        "transform": "text"
+      },
+      "body_type": {
+        "selector": ":scope",
+        "attribute": "data-ag-type",
+        "transform": "text"
+      },
+      "condition": {
+        "selector": ":scope",
+        "attribute": "data-vehicle-condition",
+        "transform": "condition"
+      },
+      "photo": {
+        "selector": ".srp-swiper-vehicles img",
+        "attribute": "data-src",
+        "transform": "image"
+      }
+    },
+    "next_page_selector": ".ais-pagination-ul a[href]",
+    "total_selector": "#resultsStats .ais-Stats"
+  },
+  "detail": {
+    "fields": {
+      "description": {
+        "selector": ".v-descrip, .vehicle-description, .vdp-description, [data-vehicle-description]",
+        "transform": "text"
+      },
+      "features": {
+        "selector": ".vdp-features-icons p, .vehicle-features .vdp-item, [data-feature]",
+        "transform": "text",
+        "multiple": true
+      }
+    },
+    "gallery_selector": ".vehicle-vdp-slider .swiper-vdp-carousel",
+    "gallery_item_selector": "img[data-src*='assets.cai-media-management.com'], img[data-src*='media.dealeralchemist.com']",
+    "gallery_mode": "fixed_auto",
+    "max_photos": 80
+  }
+}

@@ -296,7 +296,8 @@
   .spin-go svg{ width:calc(15 * var(--u)); height:calc(15 * var(--u)); display:block; }
 
   .spin-samples{
-    display:flex; gap:calc(8 * var(--u)); flex-wrap:wrap;
+    display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center;
+    gap:calc(8 * var(--u));
     margin-top:calc(14 * var(--u));
     padding-left:calc(4 * var(--u));
   }
@@ -306,6 +307,19 @@
     color:var(--ink-faint);
     align-self:center; margin-right:calc(2 * var(--u));
   }
+  .spin-sample-rail{
+    min-width:0;
+    display:flex; align-items:center; gap:calc(8 * var(--u));
+    overflow-x:auto; overscroll-behavior-x:contain;
+    scroll-snap-type:x proximity; scrollbar-width:thin;
+    scrollbar-color:rgba(255,255,255,.2) transparent;
+    padding:0 1px 3px;
+    touch-action:pan-x;
+  }
+  .spin-sample-rail::-webkit-scrollbar{ height:4px; }
+  .spin-sample-rail::-webkit-scrollbar-thumb{ background:rgba(255,255,255,.2); border-radius:999px; }
+  .spin-sample-rail .chip{ flex:0 0 auto; scroll-snap-align:start; }
+  .spin-sample-actions{ display:flex; flex:none; gap:calc(8 * var(--u)); }
   .chip{
     border:1px solid rgba(255,255,255,.13);
     border-radius:calc(15 * var(--u));
@@ -1301,7 +1315,7 @@
     .spin-capsule textarea{ font-size:13px; }
     .spin-go{ height:46px; border-radius:23px; padding:0 16px; }
     .spin-samples{ margin-top:10px; gap:6px; padding:0; }
-    .spin-samples .hint{ width:100%; }
+    .spin-samples .hint{ width:auto; }
     .chip{ height:29px; font-size:9.5px; padding:0 9px; }
     .spin-options{ grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; margin-top:8px; }
     .spin-options label{ border-radius:9px; padding:5px 7px; min-width:0; }
@@ -1427,18 +1441,39 @@
         <div class="field-suggestions" id="field-suggestions" aria-live="polite" aria-label="Fields found and recommended by Weaver"><span class="field-suggestion-idle">Scaffold the page to reveal recurring and recommended fields.</span></div>
       </div>
       <div class="spin-samples">
-        <span class="hint">Try</span>
-        <button class="chip" type="button" data-url="https://books.toscrape.com/" data-category="ecommerce" data-target-intent="" data-target-fields="title, price, availability, rating, image, url">books.toscrape.com</button>
-        <button class="chip" type="button" data-url="https://quotes.toscrape.com/" data-category="generic" data-target-intent="" data-target-fields="quote, author, tags, url">quotes.toscrape.com</button>
-        <button class="chip" type="button" data-url="https://blog.python.org/" data-category="news" data-target-intent="" data-target-fields="headline, author, published at, summary, article body, image, url">Python news</button>
-        <button class="chip" id="batch-toggle" type="button" aria-pressed="false">+ Batch</button>
-        <button class="chip" id="overlay-launch" type="button">✦ Quick drop</button>
+        <span class="hint">Try 20</span>
+        <div class="spin-sample-rail" role="group" aria-label="20 example websites ready to scrape">
+          <button class="chip" type="button" data-url="https://www.ikea.com/us/en/cat/bookcases-10382/" data-category="ecommerce" data-target-intent="" data-target-fields="title, price, former price, color, dimensions, rating, image, url">IKEA bookcases</button>
+          <button class="chip" type="button" data-url="https://www.lego.com/en-us/categories/new-sets-and-products" data-category="ecommerce" data-target-intent="" data-target-fields="title, set number, price, piece count, age range, theme, availability, image, url">LEGO new sets</button>
+          <button class="chip" type="button" data-url="https://www.apple.com/shop/refurbished" data-category="ecommerce" data-target-intent="" data-target-fields="title, price, original price, savings, specifications, color, availability, image, url">Apple refurbished</button>
+          <button class="chip" type="button" data-url="https://books.toscrape.com/" data-category="ecommerce" data-target-intent="" data-target-fields="title, price, availability, rating, image, url">Books</button>
+          <button class="chip" type="button" data-url="https://quotes.toscrape.com/" data-category="generic" data-target-intent="" data-target-fields="quote, author, tags, url">Quotes</button>
+          <button class="chip" type="button" data-url="https://blog.python.org/" data-category="news" data-target-intent="" data-target-fields="headline, author, published at, summary, article body, image, url">Python news</button>
+          <button class="chip" type="button" data-url="https://en.wikinews.org/wiki/Main_Page" data-category="news" data-target-intent="" data-target-fields="headline, published at, summary, article body, topics, image, source urls, url">Wikinews archive</button>
+          <button class="chip" type="button" data-url="https://www.nasa.gov/news/recently-published/" data-category="news" data-target-intent="" data-target-fields="headline, published at, summary, article body, topic, image, url">NASA news</button>
+          <button class="chip" type="button" data-url="https://realpython.github.io/fake-jobs/" data-category="jobs" data-target-intent="" data-target-fields="title, company, location, posted at, description, apply url">Fake jobs</button>
+          <button class="chip" type="button" data-url="https://forecast.weather.gov/MapClick.php?lat=37.7749&amp;lon=-122.4194" data-category="weather" data-target-intent="" data-target-fields="period, temperature, unit, condition, precipitation chance, wind speed, wind direction, icon">SF weather</button>
+          <button class="chip" type="button" data-url="https://earthquake.usgs.gov/earthquakes/browse/significant.php" data-category="generic" data-target-intent="" data-target-fields="event time, magnitude, place, depth, felt reports, map url, url">USGS earthquakes</button>
+          <button class="chip" type="button" data-url="https://github.com/trending" data-category="directory" data-target-intent="" data-target-fields="repository, owner, description, language, stars, forks, stars today, url">GitHub trending</button>
+          <button class="chip" type="button" data-url="https://openlibrary.org/subjects/science_fiction" data-category="directory" data-target-intent="" data-target-fields="title, author, first published, edition count, cover image, url">Open Library</button>
+          <button class="chip" type="button" data-url="https://www.gutenberg.org/browse/scores/top" data-category="directory" data-target-intent="" data-target-fields="rank, title, author, download count, url">Gutenberg books</button>
+          <button class="chip" type="button" data-url="https://en.wikipedia.org/wiki/List_of_largest_companies_by_revenue" data-category="directory" data-target-intent="" data-target-fields="rank, company, industry, revenue, profit, employees, headquarters, url">Largest companies</button>
+          <button class="chip" type="button" data-url="https://xkcd.com/archive/" data-category="generic" data-target-intent="" data-target-fields="comic number, title, published at, alt text, image, url">xkcd archive</button>
+          <button class="chip" type="button" data-url="https://www.fda.gov/safety/recalls-market-withdrawals-safety-alerts" data-category="news" data-target-intent="" data-target-fields="posted at, company, product description, reason, url">FDA recalls</button>
+          <button class="chip" type="button" data-url="https://www.nps.gov/state/ca/index.htm" data-category="travel" data-target-intent="" data-target-fields="park name, designation, location, summary, image, url">California parks</button>
+          <button class="chip" type="button" data-url="https://webscraper.io/test-sites/e-commerce/allinone" data-category="ecommerce" data-target-intent="" data-target-fields="title, description, price, rating, review count, image, url">Test shop</button>
+          <button class="chip" type="button" data-url="https://www.allrecipes.com/recipes/17562/dinner/" data-category="recipes" data-target-intent="" data-target-fields="title, description, rating, review count, cook time, image, url">Dinner recipes</button>
+        </div>
+        <div class="spin-sample-actions">
+          <button class="chip" id="batch-toggle" type="button" aria-pressed="false">+ Batch</button>
+          <button class="chip" id="overlay-launch" type="button">✦ Quick drop</button>
+        </div>
       </div>
       <div class="spin-options" aria-label="Scraper options">
         <label><span>Category</span><select id="category-input" aria-label="Website category"><option value="auto">Auto detect</option><option value="news">News &amp; articles</option><option value="ecommerce">Products &amp; shops</option><option value="jobs">Jobs</option><option value="real_estate">Properties</option><option value="events">Events</option><option value="research">Research</option><option value="weather">Weather</option><option value="travel">Travel</option><option value="restaurants">Restaurants</option><option value="recipes">Recipes</option><option value="finance">Finance</option><option value="sports">Sports</option><option value="directory">Directories</option><option value="automotive">Automotive</option><option value="generic">Generic</option></select></label>
         <label><span>Format</span><select id="format-input" aria-label="Output format"><option value="json">JSON</option><option value="csv">CSV</option><option value="jsonl">JSONL</option><option value="xlsx">Excel</option><option value="sqlite">SQLite</option><option value="bundle">Full bundle</option></select></label>
         <label><span>Images</span><select id="images-input" aria-label="Image handling"><option value="links">Keep URLs</option><option value="download">Download</option><option value="skip">Skip</option></select></label>
-        <label><span>Render</span><select id="render-input" aria-label="Page rendering mode"><option value="auto">Auto</option><option value="http">HTTP only</option><option value="browser">Browser</option></select></label>
+        <label><span>Render</span><select id="render-input" aria-label="Page rendering mode"><option value="auto">Auto + protection</option><option value="http">HTTP only</option><option value="browser">Protected browser</option></select></label>
         <label><span>Rows</span><input id="max-items-input" type="number" min="1" max="2000" value="100" aria-label="Maximum rows"></label>
         <label><span>Pages</span><input id="max-pages-input" type="number" min="1" max="200" value="25" aria-label="Maximum pages"></label>
       </div>
@@ -1448,7 +1483,7 @@
           <div class="target-guide-grid">
             <label for="target-intent-input"><span>What collection should Weaver find?</span><input id="target-intent-input" maxlength="400" autocomplete="off" placeholder="Latest news stories, open jobs, products on sale…" aria-describedby="target-guide-help"></label>
           </div>
-          <p class="target-guide-help" id="target-guide-help">Choose a starter or describe your own dataset. Weaver ranks permitted same-site sections and GET searches, verifies a repeated collection, then separates fields it found from useful fields still worth requesting. Guidance applies to every URL in a batch.</p>
+          <p class="target-guide-help" id="target-guide-help">Choose a starter or describe your own dataset. Weaver ranks same-site sections and GET searches allowed by the active server policy, verifies a repeated collection, then separates fields it found from useful fields still worth requesting. Guidance applies to every URL in a batch.</p>
           <span class="target-guide-recipe-title">Dataset starters</span>
           <div class="target-guide-examples" aria-label="Dataset starter recipes">
             <button class="target-example" type="button" data-url="https://blog.python.org/" data-category="news" data-target-intent="latest published news stories and summaries" data-target-fields="headline, author, published at, section, summary, article body, image, url">News stories</button>
@@ -1461,7 +1496,7 @@
           </div>
         </div>
       </details>
-      <p class="spin-policy" id="robots-status">robots.txt enforced · private networks blocked · API key stays server-side</p>
+      <p class="spin-policy" id="robots-status">Robots policy shown per run · private networks blocked · API key stays server-side</p>
     </form>
 
     <dl class="stat stat--a mask" style="--d:700ms; --pd:12">
@@ -1720,7 +1755,7 @@
           <svg viewBox="0 0 16 16"><path d="M13 8a5 5 0 1 1-1.5-3.6"/><path d="M13 2.8v2.4h-2.4"/></svg>
           Run it again
         </button>
-        <p class="note">AI designs the validated spec once. The generated Scrapling runtime is plain Python and always re-checks robots.txt.</p>
+        <p class="note">AI designs the validated spec once. The generated Scrapling runtime is plain Python and preserves the run's explicit robots policy.</p>
       </div>
       <form class="panel feedback-card" id="feedback-form">
         <p class="panel-label">Tell Weaver about the scraper</p>
@@ -1801,7 +1836,7 @@
             <select class="api-control" id="api-category"><option value="news">News / articles</option><option value="auto">Auto detect</option><option value="ecommerce">Products / shop</option><option value="jobs">Jobs</option><option value="real_estate">Properties</option><option value="events">Events</option><option value="research">Research</option><option value="weather">Weather</option><option value="finance">Finance</option><option value="generic">Generic page</option></select>
           </label>
           <label>Rendering
-            <select class="api-control" id="api-render"><option value="auto">Auto</option><option value="http">HTTP only</option><option value="browser">Browser</option></select>
+            <select class="api-control" id="api-render"><option value="auto">Auto + protection</option><option value="http">HTTP only</option><option value="browser">Protected browser</option></select>
           </label>
         </div>
         <label class="api-label" for="api-target-intent">Find within this site</label>
@@ -1814,7 +1849,7 @@
         <button class="btn btn-glass" id="api-use-current" type="button">Use URL above</button>
       </div>
       <input id="api-run-id" type="hidden">
-      <p class="api-help" id="api-url-help">One public collection page · robots.txt enforced · private networks blocked. Runtime failures send only a bounded error summary—never page HTML—and each scraper artifact may request one replacement run.</p>
+      <p class="api-help" id="api-url-help">One public collection page · active robots policy is reported in logs · private networks blocked. Runtime failures send only a bounded error summary—never page HTML—and each scraper artifact may request one replacement run.</p>
     </div>
 
     <div class="panel api-result">
@@ -2571,7 +2606,7 @@ The code shown here will be the actual verified Python artifact—not a mock res
       showPipMessage('Found the right section!', 1800);
     } else {
       $('#target-route-path').textContent = compactRoute(data.candidate_url || data.from_url || requested);
-      $('#target-route-reason').textContent = data.message || 'Scanning permitted same-site navigation and search links…';
+      $('#target-route-reason').textContent = data.message || 'Scanning same-site navigation and search links allowed by the active server policy…';
       $('#target-route-link').hidden = true;
     }
   });
@@ -2910,6 +2945,11 @@ The code shown here will be the actual verified Python artifact—not a mock res
   });
 
   bus.on('robots', function (data) {
+    if (data.enforced === false) {
+      $('#robots-status').textContent = 'CLIENT-AUTHORIZED robots.txt bypass active · private networks blocked · API key stays server-side';
+      bus.emit('log', { message: 'robots.txt: ' + (data.reason || 'client-authorized bypass active'), level: 'warn' });
+      return;
+    }
     var status = data.allowed ? 'allowed' : 'blocked';
     var delay = data.crawl_delay ? ' · ' + data.crawl_delay + 's delay' : '';
     $('#robots-status').textContent = 'robots.txt ' + status + delay + ' · private networks blocked · API key stays server-side';
@@ -3033,7 +3073,7 @@ The code shown here will be the actual verified Python artifact—not a mock res
     $('#recommendation-list').innerHTML = '<span class="schema-empty">Auto-detected suggestions will appear here.</span>';
     fieldSuggestionState = null;
     showFieldSuggestionsIdle();
-    $('#robots-status').textContent = 'robots.txt enforced · private networks blocked · API key stays server-side';
+    $('#robots-status').textContent = 'Robots policy shown per run · private networks blocked · API key stays server-side';
     $('#target-route').hidden = true;
     $('#target-route-path').textContent = '';
     $('#target-route-reason').textContent = '';

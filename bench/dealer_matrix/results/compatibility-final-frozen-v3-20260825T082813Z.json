@@ -1,0 +1,1386 @@
+{
+  "artifact": "weaver-vehicle-v2-compatibility-sample",
+  "artifact_version": 1,
+  "generated_at": "2026-08-25T08:28:19.608243Z",
+  "scope": {
+    "sites_requested": 20,
+    "sites_run": 20,
+    "sample_only": true,
+    "full_inventory_proof": false,
+    "owner_authorization_proof": false,
+    "robots_requests": 0,
+    "html_or_cookie_persistence": false,
+    "model": "gpt-5.6-luna",
+    "max_parallel_sites": 2,
+    "transport_timeout_ms": 60000,
+    "max_response_bytes": 6000000,
+    "inter_site_delay_seconds": 1.5,
+    "inference_attempts": 3,
+    "inference_timeout_seconds": 90.0,
+    "site_timeout_seconds": 600.0,
+    "required_sample_fields": [
+      "vin",
+      "year",
+      "make+model_or_name",
+      "price",
+      "mileage",
+      "distance_unit",
+      "color",
+      "description",
+      "detail_url"
+    ],
+    "photo_acceptance": "at least 2 unique VDP-owned photos plus deterministic full-resolution proof (width >= 1000 or explicit full/original gallery source)"
+  },
+  "counts": {
+    "sample_pass": 12,
+    "sample_partial": 0,
+    "candidate_failure": 4,
+    "blocked": 4
+  },
+  "sites": [
+    {
+      "slug": "orlandonissan-com",
+      "name": "Sutherlin Nissan of Orlando",
+      "country": "US",
+      "homepage": "https://orlandonissan.com",
+      "inventory_hint": "https://orlandonissan.com/inventory/used",
+      "expected_platform": "Team Velocity (Apollo)",
+      "status": "candidate_failure",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": null,
+      "error": {
+        "code": "target_selection_failure",
+        "message": "inventory page did not expose a representative same-origin VDP"
+      },
+      "hint_discovery_error": "owner_action_required",
+      "failure_stage": "target_selection",
+      "duration_seconds": 93.368
+    },
+    {
+      "slug": "universal-nissan-com",
+      "name": "Universal Nissan (Orlando)",
+      "country": "US",
+      "homepage": "https://universal-nissan.com",
+      "inventory_hint": "https://universal-nissan.com/used-vehicles/",
+      "expected_platform": "Dealer Inspire (Cars Commerce)",
+      "status": "blocked",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": null,
+      "error": {
+        "code": "dealer_auth_required",
+        "message": "dealer returned non-success HTTP 403"
+      },
+      "hint_discovery_error": "dealer_auth_required",
+      "duration_seconds": 34.156
+    },
+    {
+      "slug": "serramonteford-com",
+      "name": "Serramonte Ford (Colma, CA)",
+      "country": "US",
+      "homepage": "https://www.serramonteford.com",
+      "inventory_hint": "https://www.serramonteford.com/used-vehicles/",
+      "expected_platform": "Dealer.com (Cox)",
+      "status": "blocked",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": null,
+      "error": {
+        "code": "owner_action_required",
+        "message": "persistent browser returned challenge or empty vehicle HTML after the bounded transport ladder"
+      },
+      "hint_discovery_error": "dealer_http_404",
+      "duration_seconds": 52.264
+    },
+    {
+      "slug": "northshoremitsubishi-ca",
+      "name": "North Shore Mitsubishi (North Vancouver, BC)",
+      "country": "CA",
+      "homepage": "https://www.northshoremitsubishi.ca",
+      "inventory_hint": "https://www.northshoremitsubishi.ca/used/",
+      "expected_platform": "EDealer (not verifiable if challenged)",
+      "status": "sample_pass",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": "persistent_browser",
+      "error": null,
+      "discovery_candidates_considered": 1,
+      "listing_url": "https://www.northshoremitsubishi.ca/used/",
+      "detail_url": "https://www.northshoremitsubishi.ca/used/vehicle/2019-mitsubishi-outlander-plug-in-hybrid-se-id15186719.htm",
+      "candidate_metrics": {
+        "listing_card_candidates": 12,
+        "detail_root_candidates": 12,
+        "detail_gallery_candidates": 4,
+        "verified_detail_roots": 5,
+        "verified_galleries": 1,
+        "verified_gallery_items": 1,
+        "verified_contract_passed": true
+      },
+      "inference": {
+        "model": "gpt-5.6-luna",
+        "attempt": 1,
+        "attempts_configured": 3,
+        "validation": {
+          "raw_card_count": 15,
+          "record_count": 15,
+          "rejected_card_count": 0,
+          "detail_url_count": 15,
+          "expected_total": null,
+          "detail_validated": true,
+          "detail_identity_proven": true,
+          "detail_field_count": 19,
+          "detail_photo_count": 19,
+          "detail_full_resolution_candidates": 19
+        }
+      },
+      "replay": {
+        "record_count": 4,
+        "qa_passed": false,
+        "qa_issues": [
+          "incomplete_snapshot:detail_page_cap",
+          "expected_total_unknown",
+          "field_coverage:make:0.25<1.00",
+          "field_coverage:color_ext:0.25<1.00",
+          "field_coverage:description:0.25<1.00",
+          "field_coverage:photo:0.25<1.00",
+          "field_coverage:photos:0.25<1.00",
+          "field_coverage:color_int:0.25<0.80",
+          "field_coverage:transmission:0.25<0.80",
+          "field_coverage:drivetrain:0.25<0.80",
+          "full_resolution_photo_coverage:0.25<1.00",
+          "multi_photo_vehicle_coverage:0.25<1.00",
+          "photo_count_min:0<2",
+          "photo_count_median:0<3"
+        ],
+        "qa_warnings": [
+          "source_field_unavailable:features",
+          "vehicles_without_gallery_photos"
+        ]
+      },
+      "sample_quality": {
+        "vin": "JA4J24A56KZ608579",
+        "identity_proven": true,
+        "matched_by": null,
+        "owned_photo_count": 19,
+        "unique_gallery_urls": true,
+        "numeric_photo_widths": [
+          1600,
+          1600,
+          1600,
+          1600,
+          1600,
+          1600,
+          1600,
+          1600,
+          1600,
+          1600,
+          1600,
+          1600,
+          1600,
+          1600,
+          1600,
+          1600,
+          1600,
+          1600,
+          1600
+        ],
+        "full_resolution_widths_ge_1000": [
+          1600,
+          1600,
+          1600,
+          1600,
+          1600,
+          1600,
+          1600,
+          1600,
+          1600,
+          1600,
+          1600,
+          1600,
+          1600,
+          1600,
+          1600,
+          1600,
+          1600,
+          1600,
+          1600
+        ],
+        "full_resolution_proof": true,
+        "required_fields_missing": [],
+        "required_sample_field_replay_pass": true,
+        "sample_pass_criteria": {
+          "vin_identity": true,
+          "two_owned_photos": true,
+          "full_resolution_proof": true,
+          "required_fields": true
+        }
+      },
+      "duration_seconds": 326.722
+    },
+    {
+      "slug": "ricart-com",
+      "name": "Ricart Automotive Group (Columbus, OH)",
+      "country": "US",
+      "homepage": "https://www.ricart.com",
+      "inventory_hint": "https://www.ricart.com/searchused.aspx",
+      "expected_platform": "DealerOn",
+      "status": "candidate_failure",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": "persistent_browser",
+      "error": {
+        "code": "candidate_or_replay_failure",
+        "message": "application could not produce a verified detail root/gallery/item contract"
+      },
+      "discovery_candidates_considered": 3,
+      "listing_url": "https://www.ricart.com/searchused.aspx",
+      "detail_url": "https://www.ricart.com/used-Columbus-2013-Harley+Davidson-Touring-+-1HD1KBM10DB666636",
+      "candidate_metrics": {
+        "listing_card_candidates": 12,
+        "detail_root_candidates": 12,
+        "detail_gallery_candidates": 8,
+        "verified_detail_roots": 0,
+        "verified_galleries": 0,
+        "verified_gallery_items": 0,
+        "verified_contract_passed": false
+      },
+      "duration_seconds": 177.076
+    },
+    {
+      "slug": "huberautomotive-com",
+      "name": "Huber Automotive (Heath, OH)",
+      "country": "US",
+      "homepage": "https://www.huberautomotive.com",
+      "inventory_hint": "https://www.huberautomotive.com/promotions/used/index.htm",
+      "expected_platform": "Dealer.com (Cox)",
+      "status": "sample_pass",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": "persistent_browser",
+      "error": null,
+      "discovery_candidates_considered": 1,
+      "listing_url": "https://www.huberautomotive.com/promotions/used/index.htm",
+      "detail_url": "https://www.huberautomotive.com/used/Chevrolet/2001-Chevrolet-Corvette-76cecfa2ac18449e036c6424efe70763.htm",
+      "candidate_metrics": {
+        "listing_card_candidates": 12,
+        "detail_root_candidates": 12,
+        "detail_gallery_candidates": 1,
+        "verified_detail_roots": 13,
+        "verified_galleries": 0,
+        "verified_gallery_items": 1,
+        "verified_contract_passed": true
+      },
+      "inference": {
+        "model": "gpt-5.6-luna",
+        "attempt": 1,
+        "attempts_configured": 3,
+        "validation": {
+          "raw_card_count": 4,
+          "record_count": 4,
+          "rejected_card_count": 0,
+          "detail_url_count": 4,
+          "expected_total": null,
+          "detail_validated": true,
+          "detail_identity_proven": true,
+          "detail_field_count": 19,
+          "detail_photo_count": 30,
+          "detail_full_resolution_candidates": 30
+        }
+      },
+      "replay": {
+        "record_count": 4,
+        "qa_passed": false,
+        "qa_issues": [
+          "incomplete_snapshot:detail_page_cap",
+          "expected_total_unknown",
+          "surrogate_vins:3",
+          "full_resolution_photo_coverage:0.25<1.00",
+          "multi_photo_vehicle_coverage:0.25<1.00",
+          "photo_count_min:1<2",
+          "photo_count_median:1<3"
+        ],
+        "qa_warnings": [
+          "source_field_unavailable:drivetrain",
+          "source_field_unavailable:features",
+          "vehicles_with_single_gallery_photo"
+        ]
+      },
+      "sample_quality": {
+        "vin": "1G1YY32G815111559",
+        "identity_proven": true,
+        "matched_by": "ddc_gallery:vin",
+        "owned_photo_count": 30,
+        "unique_gallery_urls": true,
+        "numeric_photo_widths": [],
+        "full_resolution_widths_ge_1000": [],
+        "full_resolution_proof": true,
+        "required_fields_missing": [],
+        "required_sample_field_replay_pass": true,
+        "sample_pass_criteria": {
+          "vin_identity": true,
+          "two_owned_photos": true,
+          "full_resolution_proof": true,
+          "required_fields": true
+        }
+      },
+      "duration_seconds": 39.856
+    },
+    {
+      "slug": "bobrossbuickgmc-com",
+      "name": "Bob Ross Buick GMC (Centerville, OH)",
+      "country": "US",
+      "homepage": "https://www.bobrossbuickgmc.com",
+      "inventory_hint": "https://www.bobrossbuickgmc.com/used-vehicles/",
+      "expected_platform": "Dealer Inspire (Cars Commerce)",
+      "status": "candidate_failure",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": null,
+      "error": {
+        "code": "target_selection_failure",
+        "message": "inventory page did not expose a representative same-origin VDP"
+      },
+      "hint_discovery_error": "vehicle_detail_not_found",
+      "failure_stage": "target_selection",
+      "duration_seconds": 82.691
+    },
+    {
+      "slug": "mattcastrucciautomall-com",
+      "name": "Matt Castrucci Auto Mall (Dayton, OH)",
+      "country": "US",
+      "homepage": "https://www.mattcastrucciautomall.com",
+      "inventory_hint": "https://www.mattcastrucciautomall.com/search/used/?tp=used",
+      "expected_platform": "Dealer eProcess",
+      "status": "sample_pass",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": "persistent_browser",
+      "error": null,
+      "discovery_candidates_considered": 1,
+      "listing_url": "https://www.mattcastrucciautomall.com/search/used/?tp=used",
+      "detail_url": "https://www.mattcastrucciautomall.com/auto/used-2012-nissan-altima-25-s/123493676/",
+      "candidate_metrics": {
+        "listing_card_candidates": 12,
+        "detail_root_candidates": 12,
+        "detail_gallery_candidates": 1,
+        "verified_detail_roots": 2,
+        "verified_galleries": 1,
+        "verified_gallery_items": 1,
+        "verified_contract_passed": true
+      },
+      "inference": {
+        "model": "gpt-5.6-luna",
+        "attempt": 1,
+        "attempts_configured": 3,
+        "validation": {
+          "raw_card_count": 11,
+          "record_count": 11,
+          "rejected_card_count": 0,
+          "detail_url_count": 11,
+          "expected_total": null,
+          "detail_validated": true,
+          "detail_identity_proven": true,
+          "detail_field_count": 17,
+          "detail_photo_count": 25,
+          "detail_full_resolution_candidates": 25
+        }
+      },
+      "replay": {
+        "record_count": 4,
+        "qa_passed": false,
+        "qa_issues": [
+          "incomplete_snapshot:detail_page_cap",
+          "expected_total_unknown",
+          "field_coverage:year:0.50<1.00",
+          "field_coverage:make:0.50<1.00",
+          "field_coverage:model:0.50<1.00",
+          "field_coverage:mileage:0.25<1.00",
+          "field_coverage:color_ext:0.25<1.00",
+          "field_coverage:photos:0.25<1.00",
+          "field_coverage:color_int:0.25<0.80",
+          "full_resolution_photo_coverage:0.25<1.00",
+          "multi_photo_vehicle_coverage:0.25<1.00",
+          "photo_count_min:0<2",
+          "photo_count_median:0<3"
+        ],
+        "qa_warnings": [
+          "source_field_unavailable:transmission",
+          "source_field_unavailable:drivetrain",
+          "source_field_unavailable:features",
+          "vehicles_without_gallery_photos"
+        ]
+      },
+      "sample_quality": {
+        "vin": "1N4AL2EP5CC227965",
+        "identity_proven": true,
+        "matched_by": "json_ld:vin",
+        "owned_photo_count": 25,
+        "unique_gallery_urls": true,
+        "numeric_photo_widths": [
+          1920,
+          1920,
+          1920,
+          1920,
+          1920,
+          1920,
+          1920,
+          1920,
+          1920,
+          1920,
+          1920,
+          1920,
+          1920,
+          1920,
+          1920,
+          1920,
+          1920,
+          1920,
+          1920,
+          1920,
+          1920,
+          1920,
+          1920,
+          1920,
+          1920
+        ],
+        "full_resolution_widths_ge_1000": [
+          1920,
+          1920,
+          1920,
+          1920,
+          1920,
+          1920,
+          1920,
+          1920,
+          1920,
+          1920,
+          1920,
+          1920,
+          1920,
+          1920,
+          1920,
+          1920,
+          1920,
+          1920,
+          1920,
+          1920,
+          1920,
+          1920,
+          1920,
+          1920,
+          1920
+        ],
+        "full_resolution_proof": true,
+        "required_fields_missing": [],
+        "required_sample_field_replay_pass": true,
+        "sample_pass_criteria": {
+          "vin_identity": true,
+          "two_owned_photos": true,
+          "full_resolution_proof": true,
+          "required_fields": true
+        }
+      },
+      "duration_seconds": 256.778
+    },
+    {
+      "slug": "olympicautoga-com",
+      "name": "Olympic Auto Sales (Decatur, GA)",
+      "country": "US",
+      "homepage": "https://www.olympicautoga.com",
+      "inventory_hint": "https://www.olympicautoga.com/autos",
+      "expected_platform": "DealerCenter / DWS",
+      "status": "blocked",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": null,
+      "error": {
+        "code": "owner_action_required",
+        "message": "persistent browser returned a challenge page"
+      },
+      "hint_discovery_error": "dealer_http_404",
+      "duration_seconds": 42.846
+    },
+    {
+      "slug": "marhofer-com",
+      "name": "Ron Marhofer Auto Family (Northeast OH)",
+      "country": "US",
+      "homepage": "https://www.marhofer.com",
+      "inventory_hint": "https://www.marhofer.com/sale/used-cars-akron-oh",
+      "expected_platform": "Remora",
+      "status": "sample_pass",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": "static",
+      "error": null,
+      "discovery_candidates_considered": 1,
+      "listing_url": "https://www.marhofer.com/sale/used-cars-akron-oh",
+      "detail_url": "https://www.marhofer.com/for-sale/used-lincoln-mkx-base-akron-oh/2011-lincoln-mkx-base-2lmdj8jk1bbj12188",
+      "candidate_metrics": {
+        "listing_card_candidates": 12,
+        "detail_root_candidates": 12,
+        "detail_gallery_candidates": 3,
+        "verified_detail_roots": 5,
+        "verified_galleries": 1,
+        "verified_gallery_items": 1,
+        "verified_contract_passed": true
+      },
+      "inference": {
+        "model": "gpt-5.6-luna",
+        "attempt": 1,
+        "attempts_configured": 3,
+        "validation": {
+          "raw_card_count": 30,
+          "record_count": 30,
+          "rejected_card_count": 0,
+          "detail_url_count": 30,
+          "expected_total": null,
+          "detail_validated": true,
+          "detail_identity_proven": true,
+          "detail_field_count": 22,
+          "detail_photo_count": 6,
+          "detail_full_resolution_candidates": 6
+        }
+      },
+      "replay": {
+        "record_count": 4,
+        "qa_passed": false,
+        "qa_issues": [
+          "incomplete_snapshot:detail_page_cap",
+          "expected_total_unknown",
+          "field_coverage:make:0.25<1.00",
+          "field_coverage:color_ext:0.25<1.00",
+          "field_coverage:description:0.25<1.00",
+          "field_coverage:photos:0.25<1.00",
+          "field_coverage:color_int:0.25<0.80",
+          "field_coverage:transmission:0.25<0.80",
+          "field_coverage:features:0.25<0.80",
+          "full_resolution_photo_coverage:0.25<1.00",
+          "multi_photo_vehicle_coverage:0.25<1.00",
+          "photo_count_min:0<2",
+          "photo_count_median:0<3"
+        ],
+        "qa_warnings": [
+          "source_field_unavailable:drivetrain",
+          "vehicles_without_gallery_photos"
+        ]
+      },
+      "sample_quality": {
+        "vin": "2LMDJ8JK1BBJ12188",
+        "identity_proven": true,
+        "matched_by": "data_vehicle:vin",
+        "owned_photo_count": 6,
+        "unique_gallery_urls": true,
+        "numeric_photo_widths": [],
+        "full_resolution_widths_ge_1000": [],
+        "full_resolution_proof": true,
+        "required_fields_missing": [],
+        "required_sample_field_replay_pass": true,
+        "sample_pass_criteria": {
+          "vin_identity": true,
+          "two_owned_photos": true,
+          "full_resolution_proof": true,
+          "required_fields": true
+        }
+      },
+      "duration_seconds": 206.77
+    },
+    {
+      "slug": "wylereastgate-com",
+      "name": "Jeff Wyler Eastgate Auto Mall (Cincinnati, OH)",
+      "country": "US",
+      "homepage": "https://wylereastgate.com",
+      "inventory_hint": "https://wylereastgate.com/collections/used-inventory",
+      "expected_platform": "Motive (ridemotive.com)",
+      "status": "sample_pass",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": "persistent_browser",
+      "error": null,
+      "discovery_candidates_considered": 1,
+      "listing_url": "https://wylereastgate.com/collections/used-inventory",
+      "detail_url": "https://wylereastgate.com/inventory/Used-2010-Kia-Forte-EX-KNAFU4A23A5310456-2897",
+      "candidate_metrics": {
+        "listing_card_candidates": 12,
+        "detail_root_candidates": 12,
+        "detail_gallery_candidates": 3,
+        "verified_detail_roots": 13,
+        "verified_galleries": 0,
+        "verified_gallery_items": 1,
+        "verified_contract_passed": true
+      },
+      "inference": {
+        "model": "gpt-5.6-luna",
+        "attempt": 1,
+        "attempts_configured": 3,
+        "validation": {
+          "raw_card_count": 17,
+          "record_count": 17,
+          "rejected_card_count": 0,
+          "detail_url_count": 9,
+          "expected_total": null,
+          "detail_validated": true,
+          "detail_identity_proven": true,
+          "detail_field_count": 23,
+          "detail_photo_count": 23,
+          "detail_full_resolution_candidates": 23
+        }
+      },
+      "replay": {
+        "record_count": 2,
+        "qa_passed": false,
+        "qa_issues": [
+          "incomplete_snapshot:detail_page_cap",
+          "expected_total_unknown",
+          "field_coverage:year:0.50<1.00",
+          "field_coverage:make:0.50<1.00",
+          "field_coverage:model:0.50<1.00",
+          "field_coverage:price:0.50<1.00",
+          "field_coverage:mileage:0.50<1.00",
+          "field_coverage:color_ext:0.50<1.00",
+          "field_coverage:description:0.50<1.00",
+          "field_coverage:color_int:0.50<0.80",
+          "field_coverage:transmission:0.50<0.80",
+          "field_coverage:drivetrain:0.50<0.80",
+          "field_coverage:features:0.50<0.80",
+          "full_resolution_photo_coverage:0.50<1.00",
+          "multi_photo_vehicle_coverage:0.50<1.00",
+          "photo_count_min:1<2"
+        ],
+        "qa_warnings": [
+          "vehicles_with_single_gallery_photo"
+        ]
+      },
+      "sample_quality": {
+        "vin": "KNAFU4A23A5310456",
+        "identity_proven": true,
+        "matched_by": "next_flight:vin",
+        "owned_photo_count": 23,
+        "unique_gallery_urls": true,
+        "numeric_photo_widths": [
+          1024,
+          1024,
+          1024,
+          1024,
+          1024,
+          1024,
+          1024,
+          1024,
+          1024,
+          1024,
+          1024,
+          1024,
+          1024,
+          1024,
+          1024,
+          1024,
+          1024,
+          1024,
+          1024,
+          1024,
+          1024,
+          1024,
+          1024
+        ],
+        "full_resolution_widths_ge_1000": [
+          1024,
+          1024,
+          1024,
+          1024,
+          1024,
+          1024,
+          1024,
+          1024,
+          1024,
+          1024,
+          1024,
+          1024,
+          1024,
+          1024,
+          1024,
+          1024,
+          1024,
+          1024,
+          1024,
+          1024,
+          1024,
+          1024,
+          1024
+        ],
+        "full_resolution_proof": true,
+        "required_fields_missing": [],
+        "required_sample_field_replay_pass": true,
+        "sample_pass_criteria": {
+          "vin_identity": true,
+          "two_owned_photos": true,
+          "full_resolution_proof": true,
+          "required_fields": true
+        }
+      },
+      "duration_seconds": 46.594
+    },
+    {
+      "slug": "automania-us",
+      "name": "Automania (Austell, GA)",
+      "country": "US",
+      "homepage": "https://www.automania.us",
+      "inventory_hint": "https://www.automania.us/autos",
+      "expected_platform": "VehiclesNETWORK (apogeeINVENT)",
+      "status": "candidate_failure",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": "static",
+      "error": {
+        "code": "candidate_or_replay_failure",
+        "message": "application could not produce a verified detail root/gallery/item contract"
+      },
+      "discovery_candidates_considered": 1,
+      "listing_url": "https://www.automania.us/autos",
+      "detail_url": "https://www.automania.us/autos/2013-Acura-MDX-Austell-GA-2858",
+      "candidate_metrics": {
+        "listing_card_candidates": 12,
+        "detail_root_candidates": 7,
+        "detail_gallery_candidates": 1,
+        "verified_detail_roots": 0,
+        "verified_galleries": 0,
+        "verified_gallery_items": 0,
+        "verified_contract_passed": false
+      },
+      "duration_seconds": 116.444
+    },
+    {
+      "slug": "rideplaza-com",
+      "name": "Ride Plaza (Loganville, GA)",
+      "country": "US",
+      "homepage": "https://rideplaza.com",
+      "inventory_hint": "https://rideplaza.com/used-cars-for-sale",
+      "expected_platform": "unidentified",
+      "status": "sample_pass",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": "static",
+      "error": null,
+      "discovery_candidates_considered": 1,
+      "listing_url": "https://rideplaza.com/used-cars-for-sale",
+      "detail_url": "https://rideplaza.com/used-cars-for-sale/Dodge/Charger/2014/2C3CDXBG3EH268813",
+      "candidate_metrics": {
+        "listing_card_candidates": 12,
+        "detail_root_candidates": 6,
+        "detail_gallery_candidates": 3,
+        "verified_detail_roots": 5,
+        "verified_galleries": 1,
+        "verified_gallery_items": 1,
+        "verified_contract_passed": true
+      },
+      "inference": {
+        "model": "gpt-5.6-luna",
+        "attempt": 1,
+        "attempts_configured": 3,
+        "validation": {
+          "raw_card_count": 10,
+          "record_count": 10,
+          "rejected_card_count": 0,
+          "detail_url_count": 10,
+          "expected_total": null,
+          "detail_validated": true,
+          "detail_identity_proven": true,
+          "detail_field_count": 16,
+          "detail_photo_count": 18,
+          "detail_full_resolution_candidates": 18
+        }
+      },
+      "replay": {
+        "record_count": 4,
+        "qa_passed": false,
+        "qa_issues": [
+          "incomplete_snapshot:detail_page_cap",
+          "expected_total_unknown",
+          "field_coverage:description:0.25<1.00",
+          "field_coverage:drivetrain:0.25<0.80",
+          "full_resolution_photo_coverage:0.25<1.00",
+          "multi_photo_vehicle_coverage:0.25<1.00",
+          "photo_count_min:1<2",
+          "photo_count_median:1<3"
+        ],
+        "qa_warnings": [
+          "source_field_unavailable:features",
+          "vehicles_with_single_gallery_photo"
+        ]
+      },
+      "sample_quality": {
+        "vin": "2C3CDXBG3EH268813",
+        "identity_proven": true,
+        "matched_by": null,
+        "owned_photo_count": 18,
+        "unique_gallery_urls": true,
+        "numeric_photo_widths": [],
+        "full_resolution_widths_ge_1000": [],
+        "full_resolution_proof": true,
+        "required_fields_missing": [],
+        "required_sample_field_replay_pass": true,
+        "sample_pass_criteria": {
+          "vin_identity": true,
+          "two_owned_photos": true,
+          "full_resolution_proof": true,
+          "required_fields": true
+        }
+      },
+      "duration_seconds": 43.971
+    },
+    {
+      "slug": "vickar-com",
+      "name": "Vickar Automotive Group (Winnipeg, MB)",
+      "country": "CA",
+      "homepage": "https://www.vickar.com",
+      "inventory_hint": "https://www.vickar.com/vehicles/used/",
+      "expected_platform": "Convertus",
+      "status": "sample_pass",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": "persistent_browser",
+      "error": null,
+      "discovery_candidates_considered": 1,
+      "listing_url": "https://www.vickar.com/vehicles/used/",
+      "detail_url": "https://www.vickar.com/vehicles/2012/ford/flex/winnipeg/mb/70619517/?sale_class=used",
+      "candidate_metrics": {
+        "listing_card_candidates": 12,
+        "detail_root_candidates": 12,
+        "detail_gallery_candidates": 2,
+        "verified_detail_roots": 6,
+        "verified_galleries": 1,
+        "verified_gallery_items": 1,
+        "verified_contract_passed": true
+      },
+      "inference": {
+        "model": "gpt-5.6-luna",
+        "attempt": 1,
+        "attempts_configured": 3,
+        "validation": {
+          "raw_card_count": 15,
+          "record_count": 15,
+          "rejected_card_count": 0,
+          "detail_url_count": 15,
+          "expected_total": null,
+          "detail_validated": true,
+          "detail_identity_proven": true,
+          "detail_field_count": 15,
+          "detail_photo_count": 7,
+          "detail_full_resolution_candidates": 7
+        }
+      },
+      "replay": {
+        "record_count": 4,
+        "qa_passed": false,
+        "qa_issues": [
+          "incomplete_snapshot:detail_page_cap",
+          "expected_total_unknown",
+          "field_coverage:year:0.25<1.00",
+          "field_coverage:make:0.25<1.00",
+          "field_coverage:model:0.25<1.00",
+          "field_coverage:color_ext:0.25<1.00",
+          "field_coverage:description:0.25<1.00",
+          "field_coverage:photos:0.25<1.00",
+          "field_coverage:transmission:0.25<0.80",
+          "full_resolution_photo_coverage:0.25<1.00",
+          "multi_photo_vehicle_coverage:0.25<1.00",
+          "photo_count_min:0<2",
+          "photo_count_median:0<3"
+        ],
+        "qa_warnings": [
+          "source_field_unavailable:color_int",
+          "source_field_unavailable:drivetrain",
+          "source_field_unavailable:features",
+          "vehicles_without_gallery_photos"
+        ]
+      },
+      "sample_quality": {
+        "vin": "2FMHK6DC6CBD14108",
+        "identity_proven": true,
+        "matched_by": "json_ld:vin",
+        "owned_photo_count": 7,
+        "unique_gallery_urls": true,
+        "numeric_photo_widths": [
+          1024,
+          133,
+          133,
+          133,
+          133,
+          133,
+          133
+        ],
+        "full_resolution_widths_ge_1000": [
+          1024
+        ],
+        "full_resolution_proof": true,
+        "required_fields_missing": [],
+        "required_sample_field_replay_pass": true,
+        "sample_pass_criteria": {
+          "vin_identity": true,
+          "two_owned_photos": true,
+          "full_resolution_proof": true,
+          "required_fields": true
+        }
+      },
+      "duration_seconds": 254.3
+    },
+    {
+      "slug": "autoshowwinnipeg-com",
+      "name": "The Auto Show (Winnipeg, MB)",
+      "country": "CA",
+      "homepage": "https://www.autoshowwinnipeg.com",
+      "inventory_hint": "https://www.autoshowwinnipeg.com/used/",
+      "expected_platform": "D2C Media",
+      "status": "blocked",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": null,
+      "error": {
+        "code": "site_wall_clock_timeout",
+        "message": "site exceeded 600s benchmark bound"
+      },
+      "duration_seconds": 600.0
+    },
+    {
+      "slug": "401dixiekia-com",
+      "name": "401 Dixie Kia (Mississauga, ON)",
+      "country": "CA",
+      "homepage": "https://www.401dixiekia.com",
+      "inventory_hint": "https://www.401dixiekia.com/en/used-inventory",
+      "expected_platform": "SM360",
+      "status": "sample_pass",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": "persistent_browser",
+      "error": null,
+      "discovery_candidates_considered": 1,
+      "listing_url": "https://www.401dixiekia.com/en/used-inventory",
+      "detail_url": "https://www.401dixiekia.com/en/used-inventory/kia/seltos/2023-kia-seltos-id38356554",
+      "candidate_metrics": {
+        "listing_card_candidates": 12,
+        "detail_root_candidates": 12,
+        "detail_gallery_candidates": 9,
+        "verified_detail_roots": 2,
+        "verified_galleries": 1,
+        "verified_gallery_items": 1,
+        "verified_contract_passed": true
+      },
+      "inference": {
+        "model": "gpt-5.6-luna",
+        "attempt": 1,
+        "attempts_configured": 3,
+        "validation": {
+          "raw_card_count": 13,
+          "record_count": 12,
+          "rejected_card_count": 1,
+          "detail_url_count": 12,
+          "expected_total": null,
+          "detail_validated": true,
+          "detail_identity_proven": true,
+          "detail_field_count": 21,
+          "detail_photo_count": 32,
+          "detail_full_resolution_candidates": 32
+        }
+      },
+      "replay": {
+        "record_count": 4,
+        "qa_passed": false,
+        "qa_issues": [
+          "incomplete_snapshot:detail_page_cap",
+          "expected_total_unknown",
+          "field_coverage:color_ext:0.25<1.00",
+          "field_coverage:color_int:0.25<0.80",
+          "full_resolution_photo_coverage:0.25<1.00",
+          "multi_photo_vehicle_coverage:0.25<1.00",
+          "photo_count_min:1<2",
+          "photo_count_median:1<3",
+          "cross_vehicle_photo_duplicates:1"
+        ],
+        "qa_warnings": [
+          "source_field_unavailable:features",
+          "vehicles_with_single_gallery_photo"
+        ]
+      },
+      "sample_quality": {
+        "vin": "KNDEUCAA3P7374977",
+        "identity_proven": true,
+        "matched_by": "json_ld:vin",
+        "owned_photo_count": 32,
+        "unique_gallery_urls": true,
+        "numeric_photo_widths": [],
+        "full_resolution_widths_ge_1000": [],
+        "full_resolution_proof": true,
+        "required_fields_missing": [],
+        "required_sample_field_replay_pass": true,
+        "sample_pass_criteria": {
+          "vin_identity": true,
+          "two_owned_photos": true,
+          "full_resolution_proof": true,
+          "required_fields": true
+        }
+      },
+      "duration_seconds": 302.118
+    },
+    {
+      "slug": "birchwood-ca",
+      "name": "Birchwood Automotive Group (Winnipeg, MB)",
+      "country": "CA",
+      "homepage": "https://www.birchwood.ca",
+      "inventory_hint": "https://www.birchwood.ca/vehicles/?condition=used",
+      "expected_platform": "unidentified (in-house WordPress)",
+      "status": "sample_pass",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": "persistent_browser",
+      "error": null,
+      "discovery_candidates_considered": 1,
+      "listing_url": "https://www.birchwood.ca/vehicles/?condition=used",
+      "detail_url": "https://www.birchwood.ca/vehicles/2023/jeep-grandcherokeel-summitreserve/F7JGMV/?finance_type=finance",
+      "candidate_metrics": {
+        "listing_card_candidates": 12,
+        "detail_root_candidates": 12,
+        "detail_gallery_candidates": 9,
+        "verified_detail_roots": 5,
+        "verified_galleries": 1,
+        "verified_gallery_items": 1,
+        "verified_contract_passed": true
+      },
+      "inference": {
+        "model": "gpt-5.6-luna",
+        "attempt": 1,
+        "attempts_configured": 3,
+        "validation": {
+          "raw_card_count": 35,
+          "record_count": 35,
+          "rejected_card_count": 0,
+          "detail_url_count": 35,
+          "expected_total": null,
+          "detail_validated": true,
+          "detail_identity_proven": true,
+          "detail_field_count": 18,
+          "detail_photo_count": 26,
+          "detail_full_resolution_candidates": 26
+        }
+      },
+      "replay": {
+        "record_count": 4,
+        "qa_passed": false,
+        "qa_issues": [
+          "incomplete_snapshot:detail_page_cap",
+          "expected_total_unknown",
+          "surrogate_vins:3",
+          "field_coverage:make:0.25<1.00",
+          "field_coverage:model:0.25<1.00",
+          "field_coverage:color_ext:0.25<1.00",
+          "field_coverage:description:0.25<1.00",
+          "field_coverage:photos:0.25<1.00",
+          "field_coverage:color_int:0.25<0.80",
+          "field_coverage:transmission:0.25<0.80",
+          "full_resolution_photo_coverage:0.25<1.00",
+          "multi_photo_vehicle_coverage:0.25<1.00",
+          "photo_count_min:0<2",
+          "photo_count_median:0<3"
+        ],
+        "qa_warnings": [
+          "source_field_unavailable:drivetrain",
+          "source_field_unavailable:features",
+          "vehicles_without_gallery_photos"
+        ]
+      },
+      "sample_quality": {
+        "vin": "1C4RJKET9P8844701",
+        "identity_proven": true,
+        "matched_by": "json_ld:vin",
+        "owned_photo_count": 26,
+        "unique_gallery_urls": true,
+        "numeric_photo_widths": [],
+        "full_resolution_widths_ge_1000": [],
+        "full_resolution_proof": true,
+        "required_fields_missing": [],
+        "required_sample_field_replay_pass": true,
+        "sample_pass_criteria": {
+          "vin_identity": true,
+          "two_owned_photos": true,
+          "full_resolution_proof": true,
+          "required_fields": true
+        }
+      },
+      "duration_seconds": 380.467
+    },
+    {
+      "slug": "centreautomobilesduquebec-com",
+      "name": "Centre Automobile du Quebec (Laval, QC)",
+      "country": "CA",
+      "homepage": "https://www.centreautomobilesduquebec.com",
+      "inventory_hint": "https://www.centreautomobilesduquebec.com/fr/occasion",
+      "expected_platform": "ADWS",
+      "status": "sample_pass",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": "persistent_browser",
+      "error": null,
+      "discovery_candidates_considered": 1,
+      "listing_url": "https://www.centreautomobilesduquebec.com/fr/inventory",
+      "detail_url": "https://www.centreautomobilesduquebec.com/fr/vehicle/nissan-rogue-2024-6a4d40fa21a956acd85504af",
+      "candidate_metrics": {
+        "listing_card_candidates": 8,
+        "detail_root_candidates": 3,
+        "detail_gallery_candidates": 1,
+        "verified_detail_roots": 4,
+        "verified_galleries": 0,
+        "verified_gallery_items": 1,
+        "verified_contract_passed": true
+      },
+      "inference": {
+        "model": "gpt-5.6-luna",
+        "attempt": 1,
+        "attempts_configured": 3,
+        "validation": {
+          "raw_card_count": 13,
+          "record_count": 13,
+          "rejected_card_count": 0,
+          "detail_url_count": 13,
+          "expected_total": 13,
+          "detail_validated": true,
+          "detail_identity_proven": true,
+          "detail_field_count": 22,
+          "detail_photo_count": 26,
+          "detail_full_resolution_candidates": 26
+        }
+      },
+      "replay": {
+        "record_count": 4,
+        "qa_passed": false,
+        "qa_issues": [
+          "incomplete_snapshot:detail_page_cap",
+          "expected_total_mismatch:4/13",
+          "surrogate_vins:3",
+          "field_coverage:color_ext:0.25<1.00",
+          "field_coverage:description:0.25<1.00",
+          "field_coverage:color_int:0.25<0.80",
+          "field_coverage:transmission:0.25<0.80",
+          "field_coverage:drivetrain:0.25<0.80",
+          "field_coverage:features:0.25<0.80",
+          "full_resolution_photo_coverage:0.25<1.00",
+          "multi_photo_vehicle_coverage:0.25<1.00",
+          "photo_count_min:1<2",
+          "photo_count_median:1<3"
+        ],
+        "qa_warnings": [
+          "vehicles_with_single_gallery_photo"
+        ]
+      },
+      "sample_quality": {
+        "vin": "JN8BT3BB7RW435564",
+        "identity_proven": true,
+        "matched_by": "next_flight:vin",
+        "owned_photo_count": 26,
+        "unique_gallery_urls": true,
+        "numeric_photo_widths": [],
+        "full_resolution_widths_ge_1000": [],
+        "full_resolution_proof": true,
+        "required_fields_missing": [],
+        "required_sample_field_replay_pass": true,
+        "sample_pass_criteria": {
+          "vin_identity": true,
+          "two_owned_photos": true,
+          "full_resolution_proof": true,
+          "required_fields": true
+        }
+      },
+      "duration_seconds": 42.255
+    },
+    {
+      "slug": "occasionbeaucage-com",
+      "name": "Occasion Beaucage (Sherbrooke, QC)",
+      "country": "CA",
+      "homepage": "https://www.occasionbeaucage.com",
+      "inventory_hint": "https://www.occasionbeaucage.com/auto-usage",
+      "expected_platform": "Autoroot Technologies",
+      "status": "sample_pass",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": "static",
+      "error": null,
+      "discovery_candidates_considered": 1,
+      "listing_url": "https://www.occasionbeaucage.com/auto-usage",
+      "detail_url": "https://www.occasionbeaucage.com/auto-usage/ford-escape-2020-midtm030a/",
+      "candidate_metrics": {
+        "listing_card_candidates": 12,
+        "detail_root_candidates": 1,
+        "detail_gallery_candidates": 2,
+        "verified_detail_roots": 2,
+        "verified_galleries": 0,
+        "verified_gallery_items": 1,
+        "verified_contract_passed": true
+      },
+      "inference": {
+        "model": "gpt-5.6-luna",
+        "attempt": 1,
+        "attempts_configured": 3,
+        "validation": {
+          "raw_card_count": 51,
+          "record_count": 48,
+          "rejected_card_count": 3,
+          "detail_url_count": 24,
+          "expected_total": null,
+          "detail_validated": true,
+          "detail_identity_proven": true,
+          "detail_field_count": 20,
+          "detail_photo_count": 3,
+          "detail_full_resolution_candidates": 3
+        }
+      },
+      "replay": {
+        "record_count": 2,
+        "qa_passed": false,
+        "qa_issues": [
+          "incomplete_snapshot:detail_page_cap",
+          "expected_total_unknown",
+          "surrogate_vins:1",
+          "field_coverage:year:0.50<1.00",
+          "field_coverage:make:0.50<1.00",
+          "field_coverage:model:0.50<1.00",
+          "field_coverage:color_ext:0.50<1.00",
+          "field_coverage:description:0.50<1.00",
+          "field_coverage:photo:0.50<1.00",
+          "field_coverage:photos:0.50<1.00",
+          "field_coverage:color_int:0.50<0.80",
+          "field_coverage:transmission:0.50<0.80",
+          "full_resolution_photo_coverage:0.50<1.00",
+          "multi_photo_vehicle_coverage:0.50<1.00",
+          "photo_count_min:0<2",
+          "photo_count_median:1.5<3"
+        ],
+        "qa_warnings": [
+          "source_field_unavailable:drivetrain",
+          "source_field_unavailable:features",
+          "vehicles_without_gallery_photos"
+        ]
+      },
+      "sample_quality": {
+        "vin": "1FMCU9H6XLUA13474",
+        "identity_proven": true,
+        "matched_by": "next_flight:vin",
+        "owned_photo_count": 3,
+        "unique_gallery_urls": true,
+        "numeric_photo_widths": [],
+        "full_resolution_widths_ge_1000": [],
+        "full_resolution_proof": true,
+        "required_fields_missing": [],
+        "required_sample_field_replay_pass": true,
+        "sample_pass_criteria": {
+          "vin_identity": true,
+          "two_owned_photos": true,
+          "full_resolution_proof": true,
+          "required_fields": true
+        }
+      },
+      "duration_seconds": 106.368
+    },
+    {
+      "slug": "ridetime-ca",
+      "name": "Ride Time (Winnipeg, MB)",
+      "country": "CA",
+      "homepage": "https://www.ridetime.ca",
+      "inventory_hint": "https://www.ridetime.ca/vehicles",
+      "expected_platform": "unidentified (WordPress)",
+      "status": "sample_pass",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": "persistent_browser",
+      "error": null,
+      "hint_discovery_error": "dealer_http_404",
+      "discovery_candidates_considered": 2,
+      "listing_url": "https://www.ridetime.ca/buy-used-cars/",
+      "detail_url": "https://www.ridetime.ca/used-cars/26202-ford-escape-titanium-hybrid-2021-winnipeg-mb/",
+      "candidate_metrics": {
+        "listing_card_candidates": 12,
+        "detail_root_candidates": 12,
+        "detail_gallery_candidates": 4,
+        "verified_detail_roots": 6,
+        "verified_galleries": 1,
+        "verified_gallery_items": 1,
+        "verified_contract_passed": true
+      },
+      "inference": {
+        "model": "gpt-5.6-luna",
+        "attempt": 1,
+        "attempts_configured": 3,
+        "validation": {
+          "raw_card_count": 10,
+          "record_count": 10,
+          "rejected_card_count": 0,
+          "detail_url_count": 10,
+          "expected_total": null,
+          "detail_validated": true,
+          "detail_identity_proven": true,
+          "detail_field_count": 7,
+          "detail_photo_count": 49,
+          "detail_full_resolution_candidates": 49
+        }
+      },
+      "replay": {
+        "record_count": 4,
+        "qa_passed": false,
+        "qa_issues": [
+          "incomplete_snapshot:detail_page_cap",
+          "expected_total_unknown",
+          "field_coverage:color_ext:0.25<1.00",
+          "field_coverage:description:0.25<1.00",
+          "field_coverage:photo:0.25<1.00",
+          "field_coverage:photos:0.25<1.00",
+          "full_resolution_photo_coverage:0.25<1.00",
+          "multi_photo_vehicle_coverage:0.25<1.00",
+          "photo_count_min:0<2",
+          "photo_count_median:0<3"
+        ],
+        "qa_warnings": [
+          "source_field_unavailable:color_int",
+          "source_field_unavailable:transmission",
+          "source_field_unavailable:drivetrain",
+          "source_field_unavailable:features",
+          "vehicles_without_gallery_photos"
+        ]
+      },
+      "sample_quality": {
+        "vin": "1FMCU9DZ1MUA74472",
+        "identity_proven": true,
+        "matched_by": null,
+        "owned_photo_count": 49,
+        "unique_gallery_urls": true,
+        "numeric_photo_widths": [],
+        "full_resolution_widths_ge_1000": [],
+        "full_resolution_proof": true,
+        "required_fields_missing": [],
+        "required_sample_field_replay_pass": true,
+        "sample_pass_criteria": {
+          "vin_identity": true,
+          "two_owned_photos": true,
+          "full_resolution_proof": true,
+          "required_fields": true
+        }
+      },
+      "duration_seconds": 117.906
+    }
+  ]
+}

@@ -1,0 +1,115 @@
+{
+  "artifact": "weaver-vehicle-v2-compatibility-sample",
+  "artifact_version": 1,
+  "generated_at": "2026-08-25T03:45:15.712750Z",
+  "scope": {
+    "sites_requested": 3,
+    "sites_run": 3,
+    "sample_only": true,
+    "full_inventory_proof": false,
+    "owner_authorization_proof": false,
+    "robots_requests": 0,
+    "html_or_cookie_persistence": false,
+    "model": "gpt-5.6-luna",
+    "required_sample_fields": [
+      "vin",
+      "year",
+      "make+model_or_name",
+      "price",
+      "mileage",
+      "distance_unit",
+      "color",
+      "description",
+      "detail_url"
+    ],
+    "photo_acceptance": "at least 2 unique VDP-owned photos plus deterministic full-resolution proof (width >= 1000 or explicit full/original gallery source)"
+  },
+  "counts": {
+    "sample_pass": 0,
+    "sample_partial": 0,
+    "candidate_failure": 3,
+    "blocked": 0
+  },
+  "sites": [
+    {
+      "slug": "orlandonissan-com",
+      "name": "Sutherlin Nissan of Orlando",
+      "country": "US",
+      "homepage": "https://orlandonissan.com",
+      "inventory_hint": "https://orlandonissan.com/inventory/used",
+      "expected_platform": "Team Velocity (Apollo)",
+      "status": "candidate_failure",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": "persistent_browser",
+      "error": {
+        "code": "candidate_or_replay_failure",
+        "message": "no locally valid spec after bounded attempts: ReadTimeout: The read operation timed out"
+      },
+      "discovery_candidates_considered": 4,
+      "listing_url": "https://orlandonissan.com/inventory/used?paymentmin=1&paymentmax=15000",
+      "detail_url": "https://orlandonissan.com/viewdetails/used/3kpf54ad3ne445917/2022-kia-forte-4dr-car?type=cash",
+      "candidate_metrics": {
+        "listing_card_candidates": 1,
+        "detail_root_candidates": 12,
+        "detail_gallery_candidates": 2,
+        "verified_detail_roots": 4,
+        "verified_galleries": 0,
+        "verified_gallery_items": 1,
+        "verified_contract_passed": true
+      },
+      "duration_seconds": 51.115
+    },
+    {
+      "slug": "universal-nissan-com",
+      "name": "Universal Nissan (Orlando)",
+      "country": "US",
+      "homepage": "https://universal-nissan.com",
+      "inventory_hint": "https://universal-nissan.com/used-vehicles/",
+      "expected_platform": "Dealer Inspire (Cars Commerce)",
+      "status": "candidate_failure",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": null,
+      "error": {
+        "code": "target_selection_failure",
+        "message": "inventory page did not expose a representative same-origin VDP"
+      },
+      "hint_discovery_error": "vehicle_detail_not_found",
+      "failure_stage": "target_selection",
+      "duration_seconds": 40.606
+    },
+    {
+      "slug": "serramonteford-com",
+      "name": "Serramonte Ford (Colma, CA)",
+      "country": "US",
+      "homepage": "https://www.serramonteford.com",
+      "inventory_hint": "https://www.serramonteford.com/used-vehicles/",
+      "expected_platform": "Dealer.com (Cox)",
+      "status": "candidate_failure",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": "persistent_browser",
+      "error": {
+        "code": "candidate_or_replay_failure",
+        "message": "application could not produce a verified detail root/gallery/item contract"
+      },
+      "discovery_candidates_considered": 4,
+      "listing_url": "https://www.serramonteford.com/new-inventory/index.htm",
+      "detail_url": "https://www.serramonteford.com/new/Ford/2026-Ford-Maverick-for-sale-near-San-Francisco-1c907ccdac181fb201976db042250db7.htm",
+      "candidate_metrics": {
+        "listing_card_candidates": 0,
+        "detail_root_candidates": 12,
+        "detail_gallery_candidates": 0,
+        "verified_detail_roots": 0,
+        "verified_galleries": 0,
+        "verified_gallery_items": 0,
+        "verified_contract_passed": false
+      },
+      "duration_seconds": 46.146
+    }
+  ]
+}

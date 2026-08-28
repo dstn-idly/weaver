@@ -43,6 +43,9 @@ class RunRecord:
     runtime_failures: list[dict[str, Any]] = field(default_factory=list)
     callback_token: str = field(default_factory=lambda: secrets.token_urlsafe(24))
     callback_token_hash: str = ""
+    # Ephemeral per-run credentials are never written by persist_summary().
+    vehicle_cf_access_client_id: str | None = field(default=None, repr=False)
+    vehicle_cf_access_client_secret: str | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         if not self.callback_token_hash and self.callback_token:

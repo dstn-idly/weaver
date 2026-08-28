@@ -22,6 +22,7 @@ class RobotsDecision:
     robots_url: str
     reason: str
     crawl_delay: float = 0.0
+    enforced: bool = True
 
 
 class RobotsPolicy:
@@ -29,6 +30,23 @@ class RobotsPolicy:
         self._cache: dict[str, tuple[float, str | None, int]] = {}
         self._locks: dict[str, asyncio.Lock] = {}
         self._last_request: dict[str, float] = {}
+
+    @property
+    def policy(self) -> str:
+        value = os.getenv("WEAVER_ROBOTS_POLICY", "fail_closed").strip().lower()
+        if value not in {"fail_closed", "client_authorized_bypass"}:
+            raise RuntimeError(
+                "WEAVER_ROBOTS_POLICY must be 'fail_closed' or 'client_authorized_bypass'"
+            )
+        return value
+
+    @property
+    def enforced(self) -> bool:
+        return self.policy == "fail_closed"
+
+    @property
+    def mode(self) -> str:
+        return self.policy
 
     @staticmethod
     def _origin_and_robots(url: str) -> tuple[str, str]:
@@ -72,6 +90,14 @@ class RobotsPolicy:
 
     async def check(self, url: str) -> RobotsDecision:
         origin, robots_url = self._origin_and_robots(url)
+        if not self.enforced:
+            return RobotsDecision(
+                True,
+                robots_url,
+                "Client-authorized override: robots.txt enforcement is disabled",
+                0.0,
+                enforced=False,
+            )
         lock = self._locks.setdefault(origin, asyncio.Lock())
         async with lock:
             text, status = await self._load(origin, robots_url)
@@ -95,6 +121,8 @@ class RobotsPolicy:
         return RobotsDecision(allowed, robots_url, reason, float(delay))
 
     async def wait(self, url: str, crawl_delay: float) -> None:
+        if not self.enforced:
+            return
         origin, _ = self._origin_and_robots(url)
         lock = self._locks.setdefault(origin, asyncio.Lock())
         async with lock:

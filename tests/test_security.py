@@ -2,7 +2,12 @@ import socket
 
 import pytest
 
-from weaver.security import UnsafeTargetError, _is_protected, validate_public_url
+from weaver.security import (
+    TargetResolutionError,
+    UnsafeTargetError,
+    _is_protected,
+    validate_public_url,
+)
 
 
 @pytest.mark.asyncio
@@ -17,6 +22,16 @@ async def test_public_dns_target_is_normalized(monkeypatch) -> None:
     monkeypatch.setattr(socket, "getaddrinfo", lambda *args, **kwargs: [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 443))])
     target = await validate_public_url("HTTPS://Example.COM/path#fragment")
     assert target.url == "https://example.com/path"
+
+
+@pytest.mark.asyncio
+async def test_dns_lookup_failure_has_narrow_resolution_type(monkeypatch) -> None:
+    def unavailable(*args, **kwargs):
+        raise socket.gaierror(socket.EAI_AGAIN, "temporary resolver failure")
+
+    monkeypatch.setattr(socket, "getaddrinfo", unavailable)
+    with pytest.raises(TargetResolutionError, match="Could not resolve"):
+        await validate_public_url("https://dealer.example/used")
 
 
 def test_shared_cgnat_space_is_protected() -> None:

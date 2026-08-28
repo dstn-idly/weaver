@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from collections import Counter
-from typing import Any
+from typing import Any, Iterable
 
 from .models import ScrapeSpec, VerificationReport
 
@@ -11,7 +11,12 @@ def _blank(value: Any) -> bool:
     return value is None or value == "" or value == []
 
 
-def verify(rows: list[dict[str, Any]], spec: ScrapeSpec, attempt: int) -> VerificationReport:
+def verify(
+    rows: list[dict[str, Any]],
+    spec: ScrapeSpec,
+    attempt: int,
+    requested_fields: Iterable[str] | None = None,
+) -> VerificationReport:
     issues: list[str] = []
     fields = spec.all_fields()
     field_names = [field.name for field in fields]
@@ -25,6 +30,10 @@ def verify(rows: list[dict[str, Any]], spec: ScrapeSpec, attempt: int) -> Verifi
 
     if not rows:
         issues.append("No records matched the proposed schema")
+    elif len(rows) < spec.min_rows:
+        issues.append(
+            f"Only {len(rows)} record(s) matched; this collection requires at least {spec.min_rows}"
+        )
     if not field_names:
         issues.append("No stable data fields were discovered")
     useful_fields = [
@@ -44,6 +53,23 @@ def verify(rows: list[dict[str, Any]], spec: ScrapeSpec, attempt: int) -> Verifi
         missing = sum(_blank(row.get(field.name)) for row in rows) / len(rows)
         if missing > 0.20:
             issues.append(f"Required field '{field.name}' is missing in {missing:.0%} of records")
+
+    requested_source = spec.requested_field_names if requested_fields is None else requested_fields
+    requested_names = list(dict.fromkeys(str(name) for name in requested_source if name))
+    if rows and requested_names:
+        captured = [name for name in requested_names if name in field_names]
+        if not captured:
+            preview = ", ".join(requested_names[:5])
+            suffix = "…" if len(requested_names) > 5 else ""
+            issues.append(f"None of the requested fields were captured ({preview}{suffix})")
+        else:
+            stable = [
+                name
+                for name in captured
+                if sum(not _blank(row.get(name)) for row in rows) / len(rows) >= 0.25
+            ]
+            if not stable:
+                issues.append("Requested fields have no stable coverage across the records")
 
     primary_names = {"title", "headline", "name", "quote", "item", "property", "instrument"}
     primary = next((field for field in fields if field.name.lower() in primary_names), None)
@@ -68,8 +94,9 @@ def repair_spec(spec: ScrapeSpec, rows: list[dict[str, Any]]) -> ScrapeSpec:
     if not rows:
         return spec
     kept = []
+    protected = set(spec.requested_field_names)
     for field in spec.fields:
         coverage = sum(not _blank(row.get(field.name)) for row in rows) / len(rows)
-        if coverage >= 0.25 or field.required:
+        if coverage >= 0.25 or field.required or field.name in protected:
             kept.append(field)
     return spec.model_copy(update={"fields": kept or spec.fields})

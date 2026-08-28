@@ -9,13 +9,13 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
-from .ai import enhance_spec, openai_enabled
+from .ai import enhance_spec, openai_enabled, repair_spec_with_ai
 from .analyzer import analyze_html, extract_with_spec
 from .codegen import generate_scraper, spec_yaml
 from .details import CONTENT_FIELD_NAMES, detail_url_field, extract_detail_fields, infer_detail_spec, requested_detail_fields
 from .discovery import discover_target, origin_key
 from .exporters import write_bundle, write_exports
-from .fetching import FetchedPage, fetch_page
+from .fetching import AccessChallengeError, FetchedPage, fetch_page
 from .images import apply_image_policy
 from .jobs import RunRecord, slugify
 from .models import RequestedField, ScrapeSpec, SourceResult
@@ -23,6 +23,7 @@ from .pagination import canonical_url, infer_next_page, page_fingerprint, row_fi
 from .robots import robots_policy
 from .security import validate_public_url
 from .verification import repair_spec, verify
+from .vehicle.pipeline import run_vehicle_pipeline
 
 
 PARTS = ("title", "price", "rating", "stock", "img")
@@ -35,7 +36,8 @@ FIELD_ALIASES: dict[str, tuple[str, ...]] = {
     "images": ("image", "photo", "photos", "thumbnail"),
     "photo": ("image", "images", "photos", "thumbnail"),
     "photos": ("image", "images", "photo", "thumbnail"),
-    "url": ("link", "product_url", "listing_url", "detail_url"),
+    "apply_url": ("url", "link", "job_url", "detail_url"),
+    "url": ("link", "product_url", "listing_url", "detail_url", "apply_url"),
 }
 
 
@@ -65,7 +67,13 @@ def _apply_requested_field_contract(
             consumed_aliases.add(field.name)
     ordered.extend(field for field in spec.fields if field.name not in requested_names and field.name not in consumed_aliases)
     recommendations = list(dict.fromkeys(requested_names + spec.recommended_fields))
-    return spec.model_copy(update={"fields": ordered[:16], "recommended_fields": recommendations})
+    return spec.model_copy(
+        update={
+            "fields": ordered[:16],
+            "recommended_fields": recommendations,
+            "requested_field_names": requested_names,
+        }
+    )
 
 
 def _ensure_active(record: RunRecord) -> None:
@@ -642,7 +650,14 @@ async def _process_source(record: RunRecord, url: str, index: int) -> SourceResu
     source_id = f"source-{index + 1}"
     slug = slugify(url, source_id)
     await record.emit("source", {"url": url, "index": index, "total": len(record.request.urls)}, source_id)
-    await record.emit("phase", {"name": "robots", "label": "checking robots.txt"}, source_id)
+    await record.emit(
+        "phase",
+        {
+            "name": "robots",
+            "label": "checking robots.txt" if robots_policy.enforced else "applying client-authorized robots override",
+        },
+        source_id,
+    )
     target = await validate_public_url(url)
     decision = await robots_policy.check(target.url)
     await record.emit(
@@ -652,23 +667,47 @@ async def _process_source(record: RunRecord, url: str, index: int) -> SourceResu
             "robots_url": decision.robots_url,
             "reason": decision.reason,
             "crawl_delay": decision.crawl_delay,
+            "enforced": decision.enforced,
         },
         source_id,
     )
     if not decision.allowed:
         raise PermissionError(decision.reason)
-    await record.log(f"robots.txt allows {target.url}", "ok", source_id)
+    await record.log(
+        f"robots.txt allows {target.url}"
+        if decision.enforced
+        else f"Client-authorized override active · robots.txt not enforced for {target.url}",
+        "ok" if decision.enforced else "warn",
+        source_id,
+    )
     await robots_policy.wait(target.url, decision.crawl_delay)
     _ensure_active(record)
 
     await record.emit("phase", {"name": "fetch", "label": "fetching with Scrapling"}, source_id)
-    page = await fetch_page(target.url, options.render_mode)
+    async def emit_fetch_event(payload: dict[str, Any]) -> None:
+        await record.emit("fetch", payload, source_id)
+        message = str(payload.get("message", "")).strip()
+        if message:
+            await record.log(
+                message,
+                "ok" if payload.get("stage") == "challenge_solved" else "warn",
+                source_id,
+            )
+
+    page = await fetch_page(target.url, options.render_mode, on_event=emit_fetch_event)
     _ensure_active(record)
     if page.status >= 400:
         raise RuntimeError(f"Target returned HTTP {page.status}")
+    fetch_description = (
+        "Scrapling protected browser"
+        if page.fetcher == "stealth"
+        else "browser rendered"
+        if page.rendered
+        else "static HTTP"
+    )
     await record.log(
         f"Fetched {page.final_url if hasattr(page, 'final_url') else page.url} · {page.status} · {page.size / 1000:.1f} KB"
-        + (" · browser rendered" if page.rendered else " · static HTTP"),
+        + f" · {fetch_description}",
         "ok",
         source_id,
     )
@@ -683,7 +722,7 @@ async def _process_source(record: RunRecord, url: str, index: int) -> SourceResu
     if options.target_intent:
         await record.emit("phase", {"name": "discover", "label": "finding the requested section"}, source_id)
         await record.log(
-            f'Weaver is scouting permitted same-site links and search forms for “{options.target_intent}”',
+            f'Weaver is scouting same-site links and search forms allowed by the active server policy for “{options.target_intent}”',
             "info",
             source_id,
         )
@@ -740,6 +779,7 @@ async def _process_source(record: RunRecord, url: str, index: int) -> SourceResu
                 "render_mode": "browser" if page.rendered else "http",
                 "max_items": options.max_items,
                 "max_pages": options.max_pages,
+                "robots_policy": robots_policy.mode,
                 "pagination_mode": "next_link" if first_next_page else "none",
                 "next_page_selector": first_next_page.selector if first_next_page else None,
                 "image_mode": options.image_mode,
@@ -773,6 +813,7 @@ async def _process_source(record: RunRecord, url: str, index: int) -> SourceResu
                         "render_mode": "browser" if page.rendered else "http",
                         "max_items": options.max_items,
                         "max_pages": options.max_pages,
+                        "robots_policy": robots_policy.mode,
                         "pagination_mode": "next_link" if first_next_page else "none",
                         "next_page_selector": first_next_page.selector if first_next_page else None,
                         "image_mode": options.image_mode,
@@ -871,7 +912,7 @@ async def _process_source(record: RunRecord, url: str, index: int) -> SourceResu
     runtime_readme.write_text(
         "# Generated Weaver scraper\n\n"
         "This scraper runs deterministically without OpenAI. It follows same-origin next-page links, deduplicates records, "
-        "follows verified same-origin detail links when requested, fails closed when robots.txt cannot be evaluated, "
+        "follows verified same-origin detail links when requested and preserves the run's explicit robots policy, "
         "and exits nonzero when its output contract breaks. "
         "The capability URL below reports a sanitized failure to Weaver and requests one bounded rebuild; keep it private.\n\n"
         "```bash\n"
@@ -891,6 +932,7 @@ async def _process_source(record: RunRecord, url: str, index: int) -> SourceResu
     reports = []
     final_report = None
     attempted_specs: set[str] = set()
+    ai_repair_attempted = False
     for attempt in range(1, 4):
         _ensure_active(record)
         attempted_specs.add(spec.model_dump_json())
@@ -904,7 +946,7 @@ async def _process_source(record: RunRecord, url: str, index: int) -> SourceResu
             timeout=30,
         )
         rows = rows[: options.max_items]
-        report = verify(rows, spec, attempt)
+        report = verify(rows, spec, attempt, [field.name for field in options.requested_fields])
         if generated_error:
             report.passed = False
             report.issues.append(generated_error)
@@ -921,21 +963,110 @@ async def _process_source(record: RunRecord, url: str, index: int) -> SourceResu
         await record.log(f"QA attempt {attempt} requested repair: {'; '.join(report.issues)}", "warn", source_id)
         next_spec = None
         repair_note = ""
-        if attempt == 1 and spec.generated_with_ai and fallback_spec.model_dump_json() not in attempted_specs:
-            next_spec = fallback_spec
-            repair_note = "Reverted to the locally discovered schema for the next attempt"
-        else:
-            pruned = repair_spec(spec, rows)
-            if pruned.model_dump_json() not in attempted_specs:
-                next_spec = pruned
-                repair_note = "Removed low-coverage fields before the next attempt"
-            while repair_candidates and next_spec is None:
-                alternate = repair_candidates.pop(0)
-                if alternate.model_dump_json() not in attempted_specs:
-                    next_spec = alternate
-                    repair_note = f"Advanced to alternate repeated container '{alternate.container}'"
+        if options.use_ai and openai_enabled() and not ai_repair_attempted and attempt < 3:
+            ai_repair_attempted = True
+            ai_candidates = [fallback_spec, *repair_candidates]
+            await record.emit(
+                "ai_repair",
+                {"stage": "comparing", "qa_attempt": attempt, "candidate_count": len(ai_candidates)},
+                source_id,
+            )
+            await record.log(
+                f"OpenAI repair pass · comparing {len(ai_candidates)} locally discovered containers after QA attempt {attempt}",
+                "info",
+                source_id,
+            )
+            try:
+                proposed, _ = await repair_spec_with_ai(
+                    page.html,
+                    spec,
+                    ai_candidates,
+                    options.requested_fields,
+                    report.issues,
+                    options.target_intent,
+                )
+                _ensure_active(record)
+                if proposed is not None:
+                    proposed = _apply_requested_field_contract(proposed, options.requested_fields)
+                    preview_rows = extract_with_spec(
+                        page.html,
+                        proposed,
+                        options.max_items,
+                        page_url=final_url,
+                    )
+                    preview_report = verify(
+                        preview_rows,
+                        proposed,
+                        attempt + 1,
+                        [field.name for field in options.requested_fields],
+                    )
+                    fingerprint = proposed.model_dump_json()
+                    if preview_report.passed and fingerprint not in attempted_specs:
+                        next_spec = proposed
+                        ai_used = True
+                        repair_note = (
+                            f"OpenAI selected repeated container '{proposed.container}' · "
+                            f"{len(proposed.fields)} selectors validated locally · preview QA passed"
+                        )
+                        await record.emit(
+                            "ai_repair",
+                            {
+                                "stage": "accepted",
+                                "qa_attempt": attempt,
+                                "candidate_count": len(ai_candidates),
+                                "validated_fields": len(proposed.fields),
+                                "preview_rows": len(preview_rows),
+                                "preview_null_rate": preview_report.null_rate,
+                            },
+                            source_id,
+                        )
+                    else:
+                        await record.emit(
+                            "ai_repair",
+                            {
+                                "stage": "rejected",
+                                "qa_attempt": attempt,
+                                "candidate_count": len(ai_candidates),
+                                "preview_rows": len(preview_rows),
+                                "issue_count": len(preview_report.issues),
+                            },
+                            source_id,
+                        )
+                        await record.log(
+                            "OpenAI repair proposal did not pass local preview QA; continuing with deterministic repair",
+                            "warn",
+                            source_id,
+                        )
+            except Exception as exc:
+                if record.cancelled:
+                    raise RuntimeError("Run cancelled") from exc
+                await record.emit(
+                    "ai_repair",
+                    {"stage": "unavailable", "qa_attempt": attempt, "error_type": type(exc).__name__},
+                    source_id,
+                )
+                await record.log(
+                    f"AI repair unavailable ({type(exc).__name__}); continuing with deterministic repair",
+                    "warn",
+                    source_id,
+                )
+
         if next_spec is None:
-            await record.log("No distinct deterministic repair candidate remained; stopping the bounded QA loop", "warn", source_id)
+            if attempt == 1 and spec.generated_with_ai and fallback_spec.model_dump_json() not in attempted_specs:
+                next_spec = fallback_spec
+                repair_note = "Reverted to the locally discovered schema for the next attempt"
+            else:
+                pruned = repair_spec(spec, rows)
+                if pruned.model_dump_json() not in attempted_specs:
+                    next_spec = pruned
+                    repair_note = "Removed low-coverage fields before the next attempt"
+                while repair_candidates and next_spec is None:
+                    alternate = repair_candidates.pop(0)
+                    if alternate.model_dump_json() not in attempted_specs:
+                        next_spec = alternate
+                        repair_note = f"Advanced to alternate repeated container '{alternate.container}'"
+        if next_spec is None:
+            await record.log("No distinct validated repair candidate remained; stopping the bounded QA loop", "warn", source_id)
             break
         spec = next_spec
         await record.log(repair_note, "info", source_id)
@@ -1069,7 +1200,12 @@ async def _process_source(record: RunRecord, url: str, index: int) -> SourceResu
         fixture_manifest=fixture_manifest,
         timeout=min(180, 20 + (len(fixture_entries) + len(detail_entries)) * 4),
     )
-    full_report = verify(generated_rows, spec, final_report.attempt)
+    full_report = verify(
+        generated_rows,
+        spec,
+        final_report.attempt,
+        [field.name for field in options.requested_fields],
+    )
     if generated_error:
         full_report.passed = False
         full_report.issues.append(generated_error)
@@ -1129,7 +1265,9 @@ async def _process_source(record: RunRecord, url: str, index: int) -> SourceResu
         fixture_name=str(fixture.relative_to(record.run_dir)),
         scraper_name=str(scraper_path.relative_to(record.run_dir)),
         robots_url=final_decision.robots_url,
-        robots_allowed=True,
+        robots_allowed=final_decision.allowed if final_decision.enforced else None,
+        robots_policy=robots_policy.mode,
+        robots_reason=final_decision.reason,
         pages_scraped=len(fixture_entries),
         pagination_stop_reason=stop_reason,
         page_urls=[entry["url"] for entry in fixture_entries],
@@ -1138,6 +1276,9 @@ async def _process_source(record: RunRecord, url: str, index: int) -> SourceResu
 
 
 async def run_pipeline(record: RunRecord) -> None:
+    if record.request.options.preset == "automotive.vehicle-v2":
+        await run_vehicle_pipeline(record)
+        return
     record.summary.status = "running"
     record.persist_summary()
     await record.emit("run", {"id": record.summary.id, "status": "running", "url_count": len(record.request.urls)})
@@ -1153,7 +1294,23 @@ async def run_pipeline(record: RunRecord) -> None:
         except Exception as exc:
             message = f"{url}: {exc}"
             errors.append(message)
-            await record.emit("error", {"url": url, "message": str(exc), "error_type": type(exc).__name__}, f"source-{index + 1}")
+            error_payload: dict[str, Any] = {
+                "url": url,
+                "message": str(exc),
+                "error_type": type(exc).__name__,
+            }
+            if isinstance(exc, AccessChallengeError):
+                error_payload.update(
+                    {
+                        "error_code": exc.code,
+                        "provider": exc.provider,
+                        "http_status": exc.status,
+                        "ray_id": exc.ray_id,
+                        "browser_attempted": exc.browser_attempted,
+                        "solver_attempted": exc.solver_attempted,
+                    }
+                )
+            await record.emit("error", error_payload, f"source-{index + 1}")
             await record.log(message, "error", f"source-{index + 1}")
 
     all_rows = [row for result in record.results for row in result.rows]
@@ -1175,7 +1332,12 @@ async def run_pipeline(record: RunRecord) -> None:
                     "status": record.summary.status,
                     "sources": [result.model_dump(mode="json", exclude={"rows"}) for result in record.results],
                     "row_count": len(all_rows),
-                    "robots_respected": True,
+                    "robots_respected": all(result.spec.robots_policy == "fail_closed" for result in record.results),
+                    "robots_policy": (
+                        "fail_closed"
+                        if all(result.spec.robots_policy == "fail_closed" for result in record.results)
+                        else "client_authorized_bypass"
+                    ),
                     "ai_at_runtime": False,
                 },
                 indent=2,

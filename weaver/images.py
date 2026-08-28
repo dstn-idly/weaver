@@ -116,4 +116,9 @@ async def apply_image_policy(
             if local:
                 row[f"{field}_local"] = local if isinstance(raw, list) else local[0]
     if log:
-        await log(f"Downloaded {downloaded} unique images in {attempts} bounded attempts with robots and size checks", "ok")
+        policy = (
+            "robots and size checks"
+            if robots_policy.enforced
+            else "size checks under the client-authorized robots override"
+        )
+        await log(f"Downloaded {downloaded} unique images in {attempts} bounded attempts with {policy}", "ok")

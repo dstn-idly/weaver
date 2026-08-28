@@ -4,7 +4,7 @@ import os
 import re
 from dataclasses import dataclass
 from functools import partial
-from typing import Any
+from typing import Any, Awaitable, Callable
 from urllib.parse import urljoin, urlsplit
 
 from .robots import USER_AGENT, robots_policy
@@ -18,6 +18,47 @@ class FetchedPage:
     html: str
     size: int
     rendered: bool
+    fetcher: str = "http"
+    access_challenge_solved: bool = False
+
+
+@dataclass(frozen=True)
+class AccessChallenge:
+    provider: str
+    status: int
+    ray_id: str | None = None
+
+
+class AccessChallengeError(RuntimeError):
+    """A protected page remained inaccessible after the configured fetch path."""
+
+    code = "cloudflare_challenge"
+
+    def __init__(
+        self,
+        challenge: AccessChallenge,
+        *,
+        browser_attempted: bool,
+        solver_attempted: bool,
+    ) -> None:
+        self.provider = challenge.provider
+        self.status = challenge.status
+        self.ray_id = challenge.ray_id
+        self.browser_attempted = browser_attempted
+        self.solver_attempted = solver_attempted
+        stage = (
+            "after Scrapling's protected-browser solver"
+            if solver_attempted
+            else "before a protected browser was attempted"
+        )
+        ray = f" (Ray {challenge.ray_id})" if challenge.ray_id else ""
+        super().__init__(
+            f"Cloudflare challenge blocked the page {stage} · HTTP {challenge.status}{ray}. "
+            "Ask the client to allowlist this deployment's egress IP, or provide an approved inventory feed/API."
+        )
+
+
+FetchEventHandler = Callable[[dict[str, Any]], Awaitable[None]]
 
 
 def _response_values(response: Any) -> tuple[str, int, bytes]:
@@ -35,6 +76,59 @@ def _decode_body(response: Any, body: bytes) -> str:
         return body.decode(str(encoding), "replace")
     except LookupError:
         return body.decode("utf-8", "replace")
+
+
+def _normalized_headers(response: Any) -> dict[str, str]:
+    headers = getattr(response, "headers", {}) or {}
+    try:
+        return {str(key).lower(): str(value) for key, value in headers.items()}
+    except (AttributeError, TypeError, ValueError):
+        return {}
+
+
+def detect_access_challenge(response: Any, status: int, html: str) -> AccessChallenge | None:
+    """Recognize a Cloudflare Challenge Page without treating every proxied 403 as one."""
+    headers = _normalized_headers(response)
+    ray = headers.get("cf-ray", "").strip()
+    if not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", ray):
+        ray = ""
+    sample = html[:200_000].lower()
+    challenge_marker = any(
+        marker in sample
+        for marker in (
+            "/cdn-cgi/challenge-platform/",
+            "_cf_chl_opt",
+            "enable javascript and cookies to continue",
+        )
+    )
+    challenge_title = any(
+        marker in sample
+        for marker in (
+            "<title>just a moment...</title>",
+            "<title>attention required",
+        )
+    )
+    header_challenge = headers.get("cf-mitigated", "").strip().lower() == "challenge"
+    # Scrapling can retain the mitigation header from the challenge response after
+    # its browser has solved the challenge and returned the real HTML. A blocked
+    # status remains definitive; a successful response also needs challenge-body
+    # evidence so a solved catalog is not rejected as a false positive.
+    if header_challenge and (status in {403, 429, 503} or challenge_marker or challenge_title):
+        return AccessChallenge("cloudflare", status, ray or None)
+
+    if (
+        status in {200, 403, 429, 503}
+        and "cloudflare" in headers.get("server", "").lower()
+        and challenge_marker
+        and challenge_title
+    ):
+        return AccessChallenge("cloudflare", status, ray or None)
+    return None
+
+
+async def _emit_fetch_event(handler: FetchEventHandler | None, **payload: Any) -> None:
+    if handler is not None:
+        await handler(payload)
 
 
 def _looks_like_shell(html: str) -> bool:
@@ -69,10 +163,16 @@ async def _secure_page_setup(
             await route.continue_()
             return
         if route.request.resource_type == "document" and (allowed_origin or allowed_netloc):
-            if allowed_origin and _origin_key(url) != allowed_origin:
+            hostname = (urlsplit(url).hostname or "").lower()
+            is_cloudflare_challenge = hostname == "challenges.cloudflare.com"
+            if allowed_origin and _origin_key(url) != allowed_origin and not is_cloudflare_challenge:
                 await route.abort()
                 return
-            if allowed_netloc and urlsplit(url).netloc.lower() != allowed_netloc.lower():
+            if (
+                allowed_netloc
+                and urlsplit(url).netloc.lower() != allowed_netloc.lower()
+                and not is_cloudflare_challenge
+            ):
                 await route.abort()
                 return
         try:
@@ -96,9 +196,10 @@ async def fetch_page(
     *,
     allowed_netloc: str | None = None,
     allowed_origin: tuple[str, str, int] | None = None,
+    on_event: FetchEventHandler | None = None,
 ) -> FetchedPage:
-    """Fetch through Scrapling, with browser rendering only when needed or requested."""
-    from scrapling.fetchers import AsyncFetcher, DynamicFetcher
+    """Fetch through Scrapling and escalate recognized challenges to its protected browser."""
+    from scrapling.fetchers import AsyncFetcher, StealthyFetcher
 
     max_bytes = int(os.getenv("WEAVER_MAX_RESPONSE_BYTES", "8000000"))
     target = await validate_public_url(url)
@@ -144,36 +245,138 @@ async def fetch_page(
     if len(body) > max_bytes:
         raise ValueError(f"Response exceeded the {max_bytes:,}-byte safety limit")
     html = _decode_body(static, body)
+    static_challenge = detect_access_challenge(static, status, html)
+    if static_challenge:
+        await _emit_fetch_event(
+            on_event,
+            stage="challenge_detected",
+            provider=static_challenge.provider,
+            http_status=static_challenge.status,
+            ray_id=static_challenge.ray_id,
+            message="Cloudflare challenge detected · escalating to Scrapling's protected browser",
+        )
+        if render_mode == "http":
+            raise AccessChallengeError(
+                static_challenge,
+                browser_attempted=False,
+                solver_attempted=False,
+            )
 
-    needs_browser = render_mode == "browser" or (render_mode == "auto" and _looks_like_shell(html))
+    needs_browser = (
+        render_mode == "browser"
+        or static_challenge is not None
+        or (render_mode == "auto" and _looks_like_shell(html))
+    )
     if not needs_browser or render_mode == "http":
-        return FetchedPage(final_url or target.url, status, html, len(body), False)
+        return FetchedPage(final_url or target.url, status, html, len(body), False, "http")
 
-    rendered = await DynamicFetcher.async_fetch(
-        final_url or target.url,
-        timeout=30_000,
-        network_idle=False,
-        page_setup=partial(_secure_page_setup, allowed_netloc=allowed_netloc, allowed_origin=allowed_origin),
-        disable_resources=False,
-        useragent=USER_AGENT,
-        extra_headers={"User-Agent": USER_AGENT},
-        retries=1,
-        wait=750,
-        headless=True,
-    )
-    render_url, render_status, render_body = _response_values(rendered)
-    if render_url:
-        await validate_public_url(render_url)
-        if allowed_origin and _origin_key(render_url) != allowed_origin:
-            raise ValueError("Rendered response left the allowed origin")
-        if allowed_netloc and urlsplit(render_url).netloc.lower() != allowed_netloc.lower():
-            raise ValueError("Rendered pagination response left the allowed origin")
-    if len(render_body) > max_bytes:
-        raise ValueError(f"Rendered response exceeded the {max_bytes:,}-byte safety limit")
-    return FetchedPage(
-        render_url or final_url or target.url,
-        render_status,
-        _decode_body(rendered, render_body),
-        len(render_body),
-        True,
-    )
+    solver_enabled = static_challenge is not None or render_mode == "browser"
+    browser_kwargs: dict[str, Any] = {
+        "timeout": 90_000 if solver_enabled else 60_000,
+        "network_idle": False,
+        "page_setup": partial(
+            _secure_page_setup,
+            allowed_netloc=allowed_netloc,
+            allowed_origin=allowed_origin,
+        ),
+        "disable_resources": False,
+        "solve_cloudflare": solver_enabled,
+        "retries": 1,
+        "wait": 1_500 if solver_enabled else 750,
+        "headless": True,
+    }
+    if robots_policy.enforced:
+        browser_kwargs.update(
+            useragent=USER_AGENT,
+            extra_headers={"User-Agent": USER_AGENT},
+            google_search=False,
+        )
+    max_attempts = 3 if solver_enabled else 1
+    last_challenge = static_challenge
+    for solver_attempt in range(1, max_attempts + 1):
+        await _emit_fetch_event(
+            on_event,
+            stage="protected_browser",
+            provider="cloudflare" if static_challenge else None,
+            solver_enabled=solver_enabled,
+            attempt=solver_attempt,
+            max_attempts=max_attempts,
+            message=(
+                f"Scrapling StealthyFetcher attempt {solver_attempt}/{max_attempts} · Cloudflare solver enabled"
+                if solver_enabled
+                else "Scrapling StealthyFetcher started · rendering JavaScript"
+            ),
+        )
+        try:
+            rendered = await StealthyFetcher.async_fetch(final_url or target.url, **browser_kwargs)
+        except Exception as exc:
+            if not static_challenge:
+                raise
+            if solver_attempt < max_attempts:
+                await _emit_fetch_event(
+                    on_event,
+                    stage="challenge_retry",
+                    provider="cloudflare",
+                    attempt=solver_attempt,
+                    max_attempts=max_attempts,
+                    message=f"Protected browser did not return usable content · retrying ({solver_attempt}/{max_attempts})",
+                )
+                continue
+            raise AccessChallengeError(
+                last_challenge or static_challenge,
+                browser_attempted=True,
+                solver_attempted=solver_enabled,
+            ) from exc
+
+        render_url, render_status, render_body = _response_values(rendered)
+        if render_url:
+            await validate_public_url(render_url)
+            if allowed_origin and _origin_key(render_url) != allowed_origin:
+                raise ValueError("Rendered response left the allowed origin")
+            if allowed_netloc and urlsplit(render_url).netloc.lower() != allowed_netloc.lower():
+                raise ValueError("Rendered pagination response left the allowed origin")
+        if len(render_body) > max_bytes:
+            raise ValueError(f"Rendered response exceeded the {max_bytes:,}-byte safety limit")
+        render_html = _decode_body(rendered, render_body)
+        rendered_challenge = detect_access_challenge(rendered, render_status, render_html)
+        if rendered_challenge:
+            last_challenge = rendered_challenge
+            if solver_attempt < max_attempts:
+                await _emit_fetch_event(
+                    on_event,
+                    stage="challenge_retry",
+                    provider="cloudflare",
+                    http_status=render_status,
+                    ray_id=rendered_challenge.ray_id,
+                    attempt=solver_attempt,
+                    max_attempts=max_attempts,
+                    message=f"Cloudflare challenge remained · retrying protected browser ({solver_attempt}/{max_attempts})",
+                )
+                continue
+            raise AccessChallengeError(
+                rendered_challenge,
+                browser_attempted=True,
+                solver_attempted=solver_enabled,
+            )
+
+        challenge_solved = static_challenge is not None
+        if challenge_solved:
+            await _emit_fetch_event(
+                on_event,
+                stage="challenge_solved",
+                provider="cloudflare",
+                http_status=render_status,
+                attempt=solver_attempt,
+                message="Cloudflare challenge cleared · real page content received",
+            )
+        return FetchedPage(
+            render_url or final_url or target.url,
+            render_status,
+            render_html,
+            len(render_body),
+            True,
+            "stealth",
+            challenge_solved,
+        )
+
+    raise RuntimeError("Protected browser attempt loop ended unexpectedly")  # pragma: no cover

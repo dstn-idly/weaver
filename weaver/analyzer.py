@@ -230,6 +230,8 @@ def _jsonld_records(nodes: list[dict[str, Any]], category: str, source_url: str,
         row = {}
         for field in fields:
             value = _get_path(node, field.selector)
+            if isinstance(value, str):
+                value = " ".join(value.split()).strip()
             if field.type in {"url", "image"}:
                 if isinstance(value, list):
                     value = [urljoin(source_url, str(item)) for item in value]
@@ -276,7 +278,14 @@ def _find_container(
         for signature, items in grouped.items():
             if not 2 <= len(items) <= 250:
                 continue
-            sample = items[:8]
+            meaningful_items = [
+                item
+                for item in items
+                if item.get_text(" ", strip=True) or item.find(["h1", "h2", "h3", "h4", "a", "img"])
+            ]
+            if len(meaningful_items) < 2:
+                continue
+            sample = meaningful_items[:8]
             text_lengths = [len(item.get_text(" ", strip=True)) for item in sample]
             average = sum(text_lengths) / len(text_lengths)
             if average < 12 or average > 8_000:
@@ -284,7 +293,7 @@ def _find_container(
             semantic = sum(bool(item.find(["h1", "h2", "h3", "h4", "a", "img"])) for item in sample)
             prices = sum(bool(_CURRENCY.search(item.get_text(" ", strip=True))) for item in sample)
             nav_penalty = 8 if parent.name in {"nav", "header", "footer"} or parent.find_parent(["nav", "header", "footer"]) else 0
-            score = min(len(items), 30) * 1.5 + semantic * 2 + prices * 2 + min(average / 80, 10) - nav_penalty
+            score = min(len(meaningful_items), 30) * 1.5 + semantic * 2 + prices * 2 + min(average / 80, 10) - nav_penalty
             candidates.append((score, signature, items))
     if not candidates:
         return "body", [soup.body or soup]
@@ -297,6 +306,22 @@ def _find_container(
         ranked.append(candidate)
     _, signature, items = ranked[min(max(0, container_rank), len(ranked) - 1)]
     return signature, items
+
+
+def _representative_item(items: list[Tag]) -> Tag:
+    """Prefer a populated record when CMS collections emit empty placeholder siblings."""
+    if not items:
+        raise ValueError("A record container must include at least one item")
+
+    def score(item: Tag) -> tuple[int, int]:
+        text_length = len(item.get_text(" ", strip=True))
+        semantic = 0
+        semantic += 4 if item.find(["h1", "h2", "h3", "h4"]) else 0
+        semantic += 3 if item.find("a", href=True) else 0
+        semantic += 1 if item.find("img") else 0
+        return semantic, min(text_length, 2_000)
+
+    return max(items[:250], key=score)
 
 
 def _relative_selector(tag: Tag, item: Tag) -> str:
@@ -412,7 +437,7 @@ def _field_candidates(item: Tag, category: str, base_url: str) -> list[FieldSpec
 
 def _extract_css(items: list[Tag], fields: list[FieldSpec], base_url: str, max_items: int) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
-    for item in items[:max_items]:
+    for item in items:
         row: dict[str, Any] = {}
         for field in fields:
             nodes = [item] if field.selector == ":scope" else item.select(field.selector)
@@ -423,12 +448,16 @@ def _extract_css(items: list[Tag], fields: list[FieldSpec], base_url: str, max_i
                     continue
                 if field.attribute in {"srcset", "data-srcset"}:
                     value = str(value).split(",")[0].strip().split(" ")[0]
+                if isinstance(value, str):
+                    value = " ".join(value.split()).strip()
                 if field.type in {"url", "image"}:
                     value = urljoin(base_url, str(value))
                 values.append(value)
             row[field.name] = values if field.multiple else (values[0] if values else None)
         if any(value not in (None, "", []) for value in row.values()):
             rows.append(row)
+            if len(rows) >= max_items:
+                break
     return rows
 
 
@@ -455,6 +484,7 @@ def analyze_html(
             category=category,
             strategy="jsonld",
             jsonld_types=sorted(key for key, value in TYPE_TO_CATEGORY.items() if value == category),
+            min_rows=2 if len(json_rows) >= 2 and max_items >= 2 else 1,
             container="script[type='application/ld+json']",
             fields=json_fields,
             recommended_fields=CATEGORY_FIELDS.get(category, CATEGORY_FIELDS["generic"]),
@@ -462,12 +492,13 @@ def analyze_html(
         return AnalysisResult(spec=spec, rows=json_rows, title=title)
 
     container, items = _find_container(soup, container_hint, container_rank)
-    fields = _field_candidates(items[0], category, source_url)
+    fields = _field_candidates(_representative_item(items), category, source_url)
     rows = _extract_css(items, fields, source_url, max_items)
     spec = ScrapeSpec(
         source_url=source_url,
         category=category,
         strategy="css",
+        min_rows=2 if len(rows) >= 2 and max_items >= 2 else 1,
         container=container,
         fields=fields,
         recommended_fields=CATEGORY_FIELDS.get(category, CATEGORY_FIELDS["generic"]),
@@ -492,6 +523,8 @@ def extract_with_spec(
             row: dict[str, Any] = {}
             for field in spec.fields:
                 value = _get_path(node, field.selector)
+                if isinstance(value, str):
+                    value = " ".join(value.split()).strip()
                 if field.type in {"url", "image"}:
                     if isinstance(value, list):
                         value = [urljoin(page_url or spec.source_url, str(item)) for item in value]

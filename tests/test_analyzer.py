@@ -66,3 +66,30 @@ def test_ranked_css_candidates_offer_distinct_repair_paths() -> None:
     second = analyze_html(html, "https://example.com/", container_rank=1, prefer_jsonld=False)
     assert first.spec.container != second.spec.container
     assert first.rows and second.rows
+
+
+def test_empty_cms_placeholders_do_not_hide_real_records() -> None:
+    empty_items = '<div class="w-dyn-item"></div>' * 5
+    jobs = "".join(
+        f'''<div class="w-dyn-item"><div class="w-layout-layout quick-stack-15">
+        <div class="w-layout-cell title-cell"><h4 class="heading-63">Satellite Engineer {number}</h4></div>
+        <div class="w-layout-cell action-cell"><a class="button-3" href="https://jobs.example/{number}">Apply</a></div>
+        </div></div>'''
+        for number in range(1, 5)
+    )
+    html = f'<main><div class="w-dyn-items">{empty_items}{jobs}</div></main>'
+
+    result = analyze_html(
+        html,
+        "https://company.example/careers",
+        category_hint="jobs",
+        max_items=10,
+        prefer_jsonld=False,
+    )
+
+    assert result.spec.container == "div.w-dyn-item"
+    assert [field.name for field in result.spec.fields[:2]] == ["title", "url"]
+    assert len(result.rows) == 4
+    assert result.rows[0]["title"] == "Satellite Engineer 1"
+    assert result.spec.min_rows == 2
+    assert len(extract_with_spec(html, result.spec, max_items=2)) == 2

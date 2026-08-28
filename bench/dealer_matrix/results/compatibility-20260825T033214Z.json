@@ -1,0 +1,611 @@
+{
+  "artifact": "weaver-vehicle-v2-compatibility-sample",
+  "artifact_version": 1,
+  "generated_at": "2026-08-25T03:28:39.457615Z",
+  "scope": {
+    "sites_requested": 20,
+    "sites_run": 20,
+    "sample_only": true,
+    "full_inventory_proof": false,
+    "owner_authorization_proof": false,
+    "robots_requests": 0,
+    "html_or_cookie_persistence": false,
+    "model": "gpt-5.6-luna",
+    "required_sample_fields": [
+      "vin",
+      "year",
+      "make+model_or_name",
+      "price",
+      "mileage",
+      "distance_unit",
+      "color",
+      "description",
+      "detail_url"
+    ],
+    "photo_acceptance": "at least 2 unique VDP-owned photos with numeric width >= 600"
+  },
+  "counts": {
+    "sample_pass": 0,
+    "sample_partial": 0,
+    "candidate_failure": 18,
+    "blocked": 2
+  },
+  "sites": [
+    {
+      "slug": "orlandonissan-com",
+      "name": "Sutherlin Nissan of Orlando",
+      "country": "US",
+      "homepage": "https://orlandonissan.com",
+      "inventory_hint": "https://orlandonissan.com/inventory/used",
+      "expected_platform": "Team Velocity (Apollo)",
+      "status": "candidate_failure",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": "static",
+      "error": {
+        "code": "candidate_or_replay_failure",
+        "message": "application could not produce a verified detail root/gallery/item contract"
+      },
+      "discovery_candidates_considered": 4,
+      "listing_url": "https://orlandonissan.com/inventory/used",
+      "detail_url": "https://orlandonissan.com/viewdetails/used/1c4gjxan9nw246497/2022-jeep-wrangler-convertible?type=cash",
+      "candidate_metrics": {
+        "listing_card_candidates": 1,
+        "detail_root_candidates": 12,
+        "detail_gallery_candidates": 1,
+        "verified_detail_roots": 0,
+        "verified_galleries": 0,
+        "verified_gallery_items": 0,
+        "verified_contract_passed": false
+      },
+      "duration_seconds": 7.416
+    },
+    {
+      "slug": "universal-nissan-com",
+      "name": "Universal Nissan (Orlando)",
+      "country": "US",
+      "homepage": "https://universal-nissan.com",
+      "inventory_hint": "https://universal-nissan.com/used-vehicles/",
+      "expected_platform": "Dealer Inspire (Cars Commerce)",
+      "status": "candidate_failure",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": "persistent_browser",
+      "error": {
+        "code": "candidate_or_replay_failure",
+        "message": "application could not produce a verified detail root/gallery/item contract"
+      },
+      "discovery_candidates_considered": 1,
+      "listing_url": "https://universal-nissan.com/used-vehicles/",
+      "detail_url": "https://universal-nissan.com/used-vehicles/",
+      "candidate_metrics": {
+        "listing_card_candidates": 0,
+        "detail_root_candidates": 8,
+        "detail_gallery_candidates": 0,
+        "verified_detail_roots": 0,
+        "verified_galleries": 0,
+        "verified_gallery_items": 0,
+        "verified_contract_passed": false
+      },
+      "duration_seconds": 12.537
+    },
+    {
+      "slug": "serramonteford-com",
+      "name": "Serramonte Ford (Colma, CA)",
+      "country": "US",
+      "homepage": "https://www.serramonteford.com",
+      "inventory_hint": "https://www.serramonteford.com/used-vehicles/",
+      "expected_platform": "Dealer.com (Cox)",
+      "status": "candidate_failure",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": "persistent_browser",
+      "error": {
+        "code": "candidate_or_replay_failure",
+        "message": "application could not produce a verified detail root/gallery/item contract"
+      },
+      "discovery_candidates_considered": 4,
+      "listing_url": "https://www.serramonteford.com/used-vehicles/",
+      "detail_url": "https://www.serramonteford.com/featured-vehicles/used.htm",
+      "candidate_metrics": {
+        "listing_card_candidates": 0,
+        "detail_root_candidates": 5,
+        "detail_gallery_candidates": 1,
+        "verified_detail_roots": 0,
+        "verified_galleries": 0,
+        "verified_gallery_items": 0,
+        "verified_contract_passed": false
+      },
+      "duration_seconds": 25.358
+    },
+    {
+      "slug": "northshoremitsubishi-ca",
+      "name": "North Shore Mitsubishi (North Vancouver, BC)",
+      "country": "CA",
+      "homepage": "https://www.northshoremitsubishi.ca",
+      "inventory_hint": "https://www.northshoremitsubishi.ca/used/",
+      "expected_platform": "EDealer (not verifiable if challenged)",
+      "status": "blocked",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": null,
+      "error": {
+        "code": "site_wall_clock_timeout",
+        "message": "site exceeded 60s benchmark bound"
+      },
+      "duration_seconds": 60.0
+    },
+    {
+      "slug": "ricart-com",
+      "name": "Ricart Automotive Group (Columbus, OH)",
+      "country": "US",
+      "homepage": "https://www.ricart.com",
+      "inventory_hint": "https://www.ricart.com/searchused.aspx",
+      "expected_platform": "DealerOn",
+      "status": "candidate_failure",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": "static",
+      "error": {
+        "code": "candidate_or_replay_failure",
+        "message": "application could not produce a verified detail root/gallery/item contract"
+      },
+      "discovery_candidates_considered": 3,
+      "listing_url": "https://www.ricart.com/searchused.aspx",
+      "detail_url": "https://www.ricart.com/mysavedvehicles",
+      "candidate_metrics": {
+        "listing_card_candidates": 0,
+        "detail_root_candidates": 2,
+        "detail_gallery_candidates": 0,
+        "verified_detail_roots": 0,
+        "verified_galleries": 0,
+        "verified_gallery_items": 0,
+        "verified_contract_passed": false
+      },
+      "duration_seconds": 2.858
+    },
+    {
+      "slug": "huberautomotive-com",
+      "name": "Huber Automotive (Heath, OH)",
+      "country": "US",
+      "homepage": "https://www.huberautomotive.com",
+      "inventory_hint": "https://www.huberautomotive.com/promotions/used/index.htm",
+      "expected_platform": "Dealer.com (Cox)",
+      "status": "candidate_failure",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": "persistent_browser",
+      "error": {
+        "code": "candidate_or_replay_failure",
+        "message": "application could not produce a verified detail root/gallery/item contract"
+      },
+      "discovery_candidates_considered": 4,
+      "listing_url": "https://www.huberautomotive.com/promotions/used/index.htm",
+      "detail_url": "https://www.huberautomotive.com/used-inventory/cars-under-20k-in-heath.htm",
+      "candidate_metrics": {
+        "listing_card_candidates": 0,
+        "detail_root_candidates": 4,
+        "detail_gallery_candidates": 0,
+        "verified_detail_roots": 0,
+        "verified_galleries": 0,
+        "verified_gallery_items": 0,
+        "verified_contract_passed": false
+      },
+      "duration_seconds": 15.857
+    },
+    {
+      "slug": "bobrossbuickgmc-com",
+      "name": "Bob Ross Buick GMC (Centerville, OH)",
+      "country": "US",
+      "homepage": "https://www.bobrossbuickgmc.com",
+      "inventory_hint": "https://www.bobrossbuickgmc.com/used-vehicles/",
+      "expected_platform": "Dealer Inspire (Cars Commerce)",
+      "status": "candidate_failure",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": "persistent_browser",
+      "error": {
+        "code": "candidate_or_replay_failure",
+        "message": "application could not produce a verified detail root/gallery/item contract"
+      },
+      "discovery_candidates_considered": 4,
+      "listing_url": "https://www.bobrossbuickgmc.com/used-vehicles/",
+      "detail_url": "https://www.bobrossbuickgmc.com/used-vehicles/",
+      "candidate_metrics": {
+        "listing_card_candidates": 0,
+        "detail_root_candidates": 11,
+        "detail_gallery_candidates": 1,
+        "verified_detail_roots": 0,
+        "verified_galleries": 0,
+        "verified_gallery_items": 0,
+        "verified_contract_passed": false
+      },
+      "duration_seconds": 27.848
+    },
+    {
+      "slug": "mattcastrucciautomall-com",
+      "name": "Matt Castrucci Auto Mall (Dayton, OH)",
+      "country": "US",
+      "homepage": "https://www.mattcastrucciautomall.com",
+      "inventory_hint": "https://www.mattcastrucciautomall.com/search/used/?tp=used",
+      "expected_platform": "Dealer eProcess",
+      "status": "candidate_failure",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": "persistent_browser",
+      "error": {
+        "code": "candidate_or_replay_failure",
+        "message": "application could not produce a verified detail root/gallery/item contract"
+      },
+      "discovery_candidates_considered": 4,
+      "listing_url": "https://www.mattcastrucciautomall.com/search/used/?tp=used",
+      "detail_url": "https://www.mattcastrucciautomall.com/search/certified-used/?tp=certified&tp=used",
+      "candidate_metrics": {
+        "listing_card_candidates": 0,
+        "detail_root_candidates": 8,
+        "detail_gallery_candidates": 0,
+        "verified_detail_roots": 0,
+        "verified_galleries": 0,
+        "verified_gallery_items": 0,
+        "verified_contract_passed": false
+      },
+      "duration_seconds": 30.683
+    },
+    {
+      "slug": "olympicautoga-com",
+      "name": "Olympic Auto Sales (Decatur, GA)",
+      "country": "US",
+      "homepage": "https://www.olympicautoga.com",
+      "inventory_hint": "https://www.olympicautoga.com/autos",
+      "expected_platform": "DealerCenter / DWS",
+      "status": "candidate_failure",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": "persistent_browser",
+      "error": {
+        "code": "candidate_or_replay_failure",
+        "message": "application could not produce a verified detail root/gallery/item contract"
+      },
+      "discovery_candidates_considered": 1,
+      "listing_url": "https://www.olympicautoga.com/autos",
+      "detail_url": "https://www.olympicautoga.com/used-electric-cars/",
+      "candidate_metrics": {
+        "listing_card_candidates": 0,
+        "detail_root_candidates": 10,
+        "detail_gallery_candidates": 3,
+        "verified_detail_roots": 0,
+        "verified_galleries": 0,
+        "verified_gallery_items": 0,
+        "verified_contract_passed": false
+      },
+      "duration_seconds": 17.642
+    },
+    {
+      "slug": "marhofer-com",
+      "name": "Ron Marhofer Auto Family (Northeast OH)",
+      "country": "US",
+      "homepage": "https://www.marhofer.com",
+      "inventory_hint": "https://www.marhofer.com/sale/used-cars-akron-oh",
+      "expected_platform": "Remora",
+      "status": "candidate_failure",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": "persistent_browser",
+      "error": {
+        "code": "candidate_or_replay_failure",
+        "message": "application could not produce a verified detail root/gallery/item contract"
+      },
+      "discovery_candidates_considered": 4,
+      "listing_url": "https://www.marhofer.com/sale/used-cars-akron-oh",
+      "detail_url": "https://www.marhofer.com/for-sale/used-buick-encore-preferred-akron-oh/2019-buick-encore-preferred-kl4cjesb0kb765278",
+      "candidate_metrics": {
+        "listing_card_candidates": 6,
+        "detail_root_candidates": 12,
+        "detail_gallery_candidates": 3,
+        "verified_detail_roots": 0,
+        "verified_galleries": 0,
+        "verified_gallery_items": 0,
+        "verified_contract_passed": false
+      },
+      "duration_seconds": 57.949
+    },
+    {
+      "slug": "wylereastgate-com",
+      "name": "Jeff Wyler Eastgate Auto Mall (Cincinnati, OH)",
+      "country": "US",
+      "homepage": "https://wylereastgate.com",
+      "inventory_hint": "https://wylereastgate.com/collections/used-inventory",
+      "expected_platform": "Motive (ridemotive.com)",
+      "status": "candidate_failure",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": "static",
+      "error": {
+        "code": "candidate_or_replay_failure",
+        "message": "application could not produce a verified detail root/gallery/item contract"
+      },
+      "discovery_candidates_considered": 4,
+      "listing_url": "https://wylereastgate.com/collections/used-inventory",
+      "detail_url": "https://wylereastgate.com/cars/lifestyle-family-friendly-used",
+      "candidate_metrics": {
+        "listing_card_candidates": 0,
+        "detail_root_candidates": 4,
+        "detail_gallery_candidates": 0,
+        "verified_detail_roots": 0,
+        "verified_galleries": 0,
+        "verified_gallery_items": 0,
+        "verified_contract_passed": false
+      },
+      "duration_seconds": 4.626
+    },
+    {
+      "slug": "automania-us",
+      "name": "Automania (Austell, GA)",
+      "country": "US",
+      "homepage": "https://www.automania.us",
+      "inventory_hint": "https://www.automania.us/autos",
+      "expected_platform": "VehiclesNETWORK (apogeeINVENT)",
+      "status": "candidate_failure",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": "static",
+      "error": {
+        "code": "candidate_or_replay_failure",
+        "message": "application could not produce a verified detail root/gallery/item contract"
+      },
+      "discovery_candidates_considered": 4,
+      "listing_url": "https://www.automania.us/autos",
+      "detail_url": "https://www.automania.us/autos/2009-Acura-MDX-Austell-GA-2990?ai_ask_about=1",
+      "candidate_metrics": {
+        "listing_card_candidates": 0,
+        "detail_root_candidates": 7,
+        "detail_gallery_candidates": 0,
+        "verified_detail_roots": 0,
+        "verified_galleries": 0,
+        "verified_gallery_items": 0,
+        "verified_contract_passed": false
+      },
+      "duration_seconds": 8.771
+    },
+    {
+      "slug": "rideplaza-com",
+      "name": "Ride Plaza (Loganville, GA)",
+      "country": "US",
+      "homepage": "https://rideplaza.com",
+      "inventory_hint": "https://rideplaza.com/used-cars-for-sale",
+      "expected_platform": "unidentified",
+      "status": "candidate_failure",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": "static",
+      "error": {
+        "code": "candidate_or_replay_failure",
+        "message": "application could not produce a verified detail root/gallery/item contract"
+      },
+      "discovery_candidates_considered": 4,
+      "listing_url": "https://rideplaza.com/used-cars-for-sale",
+      "detail_url": "https://rideplaza.com/used-cars-for-sale/BMW/5%20Series/2006/WBANF335X6CB86568",
+      "candidate_metrics": {
+        "listing_card_candidates": 1,
+        "detail_root_candidates": 6,
+        "detail_gallery_candidates": 2,
+        "verified_detail_roots": 0,
+        "verified_galleries": 0,
+        "verified_gallery_items": 0,
+        "verified_contract_passed": false
+      },
+      "duration_seconds": 8.052
+    },
+    {
+      "slug": "vickar-com",
+      "name": "Vickar Automotive Group (Winnipeg, MB)",
+      "country": "CA",
+      "homepage": "https://www.vickar.com",
+      "inventory_hint": "https://www.vickar.com/vehicles/used/",
+      "expected_platform": "Convertus",
+      "status": "candidate_failure",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": "persistent_browser",
+      "error": {
+        "code": "candidate_or_replay_failure",
+        "message": "application could not produce a verified detail root/gallery/item contract"
+      },
+      "discovery_candidates_considered": 2,
+      "listing_url": "https://www.vickar.com/vehicles/used/",
+      "detail_url": "https://www.vickar.com/used-performance-inventory/",
+      "candidate_metrics": {
+        "listing_card_candidates": 0,
+        "detail_root_candidates": 5,
+        "detail_gallery_candidates": 0,
+        "verified_detail_roots": 0,
+        "verified_galleries": 0,
+        "verified_gallery_items": 0,
+        "verified_contract_passed": false
+      },
+      "duration_seconds": 16.05
+    },
+    {
+      "slug": "autoshowwinnipeg-com",
+      "name": "The Auto Show (Winnipeg, MB)",
+      "country": "CA",
+      "homepage": "https://www.autoshowwinnipeg.com",
+      "inventory_hint": "https://www.autoshowwinnipeg.com/used/",
+      "expected_platform": "D2C Media",
+      "status": "blocked",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": null,
+      "error": {
+        "code": "site_wall_clock_timeout",
+        "message": "site exceeded 60s benchmark bound"
+      },
+      "duration_seconds": 60.0
+    },
+    {
+      "slug": "401dixiekia-com",
+      "name": "401 Dixie Kia (Mississauga, ON)",
+      "country": "CA",
+      "homepage": "https://www.401dixiekia.com",
+      "inventory_hint": "https://www.401dixiekia.com/en/used-inventory",
+      "expected_platform": "SM360",
+      "status": "candidate_failure",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": "persistent_browser",
+      "error": {
+        "code": "candidate_or_replay_failure",
+        "message": "application could not produce a verified detail root/gallery/item contract"
+      },
+      "discovery_candidates_considered": 4,
+      "listing_url": "https://www.401dixiekia.com/en/used-inventory",
+      "detail_url": "https://www.401dixiekia.com/en/demo-inventory/",
+      "candidate_metrics": {
+        "listing_card_candidates": 0,
+        "detail_root_candidates": 12,
+        "detail_gallery_candidates": 1,
+        "verified_detail_roots": 0,
+        "verified_galleries": 0,
+        "verified_gallery_items": 0,
+        "verified_contract_passed": false
+      },
+      "duration_seconds": 30.091
+    },
+    {
+      "slug": "birchwood-ca",
+      "name": "Birchwood Automotive Group (Winnipeg, MB)",
+      "country": "CA",
+      "homepage": "https://www.birchwood.ca",
+      "inventory_hint": "https://www.birchwood.ca/vehicles/?condition=used",
+      "expected_platform": "unidentified (in-house WordPress)",
+      "status": "candidate_failure",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": "static",
+      "error": {
+        "code": "candidate_or_replay_failure",
+        "message": "application could not produce a verified detail root/gallery/item contract"
+      },
+      "discovery_candidates_considered": 4,
+      "listing_url": "https://www.birchwood.ca/vehicles/?condition=used",
+      "detail_url": "https://www.birchwood.ca/category/electrified-vehicles/",
+      "candidate_metrics": {
+        "listing_card_candidates": 0,
+        "detail_root_candidates": 3,
+        "detail_gallery_candidates": 0,
+        "verified_detail_roots": 0,
+        "verified_galleries": 0,
+        "verified_gallery_items": 0,
+        "verified_contract_passed": false
+      },
+      "duration_seconds": 3.986
+    },
+    {
+      "slug": "centreautomobilesduquebec-com",
+      "name": "Centre Automobile du Quebec (Laval, QC)",
+      "country": "CA",
+      "homepage": "https://www.centreautomobilesduquebec.com",
+      "inventory_hint": "https://www.centreautomobilesduquebec.com/fr/occasion",
+      "expected_platform": "ADWS",
+      "status": "candidate_failure",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": "persistent_browser",
+      "error": {
+        "code": "candidate_or_replay_failure",
+        "message": "application could not produce a verified detail root/gallery/item contract"
+      },
+      "discovery_candidates_considered": 1,
+      "listing_url": "https://www.centreautomobilesduquebec.com/fr/occasion",
+      "detail_url": "https://www.centreautomobilesduquebec.com/fr/evaluate-your-vehicle",
+      "candidate_metrics": {
+        "listing_card_candidates": 0,
+        "detail_root_candidates": 2,
+        "detail_gallery_candidates": 0,
+        "verified_detail_roots": 0,
+        "verified_galleries": 0,
+        "verified_gallery_items": 0,
+        "verified_contract_passed": false
+      },
+      "duration_seconds": 8.637
+    },
+    {
+      "slug": "occasionbeaucage-com",
+      "name": "Occasion Beaucage (Sherbrooke, QC)",
+      "country": "CA",
+      "homepage": "https://www.occasionbeaucage.com",
+      "inventory_hint": "https://www.occasionbeaucage.com/auto-usage",
+      "expected_platform": "Autoroot Technologies",
+      "status": "candidate_failure",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": "persistent_browser",
+      "error": {
+        "code": "candidate_or_replay_failure",
+        "message": "application could not produce a verified detail root/gallery/item contract"
+      },
+      "discovery_candidates_considered": 1,
+      "listing_url": "https://www.occasionbeaucage.com/auto-usage",
+      "detail_url": "https://www.occasionbeaucage.com/en/used-car/",
+      "candidate_metrics": {
+        "listing_card_candidates": 1,
+        "detail_root_candidates": 2,
+        "detail_gallery_candidates": 0,
+        "verified_detail_roots": 0,
+        "verified_galleries": 0,
+        "verified_gallery_items": 0,
+        "verified_contract_passed": false
+      },
+      "duration_seconds": 13.783
+    },
+    {
+      "slug": "ridetime-ca",
+      "name": "Ride Time (Winnipeg, MB)",
+      "country": "CA",
+      "homepage": "https://www.ridetime.ca",
+      "inventory_hint": "https://www.ridetime.ca/vehicles",
+      "expected_platform": "unidentified (WordPress)",
+      "status": "candidate_failure",
+      "sample_scope": "one SRP plus one representative VDP; no full inventory crawl",
+      "authorization": "not_requested_or_attested",
+      "robots_policy": "vehicle_path_no_robots_request",
+      "transport_mode": "persistent_browser",
+      "error": {
+        "code": "candidate_or_replay_failure",
+        "message": "application could not produce a verified detail root/gallery/item contract"
+      },
+      "discovery_candidates_considered": 4,
+      "listing_url": "https://www.ridetime.ca/vehicles",
+      "detail_url": "https://www.ridetime.ca/buy-used-cars/",
+      "candidate_metrics": {
+        "listing_card_candidates": 0,
+        "detail_root_candidates": 10,
+        "detail_gallery_candidates": 0,
+        "verified_detail_roots": 0,
+        "verified_galleries": 0,
+        "verified_gallery_items": 0,
+        "verified_contract_passed": false
+      },
+      "duration_seconds": 11.505
+    }
+  ]
+}

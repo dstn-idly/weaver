@@ -1,0 +1,15 @@
+{
+  "active_before": null,
+  "authorization_attestation": {
+    "authorization": "owner_authorized_customer_validation",
+    "robots_policy": "sealed_fixture_replay_no_network",
+    "source_run_id": "full-20260825T043406Z"
+  },
+  "generation": 2,
+  "parent_run_id": "full-20260825T043406Z",
+  "promoted": false,
+  "robots_policy": "owner_authorized_override",
+  "run_id": "offline-final-20260825T052925Z",
+  "spec_sha256": "e364fb46b920366d618b4c516a612e2dcba0e45b760801f8ec6860e6446f8023",
+  "status": "partial"
+}

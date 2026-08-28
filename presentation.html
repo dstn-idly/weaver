@@ -10,6 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@200;300;400;500;600&family=Spline+Sans+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="preload" href="/presentation-assets/weaver-dealership-wall.png" as="image" type="image/png">
 <link rel="preload" href="/presentation-assets/weaver-ecommerce-wall.png" as="image" type="image/png">
+<link rel="preload" href="/assets/pip-sprite-atlas.png" as="image" type="image/png">
 <style>
   :root{
     --field:#4a4d44;
@@ -134,7 +135,7 @@
   .lane-index{width:34px;height:34px;border-radius:11px;background:rgba(255,255,255,.07);display:grid;place-items:center;color:var(--silk-bright);font:500 11px var(--mono)}
   .lane-meta{min-width:0}.lane-meta h3{font-size:15px;font-weight:400}.lane-meta p{margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink-faint);font:300 9px var(--mono)}
   .lane-status{margin-left:auto;padding:6px 9px;border-radius:999px;background:rgba(255,255,255,.06);color:var(--ink-faint);font:500 9px var(--mono);letter-spacing:.08em;text-transform:uppercase}
-  .lane-status.running{color:var(--amber);background:rgba(242,187,99,.1)}.lane-status.passed{color:var(--silk-bright);background:rgba(201,216,168,.12)}.lane-status.failed{color:var(--red);background:rgba(255,138,120,.1)}
+  .lane-status.running{color:var(--amber);background:rgba(242,187,99,.1)}.lane-status.passed,.lane-status.partial{color:var(--silk-bright);background:rgba(201,216,168,.12)}.lane-status.failed{color:var(--red);background:rgba(255,138,120,.1)}
   .lane-progress{height:2px;background:rgba(255,255,255,.07)}.lane-progress i{display:block;width:0;height:100%;background:var(--silk-bright);box-shadow:0 0 12px rgba(201,216,168,.45);transition:width .55s var(--ease)}
   .lane-phase{padding:17px 20px 0;color:#fff;font:400 12px var(--mono);min-height:36px}.lane-stats{display:flex;gap:6px;padding:12px 20px 0}.lane-stats span{padding:6px 8px;border:1px solid rgba(255,255,255,.08);border-radius:8px;color:var(--ink-faint);font:300 9px var(--mono)}
   .lane-log{flex:1;margin:16px 14px 14px;padding:13px;border-radius:13px;background:rgba(10,14,9,.32);border:1px solid rgba(255,255,255,.07);font:300 10px/1.55 var(--mono);overflow:hidden}
@@ -144,11 +145,21 @@
   .output-slide{background:radial-gradient(70% 80% at 88% 10%,rgba(201,216,168,.11),transparent 70%),var(--field-deep)}
   .output-head{display:flex;align-items:flex-end;justify-content:space-between;gap:30px;margin-bottom:24px}.output-head .headline{font-size:clamp(42px,4.6vw,86px)}
   .output-tools{display:flex;align-items:center;gap:10px}.live-badge{padding:8px 11px;border-radius:999px;background:rgba(201,216,168,.1);color:var(--silk-bright);font:500 9px var(--mono);letter-spacing:.08em;text-transform:uppercase}
+  .source-switch{display:flex;gap:4px;padding:4px;border:1px solid var(--glass-edge);border-radius:11px;background:rgba(12,16,10,.2)}.source-switch button{height:30px;padding:0 10px;border:0;border-radius:7px;background:transparent;color:var(--ink-faint);font:500 9px var(--mono);letter-spacing:.05em;text-transform:uppercase;cursor:pointer}.source-switch button:disabled{opacity:.35;cursor:not-allowed}.source-switch button.is-active{background:var(--paper);color:var(--paper-ink)}
   .csv-window{flex:1;min-height:0;display:flex;flex-direction:column;padding:0;overflow:hidden}
   .window-bar{height:58px;padding:0 22px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(35,38,31,.1)}
   .window-dots{display:flex;gap:6px}.window-dots i{width:8px;height:8px;border-radius:50%;background:#c7cbc1}.window-dots i:first-child{background:#b9c6a3}.window-name{margin-left:8px;font:400 11px var(--mono);color:#777d70}.window-meta{margin-left:auto;color:#858a80;font:400 10px var(--mono)}
+  .result-proof{min-height:42px;padding:0 22px;display:flex;align-items:center;gap:14px;border-bottom:1px solid rgba(35,38,31,.09);color:#73796d;font:400 9px var(--mono)}
+  .result-proof strong{display:inline-flex;align-items:center;gap:7px;color:#59703a;font-weight:500;letter-spacing:.08em;text-transform:uppercase}.result-proof strong::before{content:'';width:6px;height:6px;border-radius:50%;background:#789454;box-shadow:0 0 0 4px rgba(120,148,84,.12)}
+  .result-proof a{color:#53633f;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.result-proof span:last-child{margin-left:auto;white-space:nowrap}
   .csv-layout{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(330px,.65fr);flex:1;min-height:0}
-  .table-wrap{overflow:auto;padding:20px 22px}.data-table{width:100%;border-collapse:collapse;font:300 11px var(--mono)}.data-table th{text-align:left;padding:11px 12px;border-bottom:1px solid rgba(35,38,31,.16);color:#6f7569;font-size:9px;font-weight:500;letter-spacing:.08em;text-transform:uppercase}.data-table td{max-width:260px;padding:13px 12px;border-bottom:1px solid rgba(35,38,31,.08);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.data-table tr:last-child td{border-bottom:0}.data-table tbody tr:hover{background:rgba(151,166,123,.08)}
+  .result-main{display:flex;flex-direction:column;min-width:0;min-height:0}
+  .product-gallery{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:14px 22px 4px;min-height:156px}
+  .product-card-live{position:relative;min-width:0;min-height:142px;border:1px solid rgba(35,38,31,.09);border-radius:14px;background:#e8ebe2;overflow:hidden;text-decoration:none;color:var(--paper-ink)}
+  .product-card-live img{display:block;width:100%;height:92px;object-fit:contain;background:#fff;transition:transform .3s var(--ease)}.product-card-live:hover img{transform:scale(1.04)}
+  .product-card-live div{padding:8px 9px}.product-card-live b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:10px;font-weight:400}.product-card-live span{display:block;margin-top:3px;color:#647149;font:500 9px var(--mono)}
+  .product-card-live.is-placeholder{display:grid;place-items:center;background:linear-gradient(120deg,#e5e8df,#f0f2ed);color:#888e83;font:400 9px var(--mono);text-align:center;padding:14px}.product-card-live.image-failed img{display:none}.product-card-live.image-failed::before{content:'image unavailable';height:92px;display:grid;place-items:center;color:#92978e;font:400 8px var(--mono)}
+  .table-wrap{overflow:auto;padding:8px 22px 18px}.data-table{width:100%;border-collapse:collapse;font:300 11px var(--mono)}.data-table th{text-align:left;padding:11px 12px;border-bottom:1px solid rgba(35,38,31,.16);color:#6f7569;font-size:9px;font-weight:500;letter-spacing:.08em;text-transform:uppercase}.data-table td{max-width:260px;padding:11px 12px;border-bottom:1px solid rgba(35,38,31,.08);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.data-table tr:last-child td{border-bottom:0}.data-table tbody tr:hover{background:rgba(151,166,123,.08)}.data-table .waiting-cell{padding:28px 12px;color:#858b80;text-align:center;white-space:normal}
   .raw-csv{margin:18px 18px 18px 0;border-radius:18px;background:#262c23;color:#e8ecdf;overflow:hidden;display:flex;flex-direction:column}.raw-head{display:flex;align-items:center;justify-content:space-between;padding:13px 15px;border-bottom:1px solid rgba(255,255,255,.08);color:var(--ink-faint);font:500 9px var(--mono);letter-spacing:.08em;text-transform:uppercase}.raw-csv pre{margin:0;padding:16px;overflow:auto;white-space:pre;font:300 10px/1.6 var(--mono);color:var(--silk-bright)}
 
   .api-grid{display:grid;grid-template-columns:.86fr 1.14fr;gap:18px;flex:1;min-height:0}.code-panel,.response-panel{min-height:0;padding:0;overflow:hidden}.panel-bar{height:52px;display:flex;align-items:center;padding:0 18px;border-bottom:1px solid var(--glass-edge);color:var(--ink-faint);font:400 9px var(--mono);letter-spacing:.09em;text-transform:uppercase}.panel-bar strong{color:var(--silk-bright);font-weight:400}.panel-bar span:last-child{margin-left:auto}.code-tabs{display:flex;gap:4px;margin-left:14px}.code-tabs button{padding:5px 8px;border:0;border-radius:6px;background:rgba(255,255,255,.06);color:var(--ink-faint);font:400 9px var(--mono)}
@@ -167,6 +178,18 @@
   .closing-slide{background:radial-gradient(70% 90% at 50% 55%,rgba(201,216,168,.15),transparent 65%),var(--field)}
   .closing-inner{text-align:center;align-items:center}.closing-inner .headline{max-width:1300px;font-size:clamp(58px,7.2vw,138px)}.closing-inner .lede{max-width:860px}.closing-actions{display:flex;gap:12px;margin-top:35px}.outcome-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;width:min(1100px,100%);margin-top:50px}.outcome{padding:17px;border-top:1px solid rgba(255,255,255,.14);text-align:left}.outcome b{display:block;color:var(--silk-bright);font:500 10px var(--mono);letter-spacing:.1em;text-transform:uppercase}.outcome span{display:block;margin-top:8px;color:var(--ink-soft);font-size:14px;line-height:1.45}
 
+  .presentation-pip{position:fixed;z-index:44;right:82px;bottom:58px;width:112px;height:166px;pointer-events:none;filter:drop-shadow(0 14px 22px rgba(9,13,8,.32))}
+  .presentation-pip::before{content:'';position:absolute;left:50%;top:0;width:1px;height:68px;background:linear-gradient(180deg,transparent,rgba(240,246,232,.72));transform-origin:top;animation:pip-thread-sway 4.8s var(--ease) infinite}
+  .presentation-pip-button{position:absolute;left:0;top:52px;width:112px;height:112px;padding:0;border:0;border-radius:50%;background:transparent;cursor:pointer;pointer-events:auto;animation:pip-float 4.8s var(--ease) infinite;-webkit-tap-highlight-color:transparent}
+  .presentation-pip-button::after{content:'';position:absolute;inset:18%;border:1px solid rgba(240,246,232,0);border-radius:50%;transition:.3s var(--ease)}
+  .presentation-pip-button:hover::after,.presentation-pip-button:focus-visible::after{border-color:rgba(240,246,232,.34);box-shadow:0 0 0 6px rgba(201,216,168,.08)}
+  .presentation-pip-sprite{display:block;width:100%;height:100%;background:url('/assets/pip-sprite-atlas.png') 0 0/600% 400% no-repeat;image-rendering:pixelated;animation:pip-sprite-six 2.8s linear infinite;transform-origin:50% 62%}
+  .presentation-pip-sprite[data-motion="idle"]{background-position-y:0%;animation-duration:2.8s}.presentation-pip-sprite[data-motion="crawl"]{background-position-y:33.333%;animation-duration:.72s}.presentation-pip-sprite[data-motion="weave"]{background-position-y:66.667%;animation-duration:1.45s}.presentation-pip-sprite[data-motion="happy"]{background-position-y:100%;animation-duration:1.15s}
+  .presentation-pip-label{position:absolute;right:88px;top:86px;width:max-content;padding:7px 10px;border:1px solid var(--glass-edge);border-radius:10px;background:rgba(25,30,23,.9);color:var(--ink-soft);font:400 9px var(--mono);letter-spacing:.05em;opacity:0;transform:translateX(5px);transition:.25s var(--ease);pointer-events:none}.presentation-pip-button:hover .presentation-pip-label,.presentation-pip-button:focus-visible .presentation-pip-label{opacity:1;transform:none}
+  @keyframes pip-sprite-six{0%,16.65%{background-position-x:0%}16.66%,33.31%{background-position-x:20%}33.32%,49.97%{background-position-x:40%}49.98%,66.63%{background-position-x:60%}66.64%,83.29%{background-position-x:80%}83.30%,100%{background-position-x:100%}}
+  @keyframes pip-float{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(9px) rotate(1deg)}}
+  @keyframes pip-thread-sway{0%,100%{transform:rotate(-1.2deg)}50%{transform:rotate(1.2deg)}}
+
   .controls{position:fixed;z-index:45;left:24px;right:24px;bottom:18px;height:42px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;pointer-events:none}
   .slide-count{justify-self:start;color:var(--ink-faint);font:400 10px var(--mono);letter-spacing:.12em}.slide-count b{color:#fff;font-weight:400}
   .dots{justify-self:center;display:flex;gap:6px;pointer-events:auto}.dot{width:26px;height:4px;padding:0;border:0;border-radius:99px;background:rgba(255,255,255,.18);cursor:pointer;transition:.3s var(--ease)}.dot.is-active{width:48px;background:var(--silk-bright)}
@@ -177,10 +200,10 @@
   @media(max-width:1050px){
     .chrome{grid-template-columns:1fr auto}.act-nav{display:none}.live-state{grid-column:2}.slide-inner{width:calc(100vw - 48px)}
     .title-grid{grid-template-columns:1fr}.title-visual{position:absolute;right:-15%;top:10%;width:55%;height:70%;opacity:.42}.title-copy{max-width:80%}
-    .compiler-flow{grid-template-columns:1fr 28px 1fr 28px 1fr}.compiler-flow .flow-card:nth-of-type(n+4),.compiler-flow .flow-arrow:nth-of-type(n+4){display:none}.run-grid{grid-template-columns:1fr}.run-lane:nth-child(n+2){display:none}.csv-layout{grid-template-columns:1fr}.raw-csv{display:none}.api-grid{grid-template-columns:1fr}.code-panel{display:none}.repair-flow{grid-template-columns:1fr}.repair-right{display:none}
+    .compiler-flow{grid-template-columns:1fr 28px 1fr 28px 1fr}.compiler-flow .flow-card:nth-of-type(n+4),.compiler-flow .flow-arrow:nth-of-type(n+4){display:none}.run-grid{grid-template-columns:1fr}.run-lane:nth-child(n+2){display:none}.csv-layout{grid-template-columns:1fr}.raw-csv{display:none}.api-grid{grid-template-columns:1fr}.code-panel{display:none}.repair-flow{grid-template-columns:1fr}.repair-right{display:none}.presentation-pip{right:58px;transform:scale(.82);transform-origin:bottom right}
   }
   @media(max-height:750px){.chrome{height:60px;padding-top:10px}.slide-inner{height:calc(100% - 120px);margin:68px auto 52px}.flow-card{min-height:205px}.run-grid{min-height:390px}.lane-log{font-size:9px}.key-hint{display:none}}
-  @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+  @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}.presentation-pip-sprite{background-position-x:0%!important}}
 </style>
 </head>
 <body>
@@ -258,7 +281,7 @@
         <p class="lede">The model helps propose a schema once. Weaver validates it locally, then renders deterministic code that runs without an AI model.</p>
       </div>
       <div class="compiler-flow" aria-label="Weaver compilation pipeline">
-        <article class="flow-card paper" data-step="1"><div class="flow-icon">URL</div><div><h3>Permitted page</h3><p>Fetch the public page and respect its robots policy.</p></div><span class="flow-tag">input</span></article>
+        <article class="flow-card paper" data-step="1"><div class="flow-icon">URL</div><div><h3>Public page</h3><p>Fetch under the server's explicit, visible robots policy.</p></div><span class="flow-tag">input</span></article>
         <div class="flow-arrow"></div>
         <article class="flow-card glass dark" data-step="2"><div class="flow-icon">AI</div><div><h3>Schema proposal</h3><p>Spend model tokens at build time to map fields and selectors.</p></div><span class="flow-tag">one-time assist</span></article>
         <div class="flow-arrow"></div>
@@ -275,27 +298,28 @@
   <section class="slide demo-slide" data-act="solution" aria-labelledby="title-4">
     <div class="slide-inner">
       <div class="demo-head">
-        <div><span class="stage-label"><b>1</b> Demo stage one</span><h2 class="headline" id="title-4">Compile three scrapers in parallel.</h2></div>
+        <div><span class="stage-label"><b>1</b> Demo stage one · live web · no fixtures</span><h2 class="headline" id="title-4">Scrape LEGO, IKEA, and Nike in parallel.</h2></div>
         <div class="demo-actions"><span class="model-state" id="modelState">checking build mode…</span><button class="btn btn-paper" id="launchRuns" type="button">Launch live runs <svg viewBox="0 0 24 24"><path d="M8 5l11 7-11 7V5z"/></svg></button></div>
       </div>
       <div class="run-grid">
-        <article class="run-lane glass" data-lane="0"><div class="lane-head"><span class="lane-index">01</span><div class="lane-meta"><h3>Book products</h3><p>books.toscrape.com</p></div><span class="lane-status">ready</span></div><div class="lane-progress"><i></i></div><div class="lane-phase">Waiting for launch</div><div class="lane-stats"><span class="row-stat">0 rows</span><span>HTTP render</span><span>CSV + API</span></div><div class="lane-log"><p><time>--:--</time><span>Independent worker ready</span></p></div></article>
-        <article class="run-lane glass" data-lane="1"><div class="lane-head"><span class="lane-index">02</span><div class="lane-meta"><h3>Quotes</h3><p>quotes.toscrape.com</p></div><span class="lane-status">ready</span></div><div class="lane-progress"><i></i></div><div class="lane-phase">Waiting for launch</div><div class="lane-stats"><span class="row-stat">0 rows</span><span>HTTP render</span><span>CSV + API</span></div><div class="lane-log"><p><time>--:--</time><span>Independent worker ready</span></p></div></article>
-        <article class="run-lane glass" data-lane="2"><div class="lane-head"><span class="lane-index">03</span><div class="lane-meta"><h3>Shop catalog</h3><p>scrapeme.live/shop</p></div><span class="lane-status">ready</span></div><div class="lane-progress"><i></i></div><div class="lane-phase">Waiting for launch</div><div class="lane-stats"><span class="row-stat">0 rows</span><span>HTTP render</span><span>CSV + API</span></div><div class="lane-log"><p><time>--:--</time><span>Independent worker ready</span></p></div></article>
+        <article class="run-lane glass" data-lane="0"><div class="lane-head"><span class="lane-index">01</span><div class="lane-meta"><h3>Live retailer</h3><p>loading source…</p></div><span class="lane-status">ready</span></div><div class="lane-progress"><i></i></div><div class="lane-phase">Waiting for launch</div><div class="lane-stats"><span class="row-stat">0 rows</span><span class="render-stat">HTTP render</span><span>policy visible</span></div><div class="lane-log"><p><time>--:--</time><span>Independent worker ready</span></p></div></article>
+        <article class="run-lane glass" data-lane="1"><div class="lane-head"><span class="lane-index">02</span><div class="lane-meta"><h3>Live retailer</h3><p>loading source…</p></div><span class="lane-status">ready</span></div><div class="lane-progress"><i></i></div><div class="lane-phase">Waiting for launch</div><div class="lane-stats"><span class="row-stat">0 rows</span><span class="render-stat">HTTP render</span><span>policy visible</span></div><div class="lane-log"><p><time>--:--</time><span>Independent worker ready</span></p></div></article>
+        <article class="run-lane glass" data-lane="2"><div class="lane-head"><span class="lane-index">03</span><div class="lane-meta"><h3>Live retailer</h3><p>loading source…</p></div><span class="lane-status">ready</span></div><div class="lane-progress"><i></i></div><div class="lane-phase">Waiting for launch</div><div class="lane-stats"><span class="row-stat">0 rows</span><span class="render-stat">Auto render</span><span>policy visible</span></div><div class="lane-log"><p><time>--:--</time><span>Independent worker ready</span></p></div></article>
       </div>
-      <div class="parallel-note"><span>Three independent POST /api/runs requests · concurrency limit 3</span><span id="runSummary">0 / 3 complete</span></div>
+      <div class="parallel-note"><span>Real public retailer pages · captured when you click · no bundled fixtures</span><span id="runSummary">0 / 3 complete</span></div>
     </div>
   </section>
 
   <section class="slide output-slide" data-act="outcome" aria-labelledby="title-5">
     <div class="slide-inner">
       <div class="output-head">
-        <div><span class="stage-label"><b>2</b> Demo stage two</span><h2 class="headline" id="title-5">The output is already usable.</h2></div>
-        <div class="output-tools"><span class="live-badge" id="csvBadge">preview sample</span><a class="btn" id="csvDownload" href="#" aria-disabled="true">Download CSV</a></div>
+        <div><span class="stage-label"><b>2</b> Demo stage two</span><h2 class="headline" id="title-5">Real sites in. Real rows out.</h2></div>
+        <div class="output-tools"><div class="source-switch" aria-label="Choose live result"><button type="button" data-result-brand="lego" disabled>LEGO</button><button type="button" data-result-brand="ikea" disabled>IKEA</button><button type="button" data-result-brand="nike" disabled>Nike</button></div><span class="live-badge" id="csvBadge">waiting for live run</span><a class="btn" id="csvDownload" href="#" aria-disabled="true">Download CSV</a></div>
       </div>
       <article class="csv-window paper">
-        <div class="window-bar"><span class="window-dots"><i></i><i></i><i></i></span><span class="window-name" id="csvName">data.csv</span><span class="window-meta" id="csvMeta">3 preview rows</span></div>
-        <div class="csv-layout"><div class="table-wrap"><table class="data-table"><thead id="csvHead"></thead><tbody id="csvBody"></tbody></table></div><div class="raw-csv"><div class="raw-head"><span>raw CSV</span><span>UTF-8</span></div><pre id="rawCsv"></pre></div></div>
+        <div class="window-bar"><span class="window-dots"><i></i><i></i><i></i></span><span class="window-name" id="csvName">waiting / data.csv</span><span class="window-meta" id="csvMeta">no fixture rows displayed</span></div>
+        <div class="result-proof"><strong>Live web · no fixtures</strong><a id="csvSource" href="https://www.lego.com/en-us/categories/all-sets" target="_blank" rel="noreferrer">LEGO result will appear here</a><span id="resultProvenance">not run yet</span></div>
+        <div class="csv-layout"><div class="result-main"><div class="product-gallery" id="productGallery" aria-label="Live product results"></div><div class="table-wrap"><table class="data-table"><thead id="csvHead"></thead><tbody id="csvBody"></tbody></table></div></div><div class="raw-csv"><div class="raw-head"><span>raw CSV artifact</span><span>UTF-8</span></div><pre id="rawCsv"></pre></div></div>
       </article>
     </div>
   </section>
@@ -304,7 +328,7 @@
     <div class="slide-inner">
       <div class="output-head">
         <div><span class="stage-label"><b>3</b> Demo stage three</span><h2 class="headline" id="title-6">Developers get a contract,<br>not another scraping project.</h2></div>
-        <div class="output-tools"><span class="live-badge" id="apiBadge">preview response</span><button class="btn" id="callApi" type="button">Call latest endpoint</button></div>
+        <div class="output-tools"><div class="source-switch" aria-label="Choose API result"><button type="button" data-result-brand="lego" disabled>LEGO</button><button type="button" data-result-brand="ikea" disabled>IKEA</button><button type="button" data-result-brand="nike" disabled>Nike</button></div><span class="live-badge" id="apiBadge">waiting for live run</span><button class="btn" id="callApi" type="button">Call latest endpoint</button></div>
       </div>
       <div class="api-grid">
         <article class="code-panel glass" style="position:relative"><div class="panel-bar"><strong>developer.py</strong><div class="code-tabs"><button>Python</button><button>curl</button></div><span>localhost:8000</span></div><pre class="code-block"><span class="dim"># Your app never calls a model.</span>
@@ -349,6 +373,13 @@ print(result[<span class="string">"data"</span>])</pre><div class="api-foot"><sp
   </section>
 </main>
 
+<div class="presentation-pip" id="presentationPip">
+  <button class="presentation-pip-button" id="presentationPipButton" type="button" aria-label="Pip, the animated Weaver mascot">
+    <span class="presentation-pip-sprite" id="presentationPipSprite" data-motion="idle" aria-hidden="true"></span>
+    <span class="presentation-pip-label">Pip · Weaver guide</span>
+  </button>
+</div>
+
 <div class="controls" aria-label="Slide controls">
   <div class="slide-count"><b id="slideCurrent">01</b> / <span id="slideTotal">09</span></div>
   <div class="dots" id="dots"></div>
@@ -366,10 +397,19 @@ print(result[<span class="string">"data"</span>])</pre><div class="api-foot"><sp
   const prev = document.getElementById('prevSlide');
   const next = document.getElementById('nextSlide');
   const actButtons = [...document.querySelectorAll('.act-nav button')];
+  const pipSprite = document.getElementById('presentationPipSprite');
+  const pipButton = document.getElementById('presentationPipButton');
+  const pipSlideMotions = ['idle','idle','crawl','weave','crawl','happy','happy','weave','happy'];
+  let pipBusy = false;
+  let pipBusyMotion = 'crawl';
+  let pipTimer = 0;
   let current = 0;
 
   const pad = value => String(value).padStart(2, '0');
   const esc = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
+  const setPipMotion = motion => pipSprite?.setAttribute('data-motion', motion);
+  const setPipBusy = motion => { pipBusy = true; pipBusyMotion = motion; clearTimeout(pipTimer); setPipMotion(motion); };
+  const releasePip = () => { pipBusy = false; setPipMotion('happy'); clearTimeout(pipTimer); pipTimer = setTimeout(() => setPipMotion(pipSlideMotions[current] || 'idle'), 1500); };
   totalLabel.textContent = pad(slides.length);
   slides.forEach((_, index) => {
     const dot = document.createElement('button');
@@ -389,6 +429,7 @@ print(result[<span class="string">"data"</span>])</pre><div class="api-foot"><sp
     prev.disabled = current === 0; next.disabled = current === slides.length - 1;
     const act = slides[current].dataset.act;
     actButtons.forEach(button => button.classList.toggle('is-active', slides[Number(button.dataset.go)].dataset.act === act));
+    if (!pipBusy) setPipMotion(pipSlideMotions[current] || 'idle');
   }
   prev.addEventListener('click', () => show(current - 1));
   next.addEventListener('click', () => show(current + 1));
@@ -405,46 +446,91 @@ print(result[<span class="string">"data"</span>])</pre><div class="api-foot"><sp
   let touchStart = 0;
   document.addEventListener('touchstart', event => touchStart = event.changedTouches[0].clientX, {passive:true});
   document.addEventListener('touchend', event => { const delta = event.changedTouches[0].clientX - touchStart; if (Math.abs(delta) > 60) show(current + (delta < 0 ? 1 : -1)); }, {passive:true});
+  pipButton?.addEventListener('click', () => { clearTimeout(pipTimer); setPipMotion('happy'); pipTimer = setTimeout(() => setPipMotion(pipBusy ? pipBusyMotion : (pipSlideMotions[current] || 'idle')), 1200); });
   show(0);
 
-  const sampleRows = [
-    {title:'A Light in the Attic', price:'£51.77', availability:'In stock', rating:'Three', url:'https://books.toscrape.com/catalogue/a-light-in-the-attic_1000/index.html'},
-    {title:'Tipping the Velvet', price:'£53.74', availability:'In stock', rating:'One', url:'https://books.toscrape.com/catalogue/tipping-the-velvet_999/index.html'},
-    {title:'Soumission', price:'£50.10', availability:'In stock', rating:'One', url:'https://books.toscrape.com/catalogue/soumission_998/index.html'}
-  ];
-  const sampleCsv = 'title,price,availability,rating,url\n' + sampleRows.map(row => `"${row.title}",${row.price},${row.availability},${row.rating},${row.url}`).join('\n');
-  const sampleApi = {run_id:'preview',status:'passed',source_url:'https://books.toscrape.com/',fetched_at:'2026-08-23T20:14:12Z',data:{title:'A Light in the Attic',price:'£51.77',url:'https://books.toscrape.com/catalogue/a-light-in-the-attic_1000/index.html'},meta:{fields:[{name:'title',type:'str',required:true,found:true},{name:'price',type:'money',required:false,found:true},{name:'url',type:'url',required:false,found:true}],missing_fields:[],category:'ecommerce',poll_after_ms:null},errors:[]};
+  const waitingApi = {status:'waiting_for_live_retailer_run',message:'Click “Launch live runs” to compile LEGO, IKEA, and Nike scrapers. No fixture response is displayed.'};
   let selectedRun = null;
+  let hydratingRunId = null;
+  const completedRuns = new Map();
 
   function formatValue(value) { if (Array.isArray(value)) return value.join(', '); if (value && typeof value === 'object') return JSON.stringify(value); return value ?? ''; }
+  function safeHttps(value) {
+    const candidates = Array.isArray(value) ? value : [value];
+    for (const candidate of candidates) {
+      try { const url = new URL(String(candidate)); if (url.protocol === 'https:') return url.href; } catch {}
+    }
+    return '';
+  }
+  function sourceLabel(url) { try { const parsed = new URL(url); return `${parsed.hostname.replace(/^www\./,'')}${parsed.pathname}`; } catch { return String(url || ''); } }
+  function localTime(value) { if (!value) return 'time unavailable'; const date = new Date(value); return Number.isNaN(date.valueOf()) ? 'time unavailable' : date.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
+  function renderProducts(rows) {
+    const gallery = document.getElementById('productGallery');
+    if (!rows.length) {
+      gallery.innerHTML = '<div class="product-card-live is-placeholder">Waiting for<br>LEGO products</div><div class="product-card-live is-placeholder">Waiting for<br>IKEA products</div><div class="product-card-live is-placeholder">Waiting for<br>Nike products</div><div class="product-card-live is-placeholder">Captured live<br>when you click</div>';
+      return;
+    }
+    gallery.innerHTML = rows.slice(0,4).map((row,index) => {
+      const href = safeHttps(row.url) || '#'; const image = safeHttps(row.image || row.images);
+      const title = formatValue(row.title || row.name) || `Product ${index + 1}`; const price = formatValue(row.price) || 'price captured in CSV';
+      const imageMarkup = image ? `<img src="${esc(image)}" alt="" referrerpolicy="no-referrer">` : '';
+      return `<a class="product-card-live${image ? '' : ' image-failed'}" href="${esc(href)}" target="_blank" rel="noreferrer">${imageMarkup}<div><b title="${esc(title)}">${esc(title)}</b><span>${esc(price)}</span></div></a>`;
+    }).join('');
+    gallery.querySelectorAll('img').forEach(image => image.addEventListener('error', () => image.closest('.product-card-live')?.classList.add('image-failed'), {once:true}));
+  }
   function renderCsv(rows, csvText, meta = {}) {
-    const cleanRows = rows.length ? rows : sampleRows;
+    const cleanRows = rows || [];
+    renderProducts(cleanRows);
+    if (!cleanRows.length) {
+      document.getElementById('csvHead').innerHTML = '';
+      document.getElementById('csvBody').innerHTML = '<tr><td class="waiting-cell">Waiting for a completed live retailer run. No sample or fixture rows are substituted.</td></tr>';
+      document.getElementById('rawCsv').textContent = 'Waiting for a live CSV artifact…\n\nThe bytes shown here will come from the completed Weaver run.';
+      document.getElementById('csvMeta').textContent = 'no fixture rows displayed';
+      document.getElementById('csvBadge').textContent = 'waiting for live run';
+      document.getElementById('csvName').textContent = 'waiting / data.csv';
+      document.getElementById('csvSource').textContent = 'LEGO result will appear here';
+      document.getElementById('resultProvenance').textContent = 'not run yet';
+      return;
+    }
     const columns = [...new Set(cleanRows.flatMap(row => Object.keys(row).filter(key => !key.startsWith('_'))))].slice(0, 6);
     document.getElementById('csvHead').innerHTML = '<tr>' + columns.map(column => `<th>${esc(column)}</th>`).join('') + '</tr>';
     document.getElementById('csvBody').innerHTML = cleanRows.slice(0, 8).map(row => '<tr>' + columns.map(column => `<td title="${esc(formatValue(row[column]))}">${esc(formatValue(row[column]))}</td>`).join('') + '</tr>').join('');
-    document.getElementById('rawCsv').textContent = (csvText || sampleCsv).split('\n').slice(0, 12).join('\n');
-    document.getElementById('csvMeta').textContent = `${meta.total || cleanRows.length} ${meta.live ? 'live' : 'preview'} rows`;
-    document.getElementById('csvBadge').textContent = meta.live ? 'live run output' : 'preview sample';
-    document.getElementById('csvName').textContent = meta.name || 'data.csv';
+    document.getElementById('rawCsv').textContent = String(csvText || 'CSV artifact unavailable').split('\n').slice(0, 12).join('\n');
+    document.getElementById('csvMeta').textContent = `${meta.total ?? cleanRows.length} live rows · ${localTime(meta.fetchedAt)}`;
+    document.getElementById('csvBadge').textContent = `LIVE · ${String(meta.brand || 'WEB').toUpperCase()}.COM`;
+    document.getElementById('csvName').textContent = `${meta.brand || 'retailer'} / ${meta.runId?.slice(0,8) || 'run'}.csv`;
+    const source = document.getElementById('csvSource'); source.textContent = sourceLabel(meta.finalUrl); source.href = meta.finalUrl;
+    document.getElementById('resultProvenance').textContent = `run ${meta.runId?.slice(0,8)} · fetched ${localTime(meta.fetchedAt)}`;
   }
   function syntaxJson(value) {
     return esc(JSON.stringify(value, null, 2)).replace(/(&quot;.*?&quot;)(\s*:)?/g, (match, token, colon) => colon ? `<span class="json-key">${token}</span>${colon}` : `<span class="json-string">${token}</span>`).replace(/\b(true|false|null)\b/g,'<span class="json-bool">$1</span>');
   }
-  function renderApi(payload, live = false, elapsed = null) {
+  function renderApi(payload, live = false, elapsed = null, brand = '') {
     document.getElementById('apiJson').innerHTML = syntaxJson(payload);
-    document.getElementById('apiBadge').textContent = live ? 'live API response' : 'preview response';
-    document.getElementById('apiLatency').textContent = elapsed === null ? 'sample' : `${elapsed} ms`;
+    document.getElementById('apiBadge').textContent = live ? `LIVE · ${brand.toUpperCase()}.COM` : 'waiting for live run';
+    document.getElementById('apiLatency').textContent = elapsed === null ? 'not called' : `${elapsed} ms`;
   }
-  renderCsv(sampleRows, sampleCsv);
-  renderApi(sampleApi);
 
   const demos = [
-    {label:'Book products',url:'https://books.toscrape.com/',category:'ecommerce',fields:[{name:'title',type:'str',required:true},{name:'price',type:'money'},{name:'url',type:'url'}]},
-    {label:'Quotes',url:'https://quotes.toscrape.com/',category:'generic',fields:[{name:'quote',type:'str',required:true},{name:'author',type:'str'},{name:'tags',type:'list'}]},
-    {label:'Shop catalog',url:'https://scrapeme.live/shop/',category:'ecommerce',fields:[{name:'title',type:'str',required:true},{name:'price',type:'money'},{name:'url',type:'url'}]}
+    {brand:'lego',label:'LEGO · All Sets',path:'lego.com / categories / all sets',url:'https://www.lego.com/en-us/categories/all-sets',category:'ecommerce',renderMode:'http',maxItems:5,useAI:true,primary:true,fields:[{name:'title',type:'str',required:true},{name:'price',type:'money',required:true},{name:'url',type:'url',required:true},{name:'image',type:'image'}]},
+    {brand:'ikea',label:'IKEA · Furniture',path:'ikea.com / furniture',url:'https://www.ikea.com/us/en/cat/furniture-fu001/',category:'ecommerce',renderMode:'http',maxItems:5,useAI:true,fields:[{name:'title',type:'str',required:true},{name:'price',type:'money',required:true},{name:'url',type:'url',required:true},{name:'image',type:'image'}]},
+    {brand:'nike',label:'Nike · Men’s Shoes',path:'nike.com / men / shoes',url:'https://www.nike.com/w/mens-shoes-nik1zy7ok',category:'ecommerce',renderMode:'auto',maxItems:5,useAI:true,fields:[{name:'title',type:'str',required:true},{name:'price',type:'money',required:true},{name:'url',type:'url',required:true},{name:'image',type:'image'}]}
   ];
   const laneElements = [...document.querySelectorAll('.run-lane')];
   let completeCount = 0;
+
+  demos.forEach((demo,index) => {
+    const root = laneElements[index]; root.querySelector('.lane-meta h3').textContent = demo.label; root.querySelector('.lane-meta p').textContent = demo.path; root.querySelector('.render-stat').textContent = `${demo.renderMode.toUpperCase()} render`;
+  });
+  renderCsv([], '');
+  renderApi(waitingApi);
+
+  function syncResultButtons(activeBrand = '') {
+    document.querySelectorAll('[data-result-brand]').forEach(button => {
+      button.disabled = !completedRuns.has(button.dataset.resultBrand);
+      button.classList.toggle('is-active', button.dataset.resultBrand === activeBrand);
+    });
+  }
 
   function lane(index) {
     const root = laneElements[index];
@@ -460,58 +546,86 @@ print(result[<span class="string">"data"</span>])</pre><div class="api-foot"><sp
   }
   const phaseProgress = {robots:12,fetch:26,discover:35,infer:45,generate:62,validate:75,crawl:88,export:96};
 
-  async function hydrateOutcome(created, summary) {
-    if (selectedRun) return;
-    selectedRun = {...created,summary};
+  async function hydrateOutcome(demo, created, summary) {
+    if (hydratingRunId || selectedRun?.id === created.id) return;
+    hydratingRunId = created.id;
     try {
       const [runResponse, rowsResponse] = await Promise.all([fetch(created.run_url), fetch(`/api/runs/${created.id}/rows?limit=8`)]);
+      if (!runResponse.ok || !rowsResponse.ok) throw new Error('Live run details were unavailable');
       const run = await runResponse.json(); const rowsPayload = await rowsResponse.json();
-      let csvText = sampleCsv;
-      if (run.artifacts?.csv) { const csvResponse = await fetch(run.artifacts.csv); if (csvResponse.ok) csvText = await csvResponse.text(); }
-      renderCsv(rowsPayload.items || [], csvText, {live:true,total:rowsPayload.total,name:`${created.id.slice(0,8)} / data.csv`});
+      if (!rowsPayload.items?.length) throw new Error('Live run returned no rows');
+      if (!run.artifacts?.csv) throw new Error('Live run did not produce a CSV artifact');
+      const csvResponse = await fetch(run.artifacts.csv); if (!csvResponse.ok) throw new Error('CSV artifact could not be read'); const csvText = await csvResponse.text();
+      const result = run.results?.[0] || {}; const fetchedAt = rowsPayload.items[0]?._scraped_at || run.completed_at;
+      renderCsv(rowsPayload.items, csvText, {live:true,total:rowsPayload.total,brand:demo.brand,runId:created.id,finalUrl:result.final_url || demo.url,fetchedAt});
       const download = document.getElementById('csvDownload');
-      if (run.artifacts?.csv) { download.href = run.artifacts.csv; download.removeAttribute('aria-disabled'); }
-      const start = performance.now(); const latestResponse = await fetch(created.latest_url); const latest = await latestResponse.json();
-      renderApi(latest, true, Math.max(1, Math.round(performance.now() - start)));
+      download.href = run.artifacts.csv; download.removeAttribute('aria-disabled');
+      const start = performance.now(); const latestResponse = await fetch(created.latest_url); if (!latestResponse.ok) throw new Error('Latest-value endpoint failed'); const latest = await latestResponse.json();
+      renderApi(latest, true, Math.max(1, Math.round(performance.now() - start)), demo.brand);
       document.getElementById('apiEndpointCode').textContent = `"http://localhost:8000${created.latest_url}"`;
-    } catch (error) { console.warn('Could not hydrate live outcome', error); }
+      selectedRun = {...created,summary,demo};
+      syncResultButtons(demo.brand);
+    } finally { hydratingRunId = null; }
   }
 
   async function startDemo(demo, index) {
     setLane(index,'running',4,'Creating run'); lane(index).log.innerHTML = ''; addLaneLog(index,'POST /api/runs','');
-    const response = await fetch('/api/runs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({urls:[demo.url],options:{category:demo.category,output_format:'csv',image_mode:'links',render_mode:'http',max_items:12,max_pages:1,use_ai:true,requested_fields:demo.fields}})});
+    const response = await fetch('/api/runs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({urls:[demo.url],options:{category:demo.category,output_format:'csv',image_mode:'links',render_mode:demo.renderMode,max_items:demo.maxItems,max_pages:1,use_ai:demo.useAI,requested_fields:demo.fields}})});
     if (!response.ok) throw new Error(await response.text());
     const created = await response.json(); addLaneLog(index,`run ${created.id.slice(0,8)} accepted`,'ok');
     return new Promise(resolve => {
       const source = new EventSource(created.events_url);
+      let settled = false;
+      const finish = async payload => {
+        if (settled) return; settled = true; clearTimeout(watchdog); source.close();
+        const status = payload.status || 'failed'; setLane(index,status,100,status === 'passed' ? 'Verified scraper ready' : 'Run finished'); lane(index).rows.textContent = `${payload.row_count || 0} rows`;
+        addLaneLog(index,`${status} · ${payload.row_count || 0} real rows`,status === 'passed' ? 'ok' : status === 'partial' ? 'warn' : 'error'); completeCount += 1; document.getElementById('runSummary').textContent = `${completeCount} / ${demos.length} complete`;
+        if (['passed','partial'].includes(status) && payload.row_count) { completedRuns.set(demo.brand,{demo,created,summary:payload}); syncResultButtons(selectedRun?.demo?.brand || ''); }
+        if (demo.primary && !selectedRun && ['passed','partial'].includes(status) && payload.row_count) {
+          try { await hydrateOutcome(demo,created,payload); } catch (error) { addLaneLog(index,error.message || 'Could not load live result','error'); }
+        }
+        resolve({demo,created,summary:payload});
+      };
+      const watchdog = setTimeout(async () => {
+        addLaneLog(index,'event stream timed out; checking run status','warn');
+        try { const runResponse = await fetch(created.run_url); const payload = runResponse.ok ? await runResponse.json() : {status:'failed',row_count:0}; await finish(payload); }
+        catch { await finish({status:'failed',row_count:0}); }
+      }, 90000);
       source.onmessage = async message => {
         const event = JSON.parse(message.data); const payload = event.payload || {};
         if (event.type === 'phase') { const progress = phaseProgress[payload.name] || 8; setLane(index,'running',progress,payload.label || payload.name); }
         if (['log','scraper_log'].includes(event.type) && payload.message) addLaneLog(index,payload.message,payload.level || '');
         if (event.type === 'crawl_progress') lane(index).rows.textContent = `${payload.total_rows || 0} rows`;
         if (event.type === 'error') addLaneLog(index,payload.message || 'Run error','error');
-        if (event.type === 'done') {
-          source.close(); const status = payload.status || 'failed'; setLane(index,status,100,status === 'passed' ? 'Verified scraper ready' : 'Run finished'); lane(index).rows.textContent = `${payload.row_count || 0} rows`;
-          addLaneLog(index,`${status} · ${payload.row_count || 0} rows`,status === 'passed' ? 'ok' : 'warn'); completeCount += 1; document.getElementById('runSummary').textContent = `${completeCount} / 3 complete`;
-          if (['passed','partial'].includes(status) && payload.row_count) await hydrateOutcome(created,payload); resolve(payload);
-        }
+        if (event.type === 'done') await finish(payload);
       };
       source.onerror = () => addLaneLog(index,'event stream reconnecting…','warn');
     });
   }
 
   document.getElementById('launchRuns').addEventListener('click', async event => {
-    const button = event.currentTarget; button.disabled = true; button.textContent = 'Runs in progress…'; completeCount = 0; selectedRun = null; document.getElementById('runSummary').textContent = '0 / 3 complete';
+    const button = event.currentTarget; button.disabled = true; button.textContent = 'Runs in progress…'; completeCount = 0; selectedRun = null; hydratingRunId = null; completedRuns.clear(); syncResultButtons(); document.getElementById('runSummary').textContent = `0 / ${demos.length} complete`;
+    setPipBusy('crawl');
+    renderCsv([], ''); renderApi(waitingApi); document.getElementById('apiEndpointCode').textContent = '"http://localhost:8000/api/runs/<run_id>/latest"';
+    const download = document.getElementById('csvDownload'); download.href = '#'; download.setAttribute('aria-disabled','true');
     const results = await Promise.allSettled(demos.map((demo,index) => startDemo(demo,index)));
     results.forEach((result,index) => { if (result.status === 'rejected') { setLane(index,'failed',100,'Could not start'); addLaneLog(index,result.reason?.message || 'Request failed','error'); completeCount += 1; } });
-    document.getElementById('runSummary').textContent = `${completeCount} / 3 complete`; button.disabled = false; button.textContent = 'Run again';
+    if (!selectedRun) {
+      const fallback = results.find(result => result.status === 'fulfilled' && ['passed','partial'].includes(result.value.summary.status) && result.value.summary.row_count);
+      if (fallback) { try { await hydrateOutcome(fallback.value.demo,fallback.value.created,fallback.value.summary); } catch (error) { console.warn('Could not hydrate fallback live result',error); } }
+    }
+    document.getElementById('runSummary').textContent = `${completeCount} / ${demos.length} complete`; button.disabled = false; button.textContent = 'Run real sites again'; releasePip();
   });
   document.getElementById('callApi').addEventListener('click', async event => {
     if (!selectedRun) { show(4); return; }
     const button = event.currentTarget; button.disabled = true; const start = performance.now();
-    try { const response = await fetch(selectedRun.latest_url); renderApi(await response.json(),true,Math.max(1,Math.round(performance.now()-start))); }
+    try { const response = await fetch(selectedRun.latest_url); if (!response.ok) throw new Error('Latest endpoint failed'); renderApi(await response.json(),true,Math.max(1,Math.round(performance.now()-start)),selectedRun.demo.brand); }
     finally { button.disabled = false; }
   });
+  document.querySelectorAll('[data-result-brand]').forEach(button => button.addEventListener('click', async () => {
+    const run = completedRuns.get(button.dataset.resultBrand); if (!run) return;
+    try { await hydrateOutcome(run.demo,run.created,run.summary); } catch (error) { console.warn('Could not switch live result',error); }
+  }));
 
   async function loadHealth() {
     try { const response = await fetch('/api/health'); const health = await response.json(); document.getElementById('healthState').textContent = `weaver ${health.weaver} · healthy`; document.getElementById('modelState').textContent = health.openai_configured ? `${health.model} at build time · Python at runtime` : 'deterministic build mode · Python at runtime'; }
@@ -525,6 +639,7 @@ print(result[<span class="string">"data"</span>])</pre><div class="api-foot"><sp
   }
   document.getElementById('runRepair').addEventListener('click', async event => {
     const button = event.currentTarget; button.disabled = true; button.textContent = 'Replaying drift…';
+    setPipBusy('weave');
     const dev = document.getElementById('developerLog'); const weaver = document.getElementById('weaverLog'); dev.innerHTML = ''; weaver.innerHTML = '';
     document.getElementById('selectorPatch').classList.remove('is-ready'); document.getElementById('repairResult').classList.remove('is-ready');
     try {
@@ -535,7 +650,7 @@ print(result[<span class="string">"data"</span>])</pre><div class="api-foot"><sp
       document.getElementById('repairProducts').innerHTML = data.result.rows.map(row => `<div class="product-mini"><b>${esc(row.title)}</b><span>${esc(row.price)}</span></div>`).join('');
       document.getElementById('repairResult').classList.add('is-ready'); document.getElementById('repairTruth').textContent = data.truth_note;
     } catch (error) { weaver.appendChild(terminalLine({channel:'weaver',level:'error',message:error.message || 'Repair demo failed'})); }
-    finally { button.disabled = false; button.textContent = 'Run again'; }
+    finally { button.disabled = false; button.textContent = 'Run again'; releasePip(); }
   });
 })();
 </script>

@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import hashlib
+import hmac
 import importlib.metadata
 import json
 import mimetypes
 import os
 import secrets
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import AsyncIterator
@@ -25,8 +28,13 @@ from .engine import run_pipeline
 from .jobs import RunRecord, data_root, run_store
 from .models import FeedbackRequest, PreviewRequest, RunRequest, RuntimeFailureRequest
 from .preview import PreviewExpired, PreviewNotFound, capture_preview, preview_store
+from .robots import robots_policy
 from .security import UnsafeTargetError, validate_public_url
 from .verification import verify
+from .vehicle.artifacts import (
+    VehicleArtifactIntegrityError,
+    load_persisted_vehicle_rows,
+)
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -51,6 +59,62 @@ def _public_origin() -> str:
 
 PUBLIC_ORIGIN = _public_origin()
 
+
+def _verify_vehicle_attestation(token: str, payload: RunRequest) -> dict[str, object]:
+    """Verify AutoPosting's short-lived origin/policy attestation.
+
+    The dedicated ``WEAVER_AUTH_ATTESTATION_SECRET`` must match the AutoPosting
+    server's signing secret and is never persisted in a run. Vehicle owner mode
+    fails closed when that verifier is unconfigured, or when the header is
+    missing, expired, malformed, or does not bind the exact authorized origin
+    and owner robots policy in the validated request body.
+    """
+
+    configured = os.getenv("WEAVER_AUTH_ATTESTATION_SECRET", "")
+    if not configured:
+        raise HTTPException(503, "WEAVER_AUTH_ATTESTATION_SECRET is required for vehicle owner mode")
+    if len(configured) < 32:
+        raise HTTPException(503, "WEAVER_AUTH_ATTESTATION_SECRET must be at least 32 characters")
+    if not isinstance(token, str) or len(token) > 4_096:
+        raise HTTPException(401, "Missing or invalid vehicle authorization attestation")
+    parts = token.split(".")
+    if len(parts) != 2 or not all(parts):
+        raise HTTPException(401, "Missing or invalid vehicle authorization attestation")
+    body, supplied = parts
+    try:
+        encoded_body = body.encode("ascii")
+        supplied.encode("ascii")
+    except UnicodeEncodeError as exc:
+        raise HTTPException(401, "Invalid vehicle authorization attestation payload") from exc
+    expected = base64.urlsafe_b64encode(
+        hmac.new(configured.encode("utf-8"), encoded_body, hashlib.sha256).digest()
+    ).decode("ascii").rstrip("=")
+    if not secrets.compare_digest(supplied, expected):
+        raise HTTPException(401, "Invalid vehicle authorization attestation signature")
+    try:
+        padded = body + "=" * (-len(body) % 4)
+        decoded = base64.urlsafe_b64decode(padded.encode("ascii"))
+        if len(decoded) > 2_048:
+            raise ValueError("attestation payload is too large")
+        claims = json.loads(decoded.decode("utf-8"))
+    except (UnicodeError, ValueError, json.JSONDecodeError) as exc:
+        raise HTTPException(401, "Invalid vehicle authorization attestation payload") from exc
+    authorization = payload.options.authorization
+    now = int(time.time())
+    if (
+        not isinstance(claims, dict)
+        or claims.get("v") != 1
+        or not isinstance(claims.get("org"), str)
+        or not claims.get("org")
+        or claims.get("origin") != authorization.authorized_origin
+        or claims.get("robots") != "owner_authorized_override"
+        or type(claims.get("exp")) is not int
+        or claims["exp"] < now
+        or claims["exp"] > now + 6 * 60 * 60 + 60
+    ):
+        raise HTTPException(401, "Vehicle authorization attestation is expired or out of scope")
+    return claims
+
 app = FastAPI(
     title="Weaver API",
     version=__version__,
@@ -58,6 +122,24 @@ app = FastAPI(
     docs_url="/api/docs",
     redoc_url=None,
 )
+
+from weaver.factory.portal import bind_store as _factory_bind_store, router as _factory_router
+from weaver.factory.store import FactoryStore as _FactoryStore
+from weaver.factory.orchestrator import factory_worker as _factory_worker
+from weaver.jobs import data_root as _factory_data_root
+
+app.include_router(_factory_router)
+
+
+@app.on_event("startup")
+async def _start_factory() -> None:
+    """The factory worker shares this process: one queue, one event loop."""
+
+    store = _FactoryStore(_factory_data_root())
+    _factory_bind_store(store)
+    app.state.factory_task = asyncio.create_task(_factory_worker(store))
+
+
 cors_origins = [origin.strip() for origin in os.getenv("WEAVER_CORS_ORIGINS", "").split(",") if origin.strip()]
 if cors_origins:
     app.add_middleware(
@@ -73,6 +155,8 @@ app.mount("/assets", StaticFiles(directory=ROOT / "assets"), name="assets")
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
     response: Response = await call_next(request)
+    if request.url.path.startswith("/api/runs"):
+        response.headers.setdefault("Cache-Control", "no-store")
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("Referrer-Policy", "no-referrer")
     response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
@@ -83,6 +167,26 @@ async def security_headers(request: Request, call_next):
         "object-src 'none'; base-uri 'none'; form-action 'self'; frame-src 'none'; frame-ancestors 'none'",
     )
     return response
+
+
+@app.middleware("http")
+async def api_authentication(request: Request, call_next):
+    """Optional bearer boundary for non-local deployments.
+
+    Health stays public for container orchestration.  Exported runtime failure
+    callbacks retain their own one-run capability token; every other API call
+    requires the server-side WEAVER_API_TOKEN when configured.
+    """
+    configured = os.getenv("WEAVER_API_TOKEN", "").strip()
+    path = request.url.path
+    public = path == "/api/health" or path.startswith("/assets/")
+    callback = path.endswith("/runtime-failures") and bool(request.query_params.get("token"))
+    if configured and path.startswith("/api/") and not public and not callback:
+        header = request.headers.get("authorization", "")
+        supplied = header[7:].strip() if header.lower().startswith("bearer ") else ""
+        if not supplied or not secrets.compare_digest(supplied, configured):
+            return Response("Unauthorized", status_code=401, headers={"WWW-Authenticate": "Bearer"})
+    return await call_next(request)
 
 
 @app.get("/", include_in_schema=False)
@@ -121,7 +225,20 @@ async def health() -> dict[str, object]:
         "scrapling": scrapling_version,
         "openai_configured": openai_enabled(),
         "model": os.getenv("WEAVER_MODEL", "gpt-5.6-luna") if openai_enabled() else None,
-        "robots_policy": "fail_closed",
+        "robots_policy": robots_policy.mode,
+        "robots_enforced": robots_policy.enforced,
+        # Owner-authorized vehicle mode always requires a signed attestation.
+        # Report configuration separately so a missing deployment secret never
+        # looks like an intentionally unauthenticated mode.
+        "vehicle_authorization_attestation_required": True,
+        "vehicle_authorization_attestation_configured": bool(
+            os.getenv("WEAVER_AUTH_ATTESTATION_SECRET", "").strip()
+        ),
+        "vehicle_cloudflare_access_configured": bool(
+            os.getenv("WEAVER_CF_ACCESS_CLIENT_ID", "").strip()
+            and os.getenv("WEAVER_CF_ACCESS_CLIENT_SECRET", "").strip()
+            and os.getenv("WEAVER_CF_ACCESS_ORIGIN", "").strip()
+        ),
     }
 
 
@@ -291,13 +408,33 @@ def _run_links(record: RunRecord) -> dict[str, object]:
 
 
 @app.post("/api/runs", status_code=status.HTTP_202_ACCEPTED)
-async def create_run(payload: RunRequest) -> dict[str, object]:
+async def create_run(payload: RunRequest, request: Request) -> dict[str, object]:
     max_urls = int(os.getenv("WEAVER_MAX_BATCH_URLS", "10"))
     if len(payload.urls) > max_urls:
         raise HTTPException(422, f"A batch can contain at most {max_urls} URLs")
     max_pending = int(os.getenv("WEAVER_MAX_PENDING_RUNS", "20"))
     if len(TASKS) >= max_pending:
         raise HTTPException(429, "Weaver is at its queued-run limit; try again after an active run finishes")
+    cf_access_id: str | None = None
+    cf_access_secret: str | None = None
+    if payload.options.preset == "automotive.vehicle-v2":
+        attestation = request.headers.get("x-weaver-authorization-attestation", "")
+        verified_claims = _verify_vehicle_attestation(attestation, payload)
+        cf_access_id = request.headers.get("x-weaver-cloudflare-access-client-id")
+        cf_access_secret = request.headers.get("x-weaver-cloudflare-access-client-secret")
+        if bool(cf_access_id) != bool(cf_access_secret):
+            raise HTTPException(422, "Cloudflare Access requires both ephemeral service-token headers")
+        if (cf_access_id or cf_access_secret) and not verified_claims:
+            raise HTTPException(403, "Per-run Cloudflare Access requires verified owner attestation")
+        if any(
+            not isinstance(value, str)
+            or not value
+            or len(value) > 1_024
+            or any(character in value for character in "\r\n")
+            for value in (cf_access_id, cf_access_secret)
+            if value is not None
+        ):
+            raise HTTPException(422, "Cloudflare Access service-token headers are invalid")
     container_hint = None
     selection_label = None
     if payload.selection:
@@ -323,6 +460,10 @@ async def create_run(payload: RunRequest) -> dict[str, object]:
         container_hint=container_hint,
         selection_label=selection_label,
     )
+    # These values are process-local and excluded from persist_summary(). The
+    # vehicle pipeline clears them after the run finishes.
+    record.vehicle_cf_access_client_id = cf_access_id
+    record.vehicle_cf_access_client_secret = cf_access_secret
     _schedule_run(record)
     return _run_links(record)
 
@@ -573,7 +714,27 @@ async def get_run_rows(
     record = run_store.get(run_id)
     if not record:
         raise HTTPException(404, "Run not found")
-    if source is not None:
+    persisted_vehicle_rows: list[dict[str, object]] | None = None
+    if (
+        not record.results
+        and record.request.options.preset == "automotive.vehicle-v2"
+    ):
+        try:
+            persisted_vehicle_rows = load_persisted_vehicle_rows(
+                record.run_dir,
+                run_id,
+                record.request,
+                record.summary,
+            )
+        except VehicleArtifactIntegrityError as exc:
+            raise HTTPException(
+                409,
+                "Persisted vehicle rows failed integrity validation",
+            ) from exc
+    if persisted_vehicle_rows is not None:
+        selected_results = []
+        rows = persisted_vehicle_rows if source in {None, 1} else []
+    elif source is not None:
         if source > len(record.results):
             rows: list[dict[str, object]] = []
             selected_results = []
@@ -584,7 +745,9 @@ async def get_run_rows(
         selected_results = record.results
         rows = [row for result in selected_results for row in result.rows]
     columns: list[str] = []
-    image_fields: set[str] = set()
+    image_fields: set[str] = (
+        {"photo", "photos"} if persisted_vehicle_rows is not None else set()
+    )
     for result in selected_results:
         for field in result.spec.all_fields():
             if field.type == "image" or field.name.lower() in {"image", "images", "photo", "photos", "thumbnail", "icon"}:
@@ -685,11 +848,19 @@ async def artifact(run_id: str, artifact_path: str) -> FileResponse:
         raise HTTPException(404, "Artifact not found") from exc
     if not candidate.is_file():
         raise HTTPException(404, "Artifact not found")
-    media_type, _ = mimetypes.guess_type(candidate.name)
+    # ``mimetypes`` reports the inner HTML type for ``*.html.gz`` and returns
+    # gzip separately as an encoding. Artifacts are downloaded as their exact
+    # immutable bytes, so advertise the container format rather than inviting a
+    # client to interpret compressed bytes as HTML.
+    media_type = (
+        "application/gzip"
+        if candidate.suffix.casefold() == ".gz"
+        else mimetypes.guess_type(candidate.name)[0]
+    )
     if media_type and media_type.startswith("image/"):
         return FileResponse(
             candidate,
             media_type=media_type,
             headers={"Content-Disposition": "inline", "Cache-Control": "private, max-age=3600"},
         )
-    return FileResponse(candidate, filename=candidate.name)
+    return FileResponse(candidate, filename=candidate.name, media_type=media_type)
