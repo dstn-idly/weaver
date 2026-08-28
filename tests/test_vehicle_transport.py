@@ -2879,3 +2879,190 @@ def test_fetch_detail_probes_static_even_in_sticky_browser_mode(monkeypatch) -> 
         assert browser.fetches == 0
 
     asyncio.run(run())
+
+
+def test_cookie_gate_redirect_cycle_degrades_to_render_and_disables_static_probes(
+    monkeypatch,
+) -> None:
+    """A 302-to-self cookie gate (vdp_gate=challenging) must fall back to the
+    browser tier instead of failing the run, and later navigations must skip
+    the doomed static probe rather than burn the redirect bound per URL."""
+
+    static_requests = []
+    rendered = []
+
+    async def allow(url):
+        return SimpleNamespace(url=url)
+
+    class Client:
+        def __init__(self, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, traceback):
+            return None
+
+        async def get(self, url, **kwargs):
+            static_requests.append(url)
+            return SimpleNamespace(
+                status_code=302,
+                headers={"location": url, "set-cookie": "vdp_gate=challenging"},
+                content=b"",
+                text="",
+            )
+
+    monkeypatch.setattr("weaver.vehicle.transport.validate_public_url", allow)
+    monkeypatch.setattr("weaver.vehicle.transport.httpx.AsyncClient", Client)
+
+    async def run():
+        session = PersistentDealerSession("https://dealer.example")
+
+        async def fake_rendered(url, **kwargs):
+            rendered.append(url)
+            return "<html><body>rendered inventory</body></html>"
+
+        session._fetch_rendered_once = fake_rendered
+        html = await session._fetch_once(
+            "https://dealer.example/vehicle/Used/1",
+            listing_readiness=None,
+            browser_only=False,
+        )
+        assert "rendered inventory" in html
+        assert session._static_nav_gated is True
+        probes_after_first = len(static_requests)
+
+        await session._fetch_once(
+            "https://dealer.example/vehicle/Used/2",
+            listing_readiness=None,
+            browser_only=False,
+        )
+        assert len(static_requests) == probes_after_first
+
+    asyncio.run(run())
+    assert rendered == [
+        "https://dealer.example/vehicle/Used/1",
+        "https://dealer.example/vehicle/Used/2",
+    ]
+    # The one detected cycle consumed the manual redirect bound at most once.
+    assert 0 < len(static_requests) <= 6
+
+
+def test_cross_origin_static_redirect_still_fails_closed_in_fetch_once(
+    monkeypatch,
+) -> None:
+    async def allow(url):
+        return SimpleNamespace(url=url)
+
+    class Client:
+        def __init__(self, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, traceback):
+            return None
+
+        async def get(self, url, **kwargs):
+            return SimpleNamespace(
+                status_code=302,
+                headers={"location": "https://evil.example/used"},
+                content=b"",
+                text="",
+            )
+
+    monkeypatch.setattr("weaver.vehicle.transport.validate_public_url", allow)
+    monkeypatch.setattr("weaver.vehicle.transport.httpx.AsyncClient", Client)
+
+    async def run():
+        session = PersistentDealerSession("https://dealer.example")
+
+        async def fake_rendered(url, **kwargs):
+            raise AssertionError("cross-origin redirects must not reach the browser tier")
+
+        session._fetch_rendered_once = fake_rendered
+        with pytest.raises(VehicleTransportError) as excinfo:
+            await session._fetch_once(
+                "https://dealer.example/used",
+                listing_readiness=None,
+                browser_only=False,
+            )
+        assert excinfo.value.code == "cross_origin_redirect"
+        assert session._static_nav_gated is False
+
+    asyncio.run(run())
+
+
+def test_rotating_token_redirect_limit_also_degrades_to_render_and_gates(
+    monkeypatch,
+) -> None:
+    """A gate that rotates a query token per hop never revisits a canonical
+    key, so it exhausts the redirect bound (redirect_limit) instead of
+    cycling — that variant must degrade and gate exactly like a cycle."""
+
+    static_requests = []
+    rendered = []
+
+    async def allow(url):
+        return SimpleNamespace(url=url)
+
+    class Client:
+        def __init__(self, **kwargs):
+            assert kwargs["follow_redirects"] is False
+            assert kwargs["trust_env"] is False
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, traceback):
+            return None
+
+        async def get(self, url, **kwargs):
+            static_requests.append(url)
+            hop = len(static_requests)
+            return SimpleNamespace(
+                status_code=302,
+                headers={
+                    "location": f"/vehicle/Used/1?gate_token=hop{hop}",
+                    "set-cookie": "vdp_gate=challenging",
+                },
+                content=b"",
+                text="",
+            )
+
+    monkeypatch.setattr("weaver.vehicle.transport.validate_public_url", allow)
+    monkeypatch.setattr("weaver.vehicle.transport.httpx.AsyncClient", Client)
+
+    async def run():
+        session = PersistentDealerSession("https://dealer.example")
+
+        async def fake_rendered(url, **kwargs):
+            rendered.append(url)
+            return "<html><body>rendered inventory</body></html>"
+
+        session._fetch_rendered_once = fake_rendered
+        html = await session._fetch_once(
+            "https://dealer.example/vehicle/Used/1",
+            listing_readiness=None,
+            browser_only=False,
+        )
+        assert "rendered inventory" in html
+        assert session._static_nav_gated is True
+
+        probes_after_first = len(static_requests)
+        await session._fetch_once(
+            "https://dealer.example/vehicle/Used/2",
+            listing_readiness=None,
+            browser_only=False,
+        )
+        assert len(static_requests) == probes_after_first
+
+    asyncio.run(run())
+    assert rendered == [
+        "https://dealer.example/vehicle/Used/1",
+        "https://dealer.example/vehicle/Used/2",
+    ]
+    # The rotating-token gate consumed the manual redirect bound exactly once.
+    assert len(static_requests) == 6

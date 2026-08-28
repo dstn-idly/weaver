@@ -1225,6 +1225,11 @@ class PersistentDealerSession:
         init=False,
         repr=False,
     )
+    _static_nav_gated: bool = field(
+        default=False,
+        init=False,
+        repr=False,
+    )
     _clock: Callable[[], float] = field(
         default=time.monotonic,
         repr=False,
@@ -1565,6 +1570,7 @@ class PersistentDealerSession:
         if (
             not browser_only
             and self.static_first
+            and not self._static_nav_gated
             and (self.last_mode != "persistent_browser" or vdp_gallery_wait)
         ):
             # Sticky browser mode exists to preserve challenge clearance for
@@ -1572,7 +1578,20 @@ class PersistentDealerSession:
             # probe the cheap static path: structured static galleries make
             # most VDPs extractable without a render, a challenged site just
             # fails the probe and falls straight back to the warm browser.
-            static = await self._static_fetch(url)
+            try:
+                static = await self._static_fetch(url)
+            except VehicleTransportError as error:
+                if error.code not in {"redirect_cycle", "redirect_limit"}:
+                    raise
+                # A redirect loop against the cookieless per-hop static
+                # client is a cookie gate (e.g. Set-Cookie: vdp_gate=…
+                # with a 302 back to the same URL) that the browser's
+                # persistent cookie jar clears on its own. Degrade to the
+                # rendered path, and stop static-probing navigation for
+                # the rest of the run — every further probe would burn
+                # the full redirect bound against the dealer first.
+                self._static_nav_gated = True
+                static = None
             if static is not None and vdp_gallery_wait and not _static_gallery_adequate(static):
                 # A gallery-adequate fixture was requested but the static
                 # document carries almost no photo URLs — a hydrated platform

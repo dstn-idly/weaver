@@ -390,11 +390,13 @@ async def run_vehicle_pipeline(record: Any) -> None:
                 replay = candidate_replay
 
             transport_mode = session.last_mode
+            static_nav_gated = bool(getattr(session, "_static_nav_gated", False))
 
         await record.emit(
             "vehicle_transport",
             {
                 "mode": transport_mode,
+                "static_nav_gated": static_nav_gated,
                 "listing_pages": len(fixtures.listing_pages),
                 "detail_pages": len(fixtures.detail_pages),
                 "detail_reuse_eligible": fixtures.reuse_eligible_count,
