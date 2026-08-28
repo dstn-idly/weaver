@@ -401,6 +401,88 @@ def _expected_total(soup: BeautifulSoup, spec: ListingSpec) -> int | None:
     return max(numbers) if numbers else None
 
 
+_JSONLD_AUTHORITATIVE_FIELDS = (
+    "price",
+    "mileage",
+    "year",
+    "color_ext",
+    "color_int",
+    "transmission",
+    "stock_number",
+)
+
+
+def _jsonld_vehicles_by_vin(soup: BeautifulSoup) -> dict[str, dict[str, Any]]:
+    """Typed schema.org Vehicle facts keyed by VIN, for selector correction.
+
+    Selector inference can bind a field to a container whose first number is
+    something else entirely — the year-as-price failure class. When the page
+    itself publishes typed JSON-LD Vehicle objects, those values are the
+    dealer's own declaration and outrank anything scraped by CSS.
+    """
+
+    import json as _json
+
+    out: dict[str, dict[str, Any]] = {}
+    for script in soup.select('script[type="application/ld+json"]')[:200]:
+        raw = script.string or script.get_text() or ""
+        try:
+            parsed = _json.loads(raw)
+        except (ValueError, TypeError):
+            continue
+        items = parsed if isinstance(parsed, list) else [parsed]
+        for item in items:
+            if not isinstance(item, dict) or item.get("@type") not in ("Vehicle", "Car"):
+                continue
+            vin = clean_vin(item.get("vehicleIdentificationNumber"))
+            if not vin:
+                continue
+            facts: dict[str, Any] = {}
+            offers = item.get("offers")
+            if isinstance(offers, list):
+                offers = offers[0] if offers else {}
+            if isinstance(offers, dict):
+                price = _to_number(offers.get("price"))
+                if price is not None:
+                    facts["price"] = price
+            mileage = item.get("mileageFromOdometer")
+            if isinstance(mileage, dict):
+                mileage = mileage.get("value")
+            mileage_value = _to_number(mileage)
+            if mileage_value is not None:
+                facts["mileage"] = mileage_value
+            year = _to_number(item.get("vehicleModelDate"))
+            if year is not None:
+                facts["year"] = int(year)
+            for source_key, target in (
+                ("color", "color_ext"),
+                ("vehicleInteriorColor", "color_int"),
+                ("vehicleTransmission", "transmission"),
+                ("sku", "stock_number"),
+            ):
+                value = item.get(source_key)
+                if isinstance(value, str) and value.strip():
+                    facts[target] = value.strip()
+            if facts:
+                out[vin] = facts
+    return out
+
+
+def _to_number(value: Any) -> float | int | None:
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return value
+    if isinstance(value, str):
+        cleaned = value.replace(",", "").replace("$", "").strip()
+        try:
+            number = float(cleaned)
+        except ValueError:
+            return None
+        return int(number) if number.is_integer() else number
+    return None
+
+
 def extract_listing_page(
     html: str,
     *,
@@ -415,6 +497,7 @@ def extract_listing_page(
         cards: Iterable[Tag] = soup.select(spec.card_selector)
     except Exception:
         cards = ()
+    jsonld_by_vin = _jsonld_vehicles_by_vin(soup)
     records: list[dict[str, Any]] = []
     details: list[str] = []
     raw_count = 0
@@ -442,6 +525,11 @@ def extract_listing_page(
         record["vin_is_surrogate"] = is_surrogate_vin(vin)
         record["detail_url"] = detail_url
         record["source_listing_url"] = page_url
+        jsonld_facts = jsonld_by_vin.get(vin)
+        if jsonld_facts:
+            for field_name in _JSONLD_AUTHORITATIVE_FIELDS:
+                if field_name in jsonld_facts:
+                    record[field_name] = jsonld_facts[field_name]
         records.append(record)
         details.append(detail_url)
     return ListingPageResult(

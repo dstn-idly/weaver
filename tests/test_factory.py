@@ -122,3 +122,39 @@ def test_intake_url_validation():
         except ValueError:
             continue
         assert "." in host.split("//")[1]
+
+
+def test_reconciliation_drops_fields_contradicting_crawl_truth():
+    from weaver.factory.translate import reconcile_config_fields
+
+    config = {
+        "v": 1,
+        "origin": "https://dealer.example",
+        "card": ".card",
+        "fields": {
+            "detail_url": {"attr": "href", "as": "url"},
+            "vin": {"sel": "[data-vin]", "attr": "data-vin", "as": "vin"},
+            "price": {"sel": ".blob", "as": "price"},
+            "name": {"sel": ".title"},
+        },
+    }
+    crawl = [
+        {"vin": f"1HGBH41JXMN10918{i}", "price": 20000 + i, "name": f"Car {i}"}
+        for i in range(6)
+    ]
+    simulated = [
+        {"vin": f"1HGBH41JXMN10918{i}", "price": 2020 + (i % 3), "name": f"Car {i}"}
+        for i in range(6)
+    ]
+    reconciled, dropped, stats = reconcile_config_fields(config, simulated, crawl)
+    assert dropped == ["price"]
+    assert "price" not in reconciled["fields"]
+    assert "name" in reconciled["fields"]
+    assert stats["price"] == "0/6"
+    assert stats["name"] == "6/6"
+
+    # Agreement keeps the field; small samples never trigger drops.
+    agreeing = [{"vin": crawl[0]["vin"], "price": 20000, "name": "Car 0"}]
+    same, dropped_small, _ = reconcile_config_fields(config, agreeing, crawl)
+    assert dropped_small == []
+    assert same["fields"] == config["fields"]

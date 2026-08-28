@@ -363,6 +363,22 @@ def verify_records(records: Sequence[Mapping[str, Any]], evidence: RunEvidence) 
             warnings.append(f"source_field_unavailable:{name}")
         elif field_coverage[name] < minimum:
             issues.append(f"field_coverage:{name}:{field_coverage[name]:.2f}<{minimum:.2f}")
+    # Selector inference can bind price to a container whose first number is
+    # the model year; each value passes naive bounds while the whole column is
+    # garbage. A lot where most "prices" sit inside the model-year range is
+    # degenerate regardless of any individual value's plausibility.
+    priced_rows = [
+        row for row in rows
+        if isinstance(row.get("price"), (int, float)) and not isinstance(row.get("price"), bool)
+    ]
+    year_shaped_prices = [
+        row for row in priced_rows if 1900 <= float(row["price"]) <= 2035
+    ]
+    if priced_rows and len(year_shaped_prices) * 2 > len(priced_rows):
+        issues.append(
+            f"degenerate_prices:{len(year_shaped_prices)}/{len(priced_rows)}_in_model_year_range"
+        )
+
     exception_count = len(exception_rows)
     if exception_count and exception_count * 10 > record_count * 3:
         # Fail closed past a 30% share: a mostly-placeholder result is a

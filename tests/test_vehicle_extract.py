@@ -222,3 +222,43 @@ def test_expected_total_falls_back_to_asc_stamp_when_selector_misses() -> None:
         html, page_url="https://dealer.example/used", origin="https://dealer.example", spec=spec
     )
     assert result.expected_total == 289
+
+
+def test_listing_jsonld_facts_outrank_selector_extraction() -> None:
+    """Typed schema.org Vehicle values override selector-scraped fields for
+    the matching VIN — the year-as-price failure class dies here."""
+
+    spec = ListingSpec(
+        card_selector=".card",
+        detail_link_selector="a.vdp",
+        fields={
+            "vin": FieldRule("[data-vin]", attribute="data-vin", transform="vin"),
+            "price": FieldRule(".blob", transform="money"),
+        },
+    )
+    vin = "1GC4YNEY6MF193540"
+    html = f"""
+    <html><body>
+      <script type="application/ld+json">{{
+        "@type": "Vehicle",
+        "vehicleIdentificationNumber": "{vin}",
+        "vehicleModelDate": "2021",
+        "mileageFromOdometer": {{"@type": "QuantitativeValue", "value": 42461}},
+        "color": "Black",
+        "offers": {{"@type": "Offer", "price": "42988"}}
+      }}</script>
+      <div class="card" data-vin="{vin}">
+        <span class="blob">2021 Chevrolet Silverado $42,988</span>
+        <a class="vdp" href="/vdp/{vin}">view</a>
+      </div>
+    </body></html>
+    """
+    page = extract_listing_page(
+        html, page_url="https://dealer.example/used", origin="https://dealer.example", spec=spec
+    )
+    assert len(page.records) == 1
+    record = page.records[0]
+    assert record["price"] == 42988
+    assert record["mileage"] == 42461
+    assert record["year"] == 2021
+    assert record["color_ext"] == "Black"

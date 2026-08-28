@@ -175,3 +175,16 @@ def test_single_photo_exception_passes_with_census_corroboration() -> None:
     value[-1]["photos"] = ["https://cdn/single-1.jpg", "https://cdn/single-2.jpg"]
     report = verify_records(value, evidence(value))
     assert report.single_photo_exception_count == 0
+
+
+def test_year_shaped_price_column_is_degenerate() -> None:
+    value = rows()
+    for row in value:
+        row["price"] = row["year"]
+    report = verify_records(value, evidence(value))
+    assert not report.passed
+    assert any(issue.startswith("degenerate_prices:") for issue in report.issues)
+
+    healthy = rows()
+    report = verify_records(healthy, evidence(healthy))
+    assert not any(issue.startswith("degenerate_prices:") for issue in report.issues)

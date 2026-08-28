@@ -142,3 +142,70 @@ def translate_spec_to_extension_config(spec: dict[str, Any]) -> tuple[dict[str, 
     if len(raw.encode("utf-8")) > MAX_CONFIG_BYTES:
         raise TranslateError(f"translated config exceeds the {MAX_CONFIG_BYTES}-byte extension cap")
     return config, notes
+
+
+def reconcile_config_fields(
+    config: dict[str, Any],
+    simulated_vehicles: list[dict[str, Any]],
+    crawl_records: list[dict[str, Any]],
+    *,
+    min_matches: int = 5,
+) -> tuple[dict[str, Any], list[str], dict[str, str]]:
+    """Drop translated scalar fields that contradict crawl ground truth.
+
+    Selector inference can bind a field to the wrong number (price ← model
+    year) and every per-value check still passes. The crawl's verified records
+    ARE the ground truth for this lot, so any config field whose simulated
+    values disagree with them for most matched VINs is removed — the
+    extension's own detail-page pass supplies those fields correctly. The
+    config stays valid: vin/detail_url are structural and never dropped.
+    """
+
+    protected = {"detail_url", "vin", "photos", "photo"}
+    by_vin: dict[str, dict[str, Any]] = {}
+    for record in crawl_records:
+        vin = str(record.get("vin") or "").upper()
+        if vin:
+            by_vin[vin] = record
+
+    def _norm(value: Any) -> str | None:
+        if value in (None, "", []):
+            return None
+        if isinstance(value, bool):
+            return None
+        if isinstance(value, (int, float)):
+            return f"{float(value):.0f}"
+        text = str(value).strip().casefold()
+        return text or None
+
+    stats: dict[str, str] = {}
+    dropped: list[str] = []
+    fields = dict(config.get("fields") or {})
+    for name in list(fields.keys()):
+        if name in protected:
+            continue
+        crawl_name = "stock_number" if name == "stock" else name
+        matches = 0
+        agreements = 0
+        for vehicle in simulated_vehicles:
+            vin = str(vehicle.get("vin") or "").upper()
+            truth = by_vin.get(vin)
+            if not truth:
+                continue
+            simulated = _norm(vehicle.get(name))
+            expected = _norm(truth.get(crawl_name))
+            if simulated is None or expected is None:
+                continue
+            matches += 1
+            if simulated == expected:
+                agreements += 1
+        if matches >= min_matches:
+            stats[name] = f"{agreements}/{matches}"
+            if agreements * 2 < matches:
+                dropped.append(name)
+                del fields[name]
+    if not dropped:
+        return config, [], stats
+    reconciled = dict(config)
+    reconciled["fields"] = fields
+    return reconciled, dropped, stats

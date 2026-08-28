@@ -41,7 +41,14 @@ INSTRUCTIONS = (
     "vehicle on the lot was captured correctly and completely enough to "
     "publish: coverage vs the expected total, per-vehicle field quality, "
     "photo galleries, and whether the client engine simulation agrees with "
-    "the crawl. Be specific about anything that looks wrong."
+    "the crawl. Be specific about anything that looks wrong. "
+    "Accepted product policy — do NOT treat these as defects: records marked "
+    "photo_exception are page-corroborated states (the dealer published no "
+    "unit photography, or exactly one photo) and the posting layer skips or "
+    "handles them; drivetrain and features are bonus fields whose absence "
+    "across a source is a warning, not a failure. DO flag values that look "
+    "semantically wrong even when in-bounds (a price equal to the model year, "
+    "mileage equal to a price, identical values across all records)."
 )
 
 

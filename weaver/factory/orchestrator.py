@@ -20,7 +20,11 @@ from .attestation import mint_owner_attestation
 from .luna import luna_qa_review
 from .simulate import simulate_listing_config
 from .store import FactoryJob, FactoryStore
-from .translate import TranslateError, translate_spec_to_extension_config
+from .translate import (
+    TranslateError,
+    reconcile_config_fields,
+    translate_spec_to_extension_config,
+)
 
 SELF_BASE = os.getenv("WEAVER_SELF_BASE_URL", "http://127.0.0.1:8000")
 POLL_SECONDS = 15
@@ -148,6 +152,28 @@ async def process_job(store: FactoryStore, job: FactoryJob) -> None:
             await store.emit(job, event_type, payload)
 
         simulation = await simulate_listing_config(config, job.url, known_vins=known_vins, emit=sim_emit)
+        simulated_vehicles = [
+            vehicle for page in simulation.get("pages", []) for vehicle in page.get("sample", [])
+        ]
+        # The crawl's verified records are ground truth for this lot: any
+        # config field the client engine extracts DIFFERENTLY for the same
+        # VINs is a mis-bound selector (the year-as-price class). Drop it —
+        # the extension's detail pass owns those fields — and re-simulate once.
+        reconciled, dropped, agreement = reconcile_config_fields(config, simulated_vehicles, records)
+        if dropped:
+            config = reconciled
+            (store.artifact_path(job, "extension-config.json")).write_text(
+                json.dumps(config, indent=1), encoding="utf-8"
+            )
+            await store.emit(
+                job,
+                "fields_reconciled",
+                {"dropped": dropped, "agreement": agreement,
+                 "detail": "fields disagreeing with crawl ground truth removed; the extension detail pass supplies them"},
+            )
+            simulation = await simulate_listing_config(config, job.url, known_vins=known_vins, emit=sim_emit)
+        elif agreement:
+            await store.emit(job, "fields_verified", {"agreement": agreement})
         (store.artifact_path(job, "simulation.json")).write_text(json.dumps(simulation, indent=1), encoding="utf-8")
         await store.emit(job, "simulated", {k: v for k, v in simulation.items() if k != "pages"})
 

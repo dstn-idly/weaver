@@ -116,7 +116,7 @@ async def simulate_listing_config(
                     vins.append(vin)
             page_report["vins"] = len(vins)
             page_report["vins_known_to_weaver"] = sum(1 for v in vins if v in known_vins)
-            page_report["sample"] = (result.get("vehicles") or [])[:2]
+            page_report["sample"] = (result.get("vehicles") or [])[:12]
             pages.append(page_report)
             await emit("simulate_page", page_report)
             if not result.get("ok"):
