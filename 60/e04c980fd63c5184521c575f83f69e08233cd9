@@ -1,0 +1,34 @@
+weaver/vehicle/transport.py
+  s_da9cd4ad208db2::t_0d0016d40c5d96 1338-1340,1346-1349
+  s_da9cd4ad208db2::t_4f7df9f14be839 1330-1334
+  s_da9cd4ad208db2::t_e0ed2b9fbf1bb1 1751-1771
+  s_da9cd4ad208db2::t_7d33236a05dd8a 2263-2266
+  s_da9cd4ad208db2::t_f8bf8902e865d5 1535-1542
+  s_da9cd4ad208db2::t_7e30e4dec98f00 1233-1237
+weaver/factory/orchestrator.py
+  s_da9cd4ad208db2::t_0ec066a5711cc2 71-85
+  s_da9cd4ad208db2::t_328e7130482b37 90-91,98-110
+weaver/factory/simulate.py
+  s_da9cd4ad208db2::t_c5bb04cf390cc3 13
+  s_da9cd4ad208db2::t_843819cfa4cccf 104-112
+docker-compose.yml
+  s_da9cd4ad208db2::t_540455e3bc3fb8 47-50
+tests/test_vehicle_transport.py
+  s_da9cd4ad208db2::t_b6ba57a12efecf 3069-3164
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "60e04c980fd63c5184521c575f83f69e08233cd9",
+  "prompts": {},
+  "sessions": {
+    "s_da9cd4ad208db2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4cd1a6ac-f843-47f4-ac8d-77cbe7e08a68",
+        "model": "claude-fable-5"
+      },
+      "human_author": "dustin thach <epikunder321123@gmail.com>"
+    }
+  }
+}
