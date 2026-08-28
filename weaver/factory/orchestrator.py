@@ -114,6 +114,25 @@ async def _poll_run(client: httpx.AsyncClient, store: FactoryStore, job: Factory
     raise TimeoutError(f"weaver run {run_id} exceeded the factory polling budget")
 
 
+def reusable_run(run: dict[str, Any], *, max_age_hours: float = 24.0) -> bool:
+    """A prior crawl is reusable evidence only when it PASSED cleanly and is
+    fresh enough that the lot has not meaningfully turned over."""
+
+    if not isinstance(run, dict) or run.get("status") != "passed":
+        return False
+    if run.get("errors") or not run.get("row_count"):
+        return False
+    completed = str(run.get("completed_at") or "")
+    try:
+        from datetime import datetime, timezone
+
+        stamp = datetime.fromisoformat(completed.replace("Z", "+00:00"))
+        age = datetime.now(timezone.utc) - stamp
+    except ValueError:
+        return False
+    return 0 <= age.total_seconds() <= max_age_hours * 3600
+
+
 async def _artifact(client: httpx.AsyncClient, run_id: str, name: str) -> Any:
     response = await _api(client, "GET", f"/api/runs/{run_id}/artifacts/vehicle-v2/{name}")
     if name.endswith(".jsonl"):
@@ -127,12 +146,32 @@ async def process_job(store: FactoryStore, job: FactoryJob) -> None:
     store.persist(job)
     await store.emit(job, "stage", {"stage": "crawl", "detail": "creating an owner-attested verification run"})
     async with httpx.AsyncClient(timeout=60.0, trust_env=False) as client:
-        run_id = await _create_run(client, job)
-        job.run_id = run_id
-        store.persist(job)
-        await store.emit(job, "run_created", {"run_id": run_id, "events_url": f"/api/runs/{run_id}/events"})
-
-        run = await _poll_run(client, store, job, run_id)
+        run = None
+        run_id = job.run_id or ""
+        if run_id:
+            # A requeue after a needs_repair verdict re-judges against the
+            # job's prior PASSED crawl instead of re-crawling the dealer for
+            # half an hour: translate → simulate → Luna replay in minutes.
+            # Any doubt (failed/partial/stale/missing run) falls through to a
+            # fresh crawl.
+            try:
+                prior = (await _api(client, "GET", f"/api/runs/{run_id}")).json()
+            except Exception:
+                prior = None
+            if prior is not None and reusable_run(prior):
+                run = prior
+                await store.emit(
+                    job,
+                    "crawl_reused",
+                    {"run_id": run_id, "row_count": prior.get("row_count"),
+                     "detail": "prior passed crawl reused; re-verifying without re-crawling"},
+                )
+        if run is None:
+            run_id = await _create_run(client, job)
+            job.run_id = run_id
+            store.persist(job)
+            await store.emit(job, "run_created", {"run_id": run_id, "events_url": f"/api/runs/{run_id}/events"})
+            run = await _poll_run(client, store, job, run_id)
         qa = {}
         records: list[dict[str, Any]] = []
         try:

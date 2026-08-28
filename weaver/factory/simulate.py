@@ -141,8 +141,13 @@ async def simulate_listing_config(
     return {
         "engine_sha256": digest,
         "pages": pages,
+        "page_cap": MAX_SIMULATED_PAGES,
         "total_vehicles": total_vehicles,
         "vin_agreement": f"{total_known}/{total_vins}",
         "paginated": len(pages) > 1,
+        # The engine left a live, unvisited next-page link at the sample cap —
+        # concrete evidence the client would keep walking past the sample. A
+        # next link cycling back to a visited page is not continuation.
+        "continuation_after_sample": bool(url) and url not in seen_urls and all(p["ok"] for p in pages),
         "passed": passed,
     }

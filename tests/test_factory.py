@@ -191,3 +191,25 @@ def test_engine_log_ring_buffer_tails_with_cursor_and_drops_uvicorn_noise():
     assert fresh == []
     _, partial = handler.tail(1)
     assert [entry["line"] for entry in partial] == ["WARNING: Attempt 1 failed"]
+
+
+def test_reusable_run_accepts_only_fresh_clean_passed_crawls():
+    from datetime import datetime, timedelta, timezone
+
+    from weaver.factory.orchestrator import reusable_run
+
+    fresh = (datetime.now(timezone.utc) - timedelta(minutes=30)).isoformat()
+    good = {"status": "passed", "row_count": 287, "errors": [], "completed_at": fresh}
+    assert reusable_run(good)
+
+    assert not reusable_run({**good, "status": "partial"})
+    assert not reusable_run({**good, "status": "failed"})
+    assert not reusable_run({**good, "errors": ["expected_total_mismatch:64/287"]})
+    assert not reusable_run({**good, "row_count": 0})
+    assert not reusable_run({**good, "completed_at": ""})
+    assert not reusable_run({**good, "completed_at": "not-a-date"})
+    stale = (datetime.now(timezone.utc) - timedelta(hours=30)).isoformat()
+    assert not reusable_run({**good, "completed_at": stale})
+    future = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+    assert not reusable_run({**good, "completed_at": future})
+    assert not reusable_run("not-a-dict")
