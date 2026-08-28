@@ -68,20 +68,46 @@ async def _create_run(client: httpx.AsyncClient, job: FactoryJob) -> str:
     }
     headers = dict(_auth_headers())
     headers["x-weaver-authorization-attestation"] = attestation
-    response = await client.post(f"{SELF_BASE}/api/runs", json=body, headers=headers)
-    response.raise_for_status()
-    return str(response.json()["id"])
+    # A job reloaded at container start can be picked up before uvicorn is
+    # accepting connections, so connection-level failures on the self-POST get
+    # a short bounded retry. HTTP errors are real and propagate immediately.
+    last_error: Exception | None = None
+    for attempt in range(5):
+        if attempt:
+            await asyncio.sleep(3.0)
+        try:
+            response = await client.post(f"{SELF_BASE}/api/runs", json=body, headers=headers)
+        except httpx.TransportError as exc:
+            last_error = exc
+            continue
+        response.raise_for_status()
+        return str(response.json()["id"])
+    raise RuntimeError(f"factory could not reach its own run API: {last_error}")
 
 
 async def _poll_run(client: httpx.AsyncClient, store: FactoryStore, job: FactoryJob, run_id: str) -> dict[str, Any]:
     last_status = ""
-    for _ in range(int(MAX_RUN_MINUTES * 60 / POLL_SECONDS)):
+    heartbeat_every = max(1, int(120 / POLL_SECONDS))
+    for tick in range(int(MAX_RUN_MINUTES * 60 / POLL_SECONDS)):
         response = await _api(client, "GET", f"/api/runs/{run_id}")
         run = response.json()
         status = str(run.get("status"))
         if status != last_status:
             last_status = status
             await store.emit(job, "run_status", {"run_id": run_id, "status": status, "row_count": run.get("row_count")})
+        elif tick and tick % heartbeat_every == 0:
+            # A long crawl emits no boundary events; the heartbeat keeps the
+            # portal's live feed visibly ticking instead of looking frozen.
+            await store.emit(
+                job,
+                "crawl_heartbeat",
+                {
+                    "run_id": run_id,
+                    "status": status,
+                    "row_count": run.get("row_count"),
+                    "elapsed_s": tick * POLL_SECONDS,
+                },
+            )
         if status in ("passed", "partial", "failed"):
             return run
         await asyncio.sleep(POLL_SECONDS)

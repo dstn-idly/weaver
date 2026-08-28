@@ -44,6 +44,10 @@ services:
       - autoposting
     restart: unless-stopped
     command: ["python", "-m", "weaver.autoposting_reaper"]
+    healthcheck:
+      # The image-level probe targets the API port only the web service
+      # serves; the reaper is a headless loop with nothing to probe.
+      disable: true
     environment:
       AUTOPOSTING_REAPER_BASE_URL: ${AUTOPOSTING_REAPER_BASE_URL:-https://www.autopostingpro.com}
       AUTOPOSTING_REAPER_SECRET: ${AUTOPOSTING_REAPER_SECRET:-}

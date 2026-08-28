@@ -1230,6 +1230,11 @@ class PersistentDealerSession:
         init=False,
         repr=False,
     )
+    _hang_recovery_pending: bool = field(
+        default=False,
+        init=False,
+        repr=False,
+    )
     _clock: Callable[[], float] = field(
         default=time.monotonic,
         repr=False,
@@ -1322,18 +1327,27 @@ class PersistentDealerSession:
     # flat for any lot size. A challenged site pays one re-solve per recycle.
     _BROWSER_RECYCLE_EVERY = 45
 
+    def _navigation_hang_deadline_seconds(self) -> float:
+        # Covers the goto timeout, one internal Scrapling retry, and the
+        # bounded page_action waits, with margin. Never below two minutes.
+        return max(120.0, (float(self.timeout_ms) / 1000.0) * 2.0 + 60.0)
+
     async def _recycle_browser_if_due(self) -> None:
         if getattr(self, "_browser_navigation_count", 0) < self._BROWSER_RECYCLE_EVERY:
             return
+        await self._force_browser_recycle()
+
+    async def _force_browser_recycle(self) -> None:
         session = self._session
         if session is None:
             return
         self._browser_navigation_count = 0
         try:
-            await session.__aexit__(None, None, None)
+            # A wedged browser must not fail the crawl — and closing a wedged
+            # CDP connection can itself hang, so the close is time-bounded.
+            # The replacement below is the recovery either way.
+            await asyncio.wait_for(session.__aexit__(None, None, None), timeout=15.0)
         except Exception:
-            # A wedged browser must not fail the crawl; the replacement below
-            # is the recovery either way.
             pass
         try:
             from scrapling.fetchers import AsyncStealthySession
@@ -1515,6 +1529,14 @@ class PersistentDealerSession:
                             "persistent browser returned challenge or empty vehicle HTML after the bounded transport ladder",
                             code="owner_action_required",
                             owner_action_required=True,
+                        ) from None
+                    await self._sleep(min(6.0, 2.0 * (attempt + 1)))
+                    continue
+                except _NavigationHang:
+                    if attempt >= retry_count:
+                        raise VehicleTransportError(
+                            "browser navigation exceeded the hard watchdog deadline after the bounded transport ladder",
+                            code="navigation_hang",
                         ) from None
                     await self._sleep(min(6.0, 2.0 * (attempt + 1)))
                     continue
@@ -1726,7 +1748,27 @@ class PersistentDealerSession:
                 "page_action": wait_for_hydrated_gallery,
                 "wait": 0,
             }
-        response = await self._session.fetch(url, **fetch_options)
+        if self._hang_recovery_pending:
+            # The previous navigation hung waiting for the page's load event
+            # (a stalled subresource never finishing, a known dealer-site
+            # pathology). Extraction reads the DOM, not late subresources, so
+            # the recycled browser retries with the DOM-ready wait state.
+            fetch_options["load_dom"] = False
+        # Scrapling's own goto timeout does not bound its internal retry, so a
+        # navigation that never fires load can hang the crawl forever without
+        # this hard watchdog. On a trip the browser is in an unknown state
+        # (a goto still in flight) and is force-recycled before the bounded
+        # retry lane in _run_navigation takes over.
+        try:
+            response = await asyncio.wait_for(
+                self._session.fetch(url, **fetch_options),
+                timeout=self._navigation_hang_deadline_seconds(),
+            )
+        except asyncio.TimeoutError:
+            self._hang_recovery_pending = True
+            await self._force_browser_recycle()
+            raise _NavigationHang(url) from None
+        self._hang_recovery_pending = False
         final_url = str(getattr(response, "url", "") or url)
         await self._validate_public_target(final_url)
         if not _same_origin(final_url, self.origin):
@@ -2216,6 +2258,10 @@ def _blank_rendered_shell(html: str) -> bool:
 def _challenge_or_empty(html: str) -> bool:
     sample = (html or "")[:200_000].lower()
     return _challenge_detected(sample) or _blank_rendered_shell(html)
+
+
+class _NavigationHang(Exception):
+    """A rendered navigation exceeded the hard watchdog deadline."""
 
 
 class _BlankRenderRetry(Exception):

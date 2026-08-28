@@ -10,6 +10,7 @@ against what the Weaver crawl proved is on the lot.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import os
@@ -100,7 +101,15 @@ async def simulate_listing_config(
                 await page.evaluate("() => {\n" + source + "\n}")
                 capture["result"] = await page.evaluate(_APPLY_SNIPPET, config)
 
-            await session.fetch(url, page_action=run_engine, wait=0)
+            try:
+                # Same hard watchdog as the crawl transport: a page whose load
+                # event never fires must fail this page, not hang the factory.
+                await asyncio.wait_for(
+                    session.fetch(url, page_action=run_engine, wait=0),
+                    timeout=240.0,
+                )
+            except asyncio.TimeoutError:
+                capture["result"] = {"ok": False, "error": "navigation exceeded the simulation watchdog deadline"}
             result = capture.get("result") or {"ok": False, "error": "engine returned nothing"}
             page_report = {
                 "url": url,

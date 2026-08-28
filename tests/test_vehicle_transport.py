@@ -3066,3 +3066,99 @@ def test_rotating_token_redirect_limit_also_degrades_to_render_and_gates(
     ]
     # The rotating-token gate consumed the manual redirect bound exactly once.
     assert len(static_requests) == 6
+
+
+def test_navigation_hang_watchdog_recycles_and_retries_with_dom_ready(
+    monkeypatch,
+) -> None:
+    """A rendered navigation that never returns must trip the hard watchdog,
+    force-recycle the wedged browser, and retry once with the lighter
+    DOM-ready wait state instead of hanging the crawl forever."""
+
+    async def allow(url):
+        return SimpleNamespace(url=url)
+
+    monkeypatch.setattr("weaver.vehicle.transport.validate_public_url", allow)
+
+    fetch_calls = []
+    recycles = []
+
+    class FakeBrowserSession:
+        def __init__(self):
+            self.hang_next = True
+
+        async def fetch(self, url, **kwargs):
+            fetch_calls.append((url, dict(kwargs)))
+            if self.hang_next:
+                self.hang_next = False
+                await asyncio.Event().wait()
+            text = "<html><body>" + ("vehicle inventory " * 40) + "</body></html>"
+            return SimpleNamespace(
+                url=url,
+                status_code=200,
+                headers={},
+                html_content=text,
+            )
+
+    async def fast_sleep(_seconds):
+        return None
+
+    async def run():
+        session = PersistentDealerSession(
+            "https://dealer.example",
+            static_first=False,
+        )
+        session._session = FakeBrowserSession()
+        session._sleep = fast_sleep
+        monkeypatch.setattr(
+            session, "_navigation_hang_deadline_seconds", lambda: 0.05
+        )
+
+        async def fake_recycle():
+            recycles.append(True)
+
+        monkeypatch.setattr(session, "_force_browser_recycle", fake_recycle)
+        html = await session.fetch("https://dealer.example/vehicle/1")
+        assert "vehicle inventory" in html
+        assert session._hang_recovery_pending is False
+
+    asyncio.run(run())
+    assert recycles == [True]
+    assert len(fetch_calls) == 2
+    assert "load_dom" not in fetch_calls[0][1]
+    assert fetch_calls[1][1].get("load_dom") is False
+
+
+def test_navigation_hang_exhausts_to_typed_transport_error(monkeypatch) -> None:
+    async def allow(url):
+        return SimpleNamespace(url=url)
+
+    monkeypatch.setattr("weaver.vehicle.transport.validate_public_url", allow)
+
+    class AlwaysHangs:
+        async def fetch(self, url, **kwargs):
+            await asyncio.Event().wait()
+
+    async def fast_sleep(_seconds):
+        return None
+
+    async def run():
+        session = PersistentDealerSession(
+            "https://dealer.example",
+            static_first=False,
+        )
+        session._session = AlwaysHangs()
+        session._sleep = fast_sleep
+        monkeypatch.setattr(
+            session, "_navigation_hang_deadline_seconds", lambda: 0.05
+        )
+
+        async def fake_recycle():
+            return None
+
+        monkeypatch.setattr(session, "_force_browser_recycle", fake_recycle)
+        with pytest.raises(VehicleTransportError) as excinfo:
+            await session.fetch("https://dealer.example/vehicle/1")
+        assert excinfo.value.code == "navigation_hang"
+
+    asyncio.run(run())
