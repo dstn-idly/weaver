@@ -1,0 +1,29 @@
+weaver/factory/portal.py
+  s_da9cd4ad208db2::t_4f13a66d462d51 54-65
+  s_da9cd4ad208db2::t_67ff99dbcd6f82 203-204
+  s_da9cd4ad208db2::t_2104c952bde466 182-186
+  s_da9cd4ad208db2::t_fb7a314c027526 14
+  s_da9cd4ad208db2::t_653406f4f43e1d 307-326,329-330
+weaver/factory/logstream.py
+  s_da9cd4ad208db2::t_ba0aa82c652199 1-69
+weaver/app.py
+  s_da9cd4ad208db2::t_ae2a8e9a683bb8 138-140
+tests/test_factory.py
+  s_da9cd4ad208db2::t_e58b8a7ca877b3 161-193
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "693c9361af4e8d179a2c374d7244e8330feada7a",
+  "prompts": {},
+  "sessions": {
+    "s_da9cd4ad208db2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4cd1a6ac-f843-47f4-ac8d-77cbe7e08a68",
+        "model": "claude-fable-5"
+      },
+      "human_author": "dustin thach <epikunder321123@gmail.com>"
+    }
+  }
+}
