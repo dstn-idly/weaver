@@ -14,6 +14,8 @@ from typing import Any
 
 import httpx
 
+from ..openai_retry import apost_json_with_retry
+
 RESPONSES_URL = "https://api.openai.com/v1/responses"
 DEFAULT_MODEL = "gpt-5.6-luna"
 MAX_INPUT_BYTES = 24_000
@@ -116,7 +118,8 @@ async def luna_qa_review(
     }
     try:
         async with httpx.AsyncClient(timeout=90.0, trust_env=False) as client:
-            response = await client.post(
+            response = await apost_json_with_retry(
+                client.post,
                 RESPONSES_URL,
                 headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
                 json=body,

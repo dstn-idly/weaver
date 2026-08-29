@@ -45,6 +45,8 @@ from .models import DetailSpec, FIELD_NAMES, TRANSFORMS, VehicleSpec, parse_spec
 from .vdp import extract_vdp
 
 
+from ..openai_retry import post_json_with_retry
+
 RESPONSES_URL = "https://api.openai.com/v1/responses"
 DEFAULT_MODEL = "gpt-5.6-luna"
 MAX_ATTEMPTS = 3
@@ -2198,7 +2200,8 @@ def infer_vehicle_spec(
                 },
             }
             try:
-                response = client.post(
+                response = post_json_with_retry(
+                    client.post,
                     RESPONSES_URL,
                     headers={
                         "Authorization": f"Bearer {key}",

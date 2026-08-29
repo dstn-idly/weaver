@@ -21,6 +21,13 @@ from ..jobs import data_root
 from ..models import FieldSpec as WeaverFieldSpec, ScrapeSpec as WeaverScrapeSpec, SourceResult, VerificationReport
 from .models import parse_spec, spec_sha256
 from .replay import CrawlLimits, replay_fixtures
+from .repair import (
+    propose_selector_repair,
+    reduce_evidence_for_repair,
+    qa_repair_score,
+    reduce_qa_for_repair,
+    repair_until_improved,
+)
 from .transport import PersistentDealerSession, capture_dealer_fixtures, discover_vehicle_evidence
 
 
@@ -344,6 +351,66 @@ async def run_vehicle_pipeline(record: Any) -> None:
                     or not _complete_replay(replay)
                 )
             )
+            # SELF-REPAIR TIER. Before discarding the spec and re-inferring one
+            # from scratch, try to fix what QA says is broken. The candidate is
+            # judged by replaying the fixtures ALREADY captured for this run, so
+            # an attempt costs one model call and a local replay instead of
+            # another polite crawl of the dealer's website, and it is adopted
+            # only if it scores strictly better than the spec it replaces.
+            if needs_replacement and active_attempt_error is None and fixtures is not None:
+                baseline = qa_repair_score(replay.qa)
+                await record.emit(
+                    "phase",
+                    {
+                        "name": "vehicle_selector_repair",
+                        "label": "repairing the failing selectors against captured evidence",
+                    },
+                    source_id,
+                )
+
+                async def _propose(current_spec, attempt):
+                    return await propose_selector_repair(
+                        current_spec,
+                        reduce_evidence_for_repair(fixtures),
+                        reduce_qa_for_repair(replay.qa),
+                    )
+
+                async def _evaluate(candidate_spec):
+                    return replay_fixtures(
+                        candidate_spec,
+                        fixtures,
+                        max_listing_pages=limits.max_listing_pages,
+                        max_records=limits.max_records,
+                        max_detail_pages=limits.max_detail_pages,
+                    )
+
+                async def _repair_emit(event_type, payload):
+                    await record.emit(event_type, payload, source_id)
+
+                try:
+                    repaired_spec, repaired_score, repaired_replay, attempts = await repair_until_improved(
+                        spec, baseline, _evaluate, _propose, emit=_repair_emit,
+                    )
+                except Exception as error:  # noqa: BLE001 - repair never fails a run
+                    await record.log(f"Selector repair was unavailable: {error}", "warn", source_id)
+                    repaired_replay = None
+                    repaired_score = baseline
+                    attempts = 0
+                if repaired_replay is not None and repaired_score > baseline:
+                    attempt_reports.append(repaired_replay.qa)
+                    spec = repaired_spec
+                    replay = repaired_replay
+                    await record.log(
+                        f"Selector repair improved extraction {baseline:.3f} -> {repaired_score:.3f} "
+                        f"in {attempts} attempt(s) without re-crawling the dealership",
+                        "info",
+                        source_id,
+                    )
+                    # Only a repair that reaches a COMPLETE, passing snapshot
+                    # ends the failure path; a partial improvement still hands
+                    # off to rediscovery below with better selectors in hand.
+                    needs_replacement = not _complete_replay(replay)
+
             if needs_replacement:
                 reason = (
                     f"capture failed with {type(active_attempt_error).__name__}"
