@@ -124,6 +124,13 @@ FIELD_NOTES: tuple[str, ...] = (
     "catalog row PRODUCES the representative before spending a model attempt; "
     "one fresh render usually completes hydration.",
 
+    "TRANSPORT: Cloudflare can serve its block page with HTTP 200. After the "
+    "status triage, a block-marked body is a refusal, not a slow page — a "
+    "short one looks like a hydrating skeleton and gets retried, a long one "
+    "looks like a card-less listing and reads as a readiness timeout. Cars "
+    "Commerce walls its entire platform origin this way, fingerprint-keyed, "
+    "so a real Chrome UA changes nothing.",
+
     # ── IDENTITY AND COMPLETENESS ────────────────────────────────────────────
     "IDENTITY: a photo may only belong to the VIN whose page published it. "
     "Photos shared between two vehicles mean the gallery selector escaped the "

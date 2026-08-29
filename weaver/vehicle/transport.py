@@ -1893,6 +1893,19 @@ class PersistentDealerSession:
             )
         if len(html.encode("utf-8")) > self.max_bytes:
             raise ValueError("vehicle response exceeded the bounded HTML size")
+        # The status triage above already handled 4xx/5xx and the transient
+        # lane, so a block-marked body HERE is Cloudflare's refusal served
+        # with a 200 — Cars Commerce walls its whole platform origin this
+        # way. Naming it now matters twice over: a short block page reads as
+        # an under-300-character "hydrating skeleton" and would be retried,
+        # and a long one reads as a card-less listing and was reported as a
+        # readiness timeout for half an hour per dealership.
+        if _cloudflare_block_detected(html):
+            raise VehicleTransportError(
+                "dealer's firewall blocked this client "
+                f"(Cloudflare block served as {final_url})",
+                code="dealer_waf_blocked",
+            )
         if _blank_rendered_shell(html):
             # A hydrating SPA shows an under-300-character skeleton until its
             # router mounts content; one slow hydration must earn a bounded
@@ -1904,8 +1917,17 @@ class PersistentDealerSession:
             origin=self.origin,
             listing=listing_readiness,
         ):
+            # Say WHY the page had no card, not just that it didn't — the
+            # exact document is discarded after this raise, and without the
+            # fingerprint this diagnosis took image archaeology.
+            fingerprint = (
+                f"final_url={final_url} bytes={len(html)} "
+                f"challenge={_challenge_detected(html)} "
+                f"anchors={html.count('<a ')}"
+            )
             raise VehicleTransportError(
-                "persistent browser did not produce a concrete spec-matched vehicle card within the readiness bound",
+                "persistent browser did not produce a concrete spec-matched "
+                f"vehicle card within the readiness bound ({fingerprint})",
                 code="browser_readiness_timeout",
                 owner_action_required=True,
             )

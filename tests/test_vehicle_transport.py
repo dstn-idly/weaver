@@ -3786,3 +3786,42 @@ def test_one_card_publishing_its_id_twice_is_still_one_vehicle() -> None:
     assert card_scope_identity_key("https://dealer.example/inv/?year=2026") != (
         card_scope_identity_key("https://dealer.example/inv/?year=2025")
     )
+
+
+def test_a_block_page_served_with_200_is_named_a_block_not_a_readiness_timeout() -> None:
+    """Cars Commerce walled its whole platform origin: Cloudflare serves the
+    "Sorry, you have been blocked" page with a 200, so the listing readiness
+    gate was the first thing to notice — and reported a timeout. Two dealers
+    spent half an hour each on a refusal no amount of waiting would clear."""
+
+    from weaver.vehicle.models import parse_spec
+
+    block = (
+        "<html><head><title>Attention Required! | Cloudflare</title></head><body>"
+        "<h1>Sorry, you have been blocked</h1>"
+        "<p>You are unable to access toyota.websites.dealerinspire.com</p>"
+        '<script src="/cdn-cgi/challenge-platform/scripts/precursor/main.js"></script>'
+        "</body></html>"
+    )
+
+    class BlockedBrowser:
+        async def fetch(self, url, **kwargs):
+            return SimpleNamespace(status=200, url=url, html_content=block)
+
+    async def allow(url):
+        return SimpleNamespace(url=url, hostname=url.split("/", 3)[2])
+
+    spec = parse_spec(SPEC)
+    session = PersistentDealerSession("https://dealer.example")
+    session._session = BlockedBrowser()
+    session._validate_public_target = allow
+
+    async def run():
+        with pytest.raises(VehicleTransportError) as caught:
+            await session._fetch_rendered_once(
+                "https://dealer.example/used",
+                listing_readiness=spec.listing,
+            )
+        assert caught.value.code == "dealer_waf_blocked"
+
+    asyncio.run(run())
