@@ -41,12 +41,15 @@ MAX_PROMPT_BYTES = 96_000
 MAX_ATTEMPTS = 3
 MAX_PATCHES = 32
 
-_LISTING_PATHS = {
-    "listing.card_selector",
-    "listing.detail_link_selector",
-    "listing.next_page_selector",
-    "listing.total_selector",
-}
+# Navigation and the inventory denominator are DELIBERATELY not patchable.
+# Repair is judged by replaying pages already captured, so a change to which
+# pages get visited (card/detail-link/next-page) cannot be judged: the URLs the
+# corrected selector would reach were never captured, so the right fix scores
+# worse than the wrong one. total_selector is worse still — replay pins the
+# expected total to the capture-time value, so a patch to it is invisible to
+# the gate while silently redefining the completeness check that guards every
+# future crawl. Those repairs belong to rediscovery, which actually re-crawls.
+_LISTING_PATHS: set[str] = set()
 _DETAIL_PATHS = {
     "detail.root_selector",
     "detail.gallery_selector",
@@ -106,10 +109,17 @@ def _response_schema() -> dict[str, Any]:
     }
 
 
-def _ensure_field(container: dict[str, Any], field_name: str) -> dict[str, Any]:
+def _ensure_field(container: dict[str, Any], field_name: str, property_name: str) -> dict[str, Any]:
     fields = container.setdefault("fields", {})
     rule = fields.get(field_name)
     if not isinstance(rule, dict):
+        if property_name != "selector":
+            # Refuse to conjure a field from a transform/attribute patch alone:
+            # the default binding would be the whole card or VDP root, which
+            # publishes the first matching text on the page as a real value.
+            raise RepairError(
+                f"{field_name}.{property_name} cannot create a field without a selector"
+            )
         rule = {
             "selector": ":scope",
             "transform": _DEFAULT_TRANSFORM.get(field_name, "text"),
@@ -160,7 +170,7 @@ def apply_selector_patches(
         if len(parts) != 4 or parts[1] != "fields":
             raise RepairError(f"unsupported patch shape: {path}")
         field_name, property_name = parts[2], parts[3]
-        rule = _ensure_field(section, field_name)
+        rule = _ensure_field(section, field_name, property_name)
         if value is None:
             if property_name == "selector":
                 section.get("fields", {}).pop(field_name, None)
@@ -188,27 +198,50 @@ def apply_selector_patches(
 def qa_repair_score(qa: Any) -> float:
     """Collapse a QA report into one comparable extraction-quality score.
 
-    Coverage of the fields a listing must publish dominates, because that is
-    what a repair is for; completeness and photo quality break ties. The scale
-    is arbitrary but MONOTONIC, which is the only property the loop needs.
+    The gate this feeds must be satisfiable by the repairs it exists to make,
+    so the run's own verdict dominates: a candidate that turns a failing
+    snapshot into a passing one always wins, and every named QA issue it
+    clears is worth more than any coverage rounding. Coverage, completeness
+    and photo quality only break ties between two runs of the same verdict.
+
+    An UNKNOWN inventory denominator scores strictly below a known one. The
+    earlier revision treated it as perfect, which meant repairing a broken
+    total counted as a regression — it made the single most valuable repair
+    unadoptable.
     """
 
     report = qa.as_dict() if hasattr(qa, "as_dict") else dict(qa or {})
     coverage = report.get("field_coverage") or {}
     core = ("vin", "detail_url", "year", "make", "model", "price", "mileage", "photos")
-    values = [float(coverage.get(name) or 0.0) for name in core]
-    field_score = sum(values) / len(core) if core else 0.0
+    field_score = sum(float(coverage.get(name) or 0.0) for name in core) / len(core)
+
     record_count = float(report.get("record_count") or 0)
     expected = report.get("expected_total")
-    completeness = 0.0
-    if isinstance(expected, (int, float)) and expected > 0:
+    if isinstance(expected, (int, float)) and not isinstance(expected, bool) and expected > 0:
         completeness = min(1.0, record_count / float(expected))
-    elif record_count > 0:
-        completeness = 1.0
+    else:
+        # Half credit: an unmeasurable lot is materially worse than a measured
+        # complete one and materially better than a measured shortfall.
+        completeness = 0.5
+
     photo = float(report.get("multi_photo_vehicle_coverage") or 0.0)
     blocked = float(report.get("blocked_record_count") or 0)
     penalty = min(0.25, blocked / max(record_count, 1.0) * 0.25)
-    return round((field_score * 0.6) + (completeness * 0.3) + (photo * 0.1) - penalty, 6)
+    verdict = 2.0 if (report.get("passed") and report.get("complete_snapshot")) else 0.0
+    issues = min(10, len(report.get("issues") or ()))
+    return round(
+        verdict - (0.05 * issues) + (field_score * 0.6) + (completeness * 0.3) + (photo * 0.1) - penalty,
+        6,
+    )
+
+
+def _record_count_of(report: Any) -> float:
+    qa = getattr(report, "qa", report)
+    data = qa.as_dict() if hasattr(qa, "as_dict") else dict(qa or {})
+    try:
+        return float(data.get("record_count") or 0)
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def reduce_qa_for_repair(qa: Any) -> dict[str, Any]:
@@ -231,39 +264,76 @@ def reduce_qa_for_repair(qa: Any) -> dict[str, Any]:
     return reduced
 
 
-def reduce_evidence_for_repair(fixtures: Any, *, max_bytes: int = MAX_EVIDENCE_BYTES) -> dict[str, Any]:
-    """Reduce captured fixtures to bounded, script-free structural evidence.
+_SELECTOR_ATTRS = frozenset({"class", "id", "itemprop", "itemtype", "role", "type", "name", "rel"})
+_ATTR_VALUE_LIMIT = 120
 
-    Raw dealer HTML is both too large and untrusted: scripts and comments are
-    removed so page-authored text cannot smuggle instructions into the prompt,
-    one listing and one detail page are enough to diagnose a selector, and the
-    result is hard-capped well inside the request budget.
+
+def reduce_evidence_for_repair(fixtures: Any, *, max_bytes: int = MAX_EVIDENCE_BYTES) -> dict[str, Any]:
+    """Reduce captured fixtures to bounded, inert structural evidence.
+
+    Dealer HTML is untrusted input that will sit inside a model prompt, so
+    everything that can carry a sentence and cannot help write a CSS selector
+    is removed: scripts, styles, HTML comments, and the free-text attributes
+    (title, alt, aria-label, placeholder, content, data-notes) that a widget,
+    a syndicated feed, or site UGC could use to address the model directly.
+    Attributes that DO inform selectors keep their values, capped in length.
+
+    The size budget is measured on the JSON-ENCODED form, because that is what
+    the request cap applies to: HTML quoting inflates by several percent, and
+    budgeting raw bytes made the whole tier no-op on exactly the large pages it
+    exists to repair.
     """
 
-    from bs4 import BeautifulSoup
+    from bs4 import BeautifulSoup, Comment
 
     def _structure(html: str, limit: int) -> str:
         soup = BeautifulSoup(html or "", "html.parser")
         for tag in soup(["script", "style", "noscript", "svg", "iframe", "template"]):
             tag.decompose()
+        for comment in soup.find_all(string=lambda text: isinstance(text, Comment)):
+            comment.extract()
+        for tag in soup.find_all(True):
+            attrs = getattr(tag, "attrs", None)
+            if not isinstance(attrs, dict):
+                continue
+            for name in list(attrs):
+                lowered = str(name).lower()
+                if lowered in _SELECTOR_ATTRS or lowered.startswith("data-"):
+                    value = attrs[name]
+                    if isinstance(value, list):
+                        value = " ".join(str(item) for item in value)
+                    text = str(value)[:_ATTR_VALUE_LIMIT]
+                    if lowered not in {"class", "id"} and text.count(" ") > 2:
+                        # Selector-bearing values are tokens (a VIN, a slug, a
+                        # type). A sentence in data-note is prose, and prose in
+                        # an attribute is only ever an injection surface.
+                        text = ""
+                    attrs[name] = text
+                else:
+                    # Structure is what a selector is written against; the
+                    # prose in these attributes is only an injection surface.
+                    attrs[name] = ""
         body = soup.body or soup
         text = str(body)
-        return text[:limit]
+        # Trim on the ENCODED length so the caller's cap is the real bound.
+        while len(json.dumps(text)) > limit and len(text) > 256:
+            text = text[: int(len(text) * 0.9)]
+        return text
 
     listing = dict(getattr(fixtures, "listing_pages", {}) or {})
     detail = dict(getattr(fixtures, "detail_pages", {}) or {})
-    budget = max(4_000, max_bytes - 2_000)
-    listing_budget = budget // 2
+    budget = max(4_000, max_bytes - 4_000)
+    half = budget // 2
     evidence: dict[str, Any] = {
         "listing_page_count": len(listing),
         "detail_page_count": len(detail),
     }
     for url, html in list(listing.items())[:1]:
         evidence["listing_url"] = str(url)[:400]
-        evidence["listing_html"] = _structure(html, listing_budget)
+        evidence["listing_html"] = _structure(html, half)
     for url, html in list(detail.items())[:1]:
         evidence["detail_url"] = str(url)[:400]
-        evidence["detail_html"] = _structure(html, budget - listing_budget)
+        evidence["detail_html"] = _structure(html, budget - half)
     return evidence
 
 
@@ -274,6 +344,7 @@ async def propose_selector_repair(
     *,
     api_key: str | None = None,
     model: str | None = None,
+    prior_rejection: str | None = None,
 ) -> tuple[VehicleSpec, dict[str, Any]]:
     """Request one schema-constrained patch proposal and validate it locally."""
 
@@ -296,6 +367,9 @@ async def propose_selector_repair(
             "base_spec": parsed.as_dict(),
             "qa": json.loads(qa_text),
             "reduced_dom_evidence": json.loads(evidence_text),
+            # Without this, every retry is a byte-identical request paying full
+            # price for the same answer.
+            **({"previous_attempt_rejected_because": str(prior_rejection)[:300]} if prior_rejection else {}),
         },
         ensure_ascii=False,
         separators=(",", ":"),
@@ -308,7 +382,7 @@ async def propose_selector_repair(
         "model": (model or os.getenv("WEAVER_REPAIR_MODEL") or os.getenv("WEAVER_MODEL") or DEFAULT_MODEL).strip(),
         "instructions": INSTRUCTIONS,
         "input": user_content,
-        "max_output_tokens": 2_000,
+        "max_output_tokens": 4_000,
         "text": {
             "format": {
                 "type": "json_schema",
@@ -339,6 +413,13 @@ async def propose_selector_repair(
         for chunk in item.get("content", []) or []:
             if chunk.get("type") == "output_text":
                 text += chunk.get("text", "")
+    if not text.strip():
+        # A reasoning-truncated reply returns no output_text at all; say so
+        # rather than reporting a JSON parse error for an empty string.
+        raise RepairError(
+            f"repair proposal returned no output (status {data.get('status') or 'unknown'}); "
+            "the model likely spent its output budget on reasoning"
+        )
     try:
         proposal = json.loads(text)
     except (TypeError, ValueError) as exc:
@@ -359,40 +440,62 @@ async def propose_selector_repair(
 
 async def repair_until_improved(
     base_spec: str | Mapping[str, Any] | VehicleSpec,
-    baseline_score: float,
+    baseline_report: Any,
     evaluate: Callable[[VehicleSpec], Any],
-    propose: Callable[[VehicleSpec, int], Any],
+    propose: Callable[[VehicleSpec, int, str | None], Any],
     *,
     max_attempts: int = MAX_ATTEMPTS,
     emit: Callable[[str, dict[str, Any]], Any] | None = None,
 ) -> tuple[VehicleSpec, float, Any, int]:
-    """Bounded repair loop; accepts only a strictly improving QA candidate."""
+    """Bounded repair loop; adopts only a strictly better, no-smaller candidate.
+
+    `baseline_report` is the failing replay itself, not just its score, because
+    the score alone cannot express the one rule that matters most: a repair may
+    never be adopted if it finds FEWER vehicles than the spec it replaces.
+    Coverage is a per-record average, so narrowing the extractor until only the
+    easy cars remain raises every average — without this floor the loop is
+    actively rewarded for silently dropping inventory.
+    """
 
     if not 1 <= max_attempts <= MAX_ATTEMPTS:
         raise ValueError(f"max_attempts must be 1 to {MAX_ATTEMPTS}")
     current = parse_spec(base_spec)
-    score = float(baseline_score)
+    score = qa_repair_score(getattr(baseline_report, "qa", baseline_report))
+    floor = _record_count_of(baseline_report)
     last_report: Any = None
+    rejection: str | None = None
     for attempt in range(1, max_attempts + 1):
         try:
-            candidate, metadata = await propose(current, attempt)
+            candidate, metadata = await propose(current, attempt, rejection)
         except RepairError as error:
+            rejection = str(error)[:300]
             if emit:
-                await emit("repair_attempt", {"attempt": attempt, "rejected": str(error)[:300]})
+                await emit("repair_attempt", {"attempt": attempt, "rejected": rejection})
             continue
         candidate = parse_spec(candidate)
         candidate_report = await evaluate(candidate)
         candidate_score = qa_repair_score(getattr(candidate_report, "qa", candidate_report))
+        candidate_records = _record_count_of(candidate_report)
+        lost_inventory = candidate_records < floor
+        improved = candidate_score > score and not lost_inventory
         if emit:
             await emit("repair_attempt", {
                 "attempt": attempt,
                 "baseline_score": score,
                 "candidate_score": candidate_score,
-                "improved": candidate_score > score,
+                "baseline_records": floor,
+                "candidate_records": candidate_records,
+                "improved": improved,
+                "rejected_for_lost_inventory": lost_inventory,
                 **{key: value for key, value in dict(metadata or {}).items() if key != "model"},
             })
-        if candidate_score > score:
+        if improved:
             return candidate, candidate_score, candidate_report, attempt
+        rejection = (
+            f"attempt {attempt} found {candidate_records:.0f} vehicles vs {floor:.0f} before it"
+            if lost_inventory
+            else f"attempt {attempt} scored {candidate_score} vs {score}; extraction did not improve"
+        )
         last_report = candidate_report
     return current, score, last_report, max_attempts
 

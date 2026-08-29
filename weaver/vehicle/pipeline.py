@@ -358,7 +358,9 @@ async def run_vehicle_pipeline(record: Any) -> None:
             # another polite crawl of the dealer's website, and it is adopted
             # only if it scores strictly better than the spec it replaces.
             if needs_replacement and active_attempt_error is None and fixtures is not None:
-                baseline = qa_repair_score(replay.qa)
+                baseline_report = replay
+                repair_evidence = reduce_evidence_for_repair(fixtures)
+                repair_qa = reduce_qa_for_repair(replay.qa)
                 await record.emit(
                     "phase",
                     {
@@ -368,15 +370,21 @@ async def run_vehicle_pipeline(record: Any) -> None:
                     source_id,
                 )
 
-                async def _propose(current_spec, attempt):
+                async def _propose(current_spec, attempt, rejection=None):
+                    # Evidence is reduced ONCE: it is the same pages every
+                    # attempt, and the reduction is a full BeautifulSoup parse.
                     return await propose_selector_repair(
                         current_spec,
-                        reduce_evidence_for_repair(fixtures),
-                        reduce_qa_for_repair(replay.qa),
+                        repair_evidence,
+                        repair_qa,
+                        prior_rejection=rejection,
                     )
 
                 async def _evaluate(candidate_spec):
-                    return replay_fixtures(
+                    # Replay is CPU-bound; keep it off the event loop so the
+                    # portal's live feed and other runs are not stalled.
+                    return await asyncio.to_thread(
+                        replay_fixtures,
                         candidate_spec,
                         fixtures,
                         max_listing_pages=limits.max_listing_pages,
@@ -389,13 +397,14 @@ async def run_vehicle_pipeline(record: Any) -> None:
 
                 try:
                     repaired_spec, repaired_score, repaired_replay, attempts = await repair_until_improved(
-                        spec, baseline, _evaluate, _propose, emit=_repair_emit,
+                        spec, baseline_report, _evaluate, _propose, emit=_repair_emit,
                     )
                 except Exception as error:  # noqa: BLE001 - repair never fails a run
                     await record.log(f"Selector repair was unavailable: {error}", "warn", source_id)
                     repaired_replay = None
-                    repaired_score = baseline
+                    repaired_score = qa_repair_score(replay.qa)
                     attempts = 0
+                baseline = qa_repair_score(replay.qa)
                 if repaired_replay is not None and repaired_score > baseline:
                     attempt_reports.append(repaired_replay.qa)
                     spec = repaired_spec
