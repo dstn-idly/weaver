@@ -2492,16 +2492,27 @@ async def discover_vehicle_evidence(
     async def verified_detail(
         detail_urls: list[str],
     ) -> tuple[str, str] | None:
-        """Fetch at most three candidates and require one page-primary VIN.
+        """Fetch a few candidates and pick one that can actually teach a spec.
 
         Stale inventory links sometimes redirect to a listing page, and lead
         actions can look vehicle-shaped. A representative VDP is admitted only
         after the deterministic extractor proves a single real page identity.
-        The first valid candidate wins; normal sites still make one VDP fetch.
+
+        Identity alone is not enough, though: this page is what inference
+        learns the GALLERY from, and a dealership's newest arrivals are often
+        unphotographed. Sugarloaf CDJR died on exactly that — the first car in
+        its used listing was a 2026 Ram carrying only manufacturer paint
+        chips, so "could not prove a VIN-owned multi-photo gallery" killed a
+        lot whose other 179 cars are fully photographed. Prefer the first
+        candidate that HAS a gallery, and keep an identity-proven but
+        photoless one only as a fallback, so a genuinely unphotographed lot
+        still yields a spec. A site whose first car has photos still costs
+        exactly one fetch.
         """
 
         session_fetch_detail = getattr(session, "fetch_detail", None)
-        for detail_url in detail_urls[:3]:
+        photoless_fallback: tuple[str, str] | None = None
+        for detail_url in detail_urls[:5]:
             # The representative VDP feeds spec inference, including the
             # gallery_selector candidate catalog. A raw fetch of a hydrated
             # platform shows only the hero image, so inference could never
@@ -2552,8 +2563,11 @@ async def discover_vehicle_evidence(
                 and primary_vin
                 and not is_surrogate_vin(primary_vin)
             ):
-                return detail_url, detail_html
-        return None
+                if len(result.photos) >= 2:
+                    return detail_url, detail_html
+                if photoless_fallback is None:
+                    photoless_fallback = (detail_url, detail_html)
+        return photoless_fallback
 
     async def rendered_if_needed(
         url: str,

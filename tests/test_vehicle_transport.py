@@ -45,11 +45,28 @@ class FakeSession:
         return FakeResponse()
 
 
+def _photographed_vdp(vin: str) -> str:
+    """A VDP whose gallery a real dealership would publish.
+
+    Discovery picks the representative VDP that spec inference learns the
+    gallery from, so it now prefers a candidate that actually has photos.
+    Fixtures that only need "a valid detail page" should use this, and leave
+    bare photoless markup to the tests that are about unphotographed cars.
+    """
+
+    return (
+        f'<main class="vehicle" data-vin="{vin}"><div class="gallery">'
+        f'<img src="https://cdn.example/inventory/{vin}/front.jpg" width="1600">'
+        f'<img src="https://cdn.example/inventory/{vin}/side.jpg" width="1600">'
+        "</div></main>"
+    )
+
+
 class FakeTransport:
     def __init__(self):
         self.pages = {
             "https://dealer.example/used": '<div class="card"><span data-vin="1HGBH41JXMN109186"></span><span class="name">Honda Civic</span><a class="vdp" href="/vdp/1HGBH41JXMN109186">view</a></div>',
-            "https://dealer.example/vdp/1HGBH41JXMN109186": '<main class="vehicle" data-vin="1HGBH41JXMN109186"></main>',
+            "https://dealer.example/vdp/1HGBH41JXMN109186": _photographed_vdp("1HGBH41JXMN109186"),
         }
 
     async def fetch(self, url):
@@ -467,10 +484,10 @@ def test_capture_stops_when_source_denominator_is_satisfied() -> None:
                 ),
                 "https://dealer.example/used/pg/3": "<p>speculative empty page</p>",
                 "https://dealer.example/vdp/1HGBH41JXMN109186": (
-                    '<main class="vehicle" data-vin="1HGBH41JXMN109186"></main>'
+                    _photographed_vdp("1HGBH41JXMN109186")
                 ),
                 "https://dealer.example/vdp/2HGBH41JXMN109187": (
-                    '<main class="vehicle" data-vin="2HGBH41JXMN109187"></main>'
+                    _photographed_vdp("2HGBH41JXMN109187")
                 ),
             }
 
@@ -1260,7 +1277,7 @@ def test_capture_supplies_listing_spec_to_readiness_aware_transport() -> None:
 
         async def fetch(self, url):
             assert url == detail_url
-            return '<main class="vehicle" data-vin="1HGBH41JXMN109186"></main>'
+            return _photographed_vdp("1HGBH41JXMN109186")
 
     async def run():
         transport = ReadinessTransport()
@@ -2046,8 +2063,8 @@ def test_direct_inventory_discovery_does_not_fetch_model_year_navigation() -> No
                     f'<article class="vehicle"><a href="{first_vdp}">Honda Civic</a></article>'
                     f'<article class="vehicle"><a href="{second_vdp}">Honda Accord</a></article>'
                 ),
-                first_vdp: '<main data-vin="1HGBH41JXMN109186">detail</main>',
-                second_vdp: '<main data-vin="2HGBH41JXMN109187">detail</main>',
+                first_vdp: _photographed_vdp("1HGBH41JXMN109186"),
+                second_vdp: _photographed_vdp("2HGBH41JXMN109187"),
             }
 
         async def fetch(self, url):
@@ -2373,8 +2390,12 @@ def test_static_inventory_shell_escalates_same_url_once_before_route_scouting() 
                 return "<html><body><main id='inventory-app'>Loading inventory</main></body></html>"
             return f"<main data-vin='{url.rsplit('/', 1)[-1]}'>vehicle detail</main>"
 
-        async def fetch_rendered(self, url):
+        async def fetch_rendered(self, url, **_kwargs):
             self.rendered_calls.append(url)
+            if url != "https://dealer.example/used":
+                # The static VDP was a thin shell; the rendered pass is where
+                # this dealer's gallery actually materialises.
+                return _photographed_vdp(url.rsplit("/", 1)[-1])
             return (
                 '<div class="vehicle-card"><a href="'
                 + first
@@ -3232,3 +3253,94 @@ def test_a_cookie_gate_is_solved_by_the_static_tier_not_the_browser(monkeypatch)
     asyncio.run(run())
     assert requests[0][1] == "no-cookie"
     assert requests[1][1] == "with-cookie"
+
+
+def test_discovery_skips_unphotographed_first_car_for_the_representative_vdp() -> None:
+    """One unphotographed new arrival must not condemn a photographed lot.
+
+    Sugarloaf CDJR's used listing led with a 2026 Ram carrying only
+    manufacturer paint chips. Discovery admitted it as the representative VDP
+    because its identity was proven, inference then had no gallery to learn
+    from, and "could not prove a VIN-owned multi-photo gallery" failed a
+    dealership whose other 179 cars are fully photographed.
+    """
+
+    photoless = "https://dealer.example/used/vehicle/1HGBH41JXMN109186"
+    photographed = "https://dealer.example/used/vehicle/JHMCM56557C404453"
+
+    class ArrivalTransport:
+        def __init__(self):
+            self.calls = []
+            self.pages = {
+                "https://dealer.example/used/": (
+                    f'<article class="vehicle"><a href="{photoless}">2026 Ram 1500</a></article>'
+                    f'<article class="vehicle"><a href="{photographed}">Honda Accord</a></article>'
+                ),
+                photoless: '<main class="vehicle" data-vin="1HGBH41JXMN109186"></main>',
+                photographed: _photographed_vdp("JHMCM56557C404453"),
+            }
+
+        async def fetch(self, url):
+            self.calls.append(url)
+            return self.pages[url]
+
+    async def run():
+        transport = ArrivalTransport()
+        _listing_url, _listing_html, detail_url, _detail_html, _candidates = (
+            await discover_vehicle_evidence(
+                "https://dealer.example/used/",
+                session=transport,
+                max_candidates=8,
+            )
+        )
+        assert detail_url == photographed
+        assert transport.calls == [
+            "https://dealer.example/used/",
+            photoless,
+            photographed,
+        ]
+
+    asyncio.run(run())
+
+
+def test_discovery_still_yields_a_representative_vdp_on_an_unphotographed_lot() -> None:
+    """A dealership that publishes no unit photography still gets a spec.
+
+    Preferring a photographed candidate must not become a requirement — the
+    photo-exception path downstream exists precisely for lots like this, and
+    it only runs if discovery hands back a page to learn from.
+    """
+
+    first = "https://dealer.example/used/vehicle/1HGBH41JXMN109186"
+    second = "https://dealer.example/used/vehicle/JHMCM56557C404453"
+
+    class BareTransport:
+        def __init__(self):
+            self.calls = []
+            self.pages = {
+                "https://dealer.example/used/": (
+                    f'<article class="vehicle"><a href="{first}">Honda Civic</a></article>'
+                    f'<article class="vehicle"><a href="{second}">Honda Accord</a></article>'
+                ),
+                first: '<main class="vehicle" data-vin="1HGBH41JXMN109186"></main>',
+                second: '<main class="vehicle" data-vin="JHMCM56557C404453"></main>',
+            }
+
+        async def fetch(self, url):
+            self.calls.append(url)
+            return self.pages[url]
+
+    async def run():
+        transport = BareTransport()
+        _listing_url, _listing_html, detail_url, _detail_html, _candidates = (
+            await discover_vehicle_evidence(
+                "https://dealer.example/used/",
+                session=transport,
+                max_candidates=8,
+            )
+        )
+        # The first identity-proven page is kept as the fallback, so the run
+        # continues instead of failing the dealership outright.
+        assert detail_url == first
+
+    asyncio.run(run())

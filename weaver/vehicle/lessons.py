@@ -56,6 +56,11 @@ FIELD_NOTES: tuple[str, ...] = (
     "small share of the lot, because a mostly-photoless result is a broken "
     "reader wearing an exception costume.",
 
+    "DISCOVERY: the representative vehicle page teaches the gallery, so pick "
+    "one that HAS photos. A dealership's newest arrivals are often "
+    "unphotographed, and stopping at the first car in the list threw away a "
+    "lot whose other 179 vehicles were fully photographed.",
+
     # ── IDENTITY AND COMPLETENESS ────────────────────────────────────────────
     "IDENTITY: a photo may only belong to the VIN whose page published it. "
     "Photos shared between two vehicles mean the gallery selector escaped the "
