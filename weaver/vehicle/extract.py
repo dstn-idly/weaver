@@ -537,9 +537,14 @@ def extract_listing_page(
                     continue
                 record[field_name] = jsonld_facts[field_name]
         if not _positive_price(record.get("price")):
-            # A non-positive price is a sentinel, not a value: clear it so the
-            # detail pass (merge_fill_missing) can supply the VDP's real price.
+            # Zero is a sentinel, never a price. When the card itself says the
+            # dealer is withholding it ("Call For Price"), that is a published
+            # state carried forward as a bounded exception — the dealer's VDP
+            # structured data may still hold a number, but publishing a price
+            # the dealer deliberately hides is their compliance risk, not ours.
             record.pop("price", None)
+            if _price_withheld(card):
+                record["price_exception"] = "no_price_published"
         records.append(record)
         details.append(detail_url)
     return ListingPageResult(
@@ -556,6 +561,30 @@ def _positive_price(value: Any) -> bool:
         return float(value) > 0
     except (TypeError, ValueError):
         return False
+
+
+_PRICE_WITHHELD_RE = re.compile(
+    r"call\s+(?:us\s+)?for\s+(?:price|pricing|details)"
+    r"|please\s+call"
+    r"|contact\s+(?:us|dealer)\s+for\s+(?:price|pricing)"
+    r"|price\s+not\s+available",
+    re.I,
+)
+
+
+def _price_withheld(card: Tag) -> bool:
+    """Does this card itself say the dealer is withholding the price?
+
+    Read from the CARD, never the page: a footer's "please call" must not
+    bless a whole lot, and a per-card label is the same corroboration the
+    photo exception requires.
+    """
+
+    try:
+        text = card.get_text(" ", strip=True)
+    except Exception:
+        return False
+    return bool(_PRICE_WITHHELD_RE.search(text or ""))
 
 
 def merge_fill_missing(base: Mapping[str, Any], detail: Mapping[str, Any]) -> dict[str, Any]:

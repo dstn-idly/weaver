@@ -308,3 +308,35 @@ def test_listing_jsonld_zero_price_does_not_claim_authority() -> None:
     assert _positive_price("30988")
     if "JTM16RFV7PD096660" in facts and "price" in facts["JTM16RFV7PD096660"]:
         assert not _positive_price(facts["JTM16RFV7PD096660"]["price"])
+
+
+def test_call_for_price_card_marks_a_withheld_price_exception() -> None:
+    """Corroboration is read from the CARD, so a footer's "please call" can
+    never bless a whole lot (Orlando Nissan: 17/17 unpriced cards carry the
+    label, 0/270 priced cards do)."""
+
+    from bs4 import BeautifulSoup
+
+    from weaver.vehicle.extract import _price_withheld
+
+    soup = BeautifulSoup(
+        '<div class="card"><a href="/v/1">2023 RAV4</a><span>Call For Price</span></div>'
+        '<div class="card"><a href="/v/2">2024 Rogue</a><span>$28,995</span></div>',
+        "html.parser",
+    )
+    cards = soup.select("div.card")
+    assert _price_withheld(cards[0]) is True
+    assert _price_withheld(cards[1]) is False
+
+    variants = BeautifulSoup(
+        '<div class="a"><span>Please Call</span></div>'
+        '<div class="b"><span>Contact us for pricing</span></div>'
+        '<div class="c"><span>Call for Details</span></div>'
+        '<div class="d"><span>Call us today about financing</span></div>',
+        "html.parser",
+    )
+    assert _price_withheld(variants.select_one("div.a")) is True
+    assert _price_withheld(variants.select_one("div.b")) is True
+    assert _price_withheld(variants.select_one("div.c")) is True
+    # A generic call-to-action is NOT a withheld-price statement.
+    assert _price_withheld(variants.select_one("div.d")) is False

@@ -190,7 +190,7 @@ def test_year_shaped_price_column_is_degenerate() -> None:
     assert not any(issue.startswith("degenerate_prices:") for issue in report.issues)
 
 
-def test_nonpositive_price_rows_fail_the_run() -> None:
+def test_uncorroborated_nonpositive_price_fails_the_run() -> None:
     value = rows()
     value[1]["price"] = 0
     report = verify_records(value, evidence(value))
@@ -200,3 +200,66 @@ def test_nonpositive_price_rows_fail_the_run() -> None:
     healthy = rows()
     report = verify_records(healthy, evidence(healthy))
     assert not any(issue.startswith("nonpositive_prices:") for issue in report.issues)
+
+
+def test_corroborated_withheld_price_passes_as_a_bounded_exception() -> None:
+    """Orlando Nissan publishes "Call For Price" on 17 of 287 cards; those
+    rows carry no price, stay unpublishable downstream, and must not fail an
+    otherwise complete lot."""
+
+    value = rows()
+    for suffix in ("194", "195"):
+        extra = dict(value[0])
+        extra.update({
+            "vin": f"1HGBH41JXMN109{suffix}",
+            "detail_url": f"https://dealer.example/priced-{suffix}",
+            "photos": [f"https://cdn/{suffix}-1.jpg", f"https://cdn/{suffix}-2.jpg", f"https://cdn/{suffix}-3.jpg"],
+            "photo": f"https://cdn/{suffix}-1.jpg",
+        })
+        value.append(extra)
+    withheld = dict(value[0])
+    withheld.update({
+        "vin": "1HGBH41JXMN109196",
+        "detail_url": "https://dealer.example/call-for-price",
+        "photos": ["https://cdn/cfp-1.jpg", "https://cdn/cfp-2.jpg"],
+        "photo": "https://cdn/cfp-1.jpg",
+        "price_exception": "no_price_published",
+    })
+    withheld.pop("price")
+    value.append(withheld)
+
+    report = verify_records(value, evidence(value))
+
+    assert report.passed
+    assert report.price_exception_count == 1
+    assert report.price_exception_vins == ("1HGBH41JXMN109196",)
+    # Price coverage is judged over the priceable inventory, as photos are.
+    assert report.field_coverage["price"] == 1.0
+    assert report.as_dict()["price_exception_count"] == 1
+    assert not any(issue.startswith("nonpositive_prices:") for issue in report.issues)
+
+
+def test_price_exception_claim_is_ignored_on_a_priced_row_and_capped_by_share() -> None:
+    # A claim on a row that HAS a price is ignored, never honored.
+    value = rows()
+    value[1]["price_exception"] = "no_price_published"
+    report = verify_records(value, evidence(value))
+    assert report.passed
+    assert report.price_exception_count == 0
+
+    # Past the 30% share the run fails closed: a price reader broke.
+    value = rows()
+    for suffix in ("197", "198"):
+        extra = dict(value[0])
+        extra.update({
+            "vin": f"1HGBH41JXMN109{suffix}",
+            "detail_url": f"https://dealer.example/cfp-{suffix}",
+            "photos": [f"https://cdn/{suffix}-1.jpg", f"https://cdn/{suffix}-2.jpg"],
+            "photo": f"https://cdn/{suffix}-1.jpg",
+            "price_exception": "no_price_published",
+        })
+        extra.pop("price")
+        value.append(extra)
+    report = verify_records(value, evidence(value))
+    assert not report.passed
+    assert any(issue.startswith("price_exception_share:") for issue in report.issues)

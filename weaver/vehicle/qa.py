@@ -42,6 +42,8 @@ class QAReport:
     photo_exception_vins: tuple[str, ...]
     single_photo_exception_count: int
     single_photo_exception_vins: tuple[str, ...]
+    price_exception_count: int
+    price_exception_vins: tuple[str, ...]
     field_coverage: Mapping[str, float]
     photo_counts: Mapping[str, int]
     full_resolution_vehicle_coverage: float
@@ -71,6 +73,8 @@ class QAReport:
             "photo_exception_vins": list(self.photo_exception_vins),
             "single_photo_exception_count": self.single_photo_exception_count,
             "single_photo_exception_vins": list(self.single_photo_exception_vins),
+            "price_exception_count": self.price_exception_count,
+            "price_exception_vins": list(self.price_exception_vins),
             "field_coverage": dict(self.field_coverage),
             "photo_counts": dict(self.photo_counts),
             "full_resolution_vehicle_coverage": self.full_resolution_vehicle_coverage,
@@ -93,6 +97,13 @@ def _duplicates(values: Sequence[str]) -> tuple[str, ...]:
     for value in values:
         counts[value] = counts.get(value, 0) + 1
     return tuple(sorted(value for value, count in counts.items() if count > 1))
+
+
+def _positive_price(value: Any) -> bool:
+    try:
+        return float(value) > 0
+    except (TypeError, ValueError):
+        return False
 
 
 def _coverage(records: Sequence[Mapping[str, Any]], field_name: str) -> float:
@@ -173,6 +184,15 @@ def verify_records(records: Sequence[Mapping[str, Any]], evidence: RunEvidence) 
     def _is_photo_exception(row: Mapping[str, Any]) -> bool:
         return _photo_exception_class(row) is not None
 
+    def _is_price_exception(row: Mapping[str, Any]) -> bool:
+        """A withheld price counts only when the row claims it AND carries no
+        positive price — a claim on a priced row is ignored, never honored."""
+
+        return (
+            row.get("price_exception") == "no_price_published"
+            and not _positive_price(row.get("price"))
+        )
+
     # A corroborated photo-less listing (the page itself published a
     # placeholder primary) is a bounded exception, not a broken row: photo
     # quality gates apply to the photographed inventory, while identity and
@@ -196,6 +216,21 @@ def verify_records(records: Sequence[Mapping[str, Any]], evidence: RunEvidence) 
     if exception_rows:
         field_coverage["photo"] = _coverage(standard_rows, "photo")
         field_coverage["photos"] = _coverage(standard_rows, "photos")
+
+    # A withheld price is a published dealer state ("Call For Price" on the
+    # card itself), so price coverage is judged over the priceable inventory
+    # exactly as photo coverage is judged over the photographed inventory.
+    price_exception_vins = tuple(
+        sorted(
+            str(row.get("vin") or row.get("detail_url") or "")
+            for row in rows
+            if _is_price_exception(row)
+        )
+    )
+    if price_exception_vins:
+        field_coverage["price"] = _coverage(
+            [row for row in rows if not _is_price_exception(row)], "price"
+        )
 
     vins = [str(row.get("vin", "")).upper() for row in rows if row.get("vin")]
     normalized_urls = [
@@ -378,15 +413,23 @@ def verify_records(records: Sequence[Mapping[str, Any]], evidence: RunEvidence) 
         issues.append(
             f"degenerate_prices:{len(year_shaped_prices)}/{len(priced_rows)}_in_model_year_range"
         )
-    # Zero/negative is the "unpriced yet" sentinel dealers stamp on
-    # just-arrived units; publishing a real car at $0 is never acceptable, so
-    # any such row fails the run until a corroborated price-exception class
-    # exists.
-    nonpositive_priced = [row for row in priced_rows if float(row["price"]) <= 0]
-    if nonpositive_priced:
+    # Zero/negative is never a price. A row whose own card published "Call For
+    # Price" is a corroborated withheld-price exception (bounded, unpublishable
+    # downstream); an uncorroborated one is a reader failure and fails the run.
+    unpriced_rows = [
+        row for row in rows
+        if not _positive_price(row.get("price"))
+    ]
+    price_exception_rows = [row for row in unpriced_rows if _is_price_exception(row)]
+    uncorroborated_unpriced = [row for row in unpriced_rows if not _is_price_exception(row)]
+    if uncorroborated_unpriced:
         issues.append(
-            f"nonpositive_prices:{len(nonpositive_priced)}/{len(rows)}"
+            f"nonpositive_prices:{len(uncorroborated_unpriced)}/{len(rows)}"
         )
+    if price_exception_rows and len(price_exception_rows) * 10 > record_count * 3:
+        # Past a 30% share this is a price-reader failure wearing an exception
+        # costume, exactly as with photo exceptions.
+        issues.append(f"price_exception_share:{len(price_exception_rows)}/{record_count}")
 
     exception_count = len(exception_rows)
     if exception_count and exception_count * 10 > record_count * 3:
@@ -423,6 +466,8 @@ def verify_records(records: Sequence[Mapping[str, Any]], evidence: RunEvidence) 
         photo_exception_vins=photo_exception_vins,
         single_photo_exception_count=len(single_photo_exception_vins),
         single_photo_exception_vins=single_photo_exception_vins,
+        price_exception_count=len(price_exception_vins),
+        price_exception_vins=price_exception_vins,
         field_coverage=field_coverage,
         photo_counts=photo_counts,
         full_resolution_vehicle_coverage=full_resolution_coverage,
