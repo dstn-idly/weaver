@@ -188,3 +188,15 @@ def test_year_shaped_price_column_is_degenerate() -> None:
     healthy = rows()
     report = verify_records(healthy, evidence(healthy))
     assert not any(issue.startswith("degenerate_prices:") for issue in report.issues)
+
+
+def test_nonpositive_price_rows_fail_the_run() -> None:
+    value = rows()
+    value[1]["price"] = 0
+    report = verify_records(value, evidence(value))
+    assert not report.passed
+    assert any(issue.startswith("nonpositive_prices:") for issue in report.issues)
+
+    healthy = rows()
+    report = verify_records(healthy, evidence(healthy))
+    assert not any(issue.startswith("nonpositive_prices:") for issue in report.issues)

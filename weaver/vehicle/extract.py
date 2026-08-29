@@ -528,8 +528,18 @@ def extract_listing_page(
         jsonld_facts = jsonld_by_vin.get(vin)
         if jsonld_facts:
             for field_name in _JSONLD_AUTHORITATIVE_FIELDS:
-                if field_name in jsonld_facts:
-                    record[field_name] = jsonld_facts[field_name]
+                if field_name not in jsonld_facts:
+                    continue
+                if field_name == "price" and not _positive_price(jsonld_facts[field_name]):
+                    # Dealers publish price: 0 as an "unpriced yet" sentinel on
+                    # just-arrived units while the VDP carries the real price.
+                    # Zero is never a price and must not claim authority.
+                    continue
+                record[field_name] = jsonld_facts[field_name]
+        if not _positive_price(record.get("price")):
+            # A non-positive price is a sentinel, not a value: clear it so the
+            # detail pass (merge_fill_missing) can supply the VDP's real price.
+            record.pop("price", None)
         records.append(record)
         details.append(detail_url)
     return ListingPageResult(
@@ -541,6 +551,13 @@ def extract_listing_page(
     )
 
 
+def _positive_price(value: Any) -> bool:
+    try:
+        return float(value) > 0
+    except (TypeError, ValueError):
+        return False
+
+
 def merge_fill_missing(base: Mapping[str, Any], detail: Mapping[str, Any]) -> dict[str, Any]:
     """VDP data fills SRP gaps; the VDP's real VIN can promote a URL key."""
 
@@ -548,12 +565,18 @@ def merge_fill_missing(base: Mapping[str, Any], detail: Mapping[str, Any]) -> di
     for key, value in detail.items():
         if value in (None, "", []):
             continue
+        if key == "price" and not _positive_price(value):
+            # A zero/negative detail price is the same "unpriced" sentinel —
+            # it must not overwrite or satisfy anything.
+            continue
         if key == "vin" and clean_vin(value) and is_surrogate_vin(merged.get("vin")):
             merged[key] = clean_vin(value)
         elif key in {"photos", "features"}:
             if value:
                 merged[key] = list(value)
-        elif merged.get(key) in (None, "", []):
+        elif merged.get(key) in (None, "", []) or (
+            key == "price" and not _positive_price(merged.get(key))
+        ):
             merged[key] = value
     merged["vin_is_surrogate"] = is_surrogate_vin(merged.get("vin"))
     if merged.get("photos") and not merged.get("photo"):

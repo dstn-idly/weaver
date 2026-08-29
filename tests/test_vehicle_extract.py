@@ -262,3 +262,49 @@ def test_listing_jsonld_facts_outrank_selector_extraction() -> None:
     assert record["mileage"] == 42461
     assert record["year"] == 2021
     assert record["color_ext"] == "Black"
+
+
+def test_zero_price_is_a_sentinel_not_a_value() -> None:
+    """A dealer stamping price: 0 on a just-arrived unit must not survive:
+    listing authority may not claim it, assembly clears it, and the VDP's
+    real price backfills it (Orlando Nissan run 3350de8788b443bf, 17 rows)."""
+
+    from weaver.vehicle.extract import merge_fill_missing
+
+    base = {"vin": "JTM16RFV7PD096660", "name": "2023 Toyota RAV4 Hybrid SE", "price": 0}
+    detail = {"price": 30988, "mileage": 64221}
+    merged = merge_fill_missing(base, detail)
+    assert merged["price"] == 30988
+    assert merged["mileage"] == 64221
+
+    # A zero DETAIL price must neither overwrite nor satisfy anything.
+    kept = merge_fill_missing({"vin": "JTM16RFV7PD096660", "price": 30988}, {"price": 0})
+    assert kept["price"] == 30988
+    unfilled = merge_fill_missing({"vin": "JTM16RFV7PD096660"}, {"price": 0})
+    assert "price" not in unfilled
+
+
+def test_listing_jsonld_zero_price_does_not_claim_authority() -> None:
+    from bs4 import BeautifulSoup
+
+    from weaver.vehicle.extract import _jsonld_vehicles_by_vin
+
+    html = """
+    <script type="application/ld+json">
+    {"@type": "Vehicle", "vehicleIdentificationNumber": "JTM16RFV7PD096660",
+     "offers": {"@type": "Offer", "price": "0"}}
+    </script>
+    """
+    facts = _jsonld_vehicles_by_vin(BeautifulSoup(html, "html.parser"))
+    # Whether or not the parser surfaces the zero, the authority merge must
+    # not let it displace a real price. Simulate the merge guard directly.
+    from weaver.vehicle.extract import _positive_price
+
+    assert not _positive_price(0)
+    assert not _positive_price("0")
+    assert not _positive_price(None)
+    assert not _positive_price(-1)
+    assert _positive_price(30988)
+    assert _positive_price("30988")
+    if "JTM16RFV7PD096660" in facts and "price" in facts["JTM16RFV7PD096660"]:
+        assert not _positive_price(facts["JTM16RFV7PD096660"]["price"])

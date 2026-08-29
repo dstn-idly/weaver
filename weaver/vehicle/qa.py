@@ -378,6 +378,15 @@ def verify_records(records: Sequence[Mapping[str, Any]], evidence: RunEvidence) 
         issues.append(
             f"degenerate_prices:{len(year_shaped_prices)}/{len(priced_rows)}_in_model_year_range"
         )
+    # Zero/negative is the "unpriced yet" sentinel dealers stamp on
+    # just-arrived units; publishing a real car at $0 is never acceptable, so
+    # any such row fails the run until a corroborated price-exception class
+    # exists.
+    nonpositive_priced = [row for row in priced_rows if float(row["price"]) <= 0]
+    if nonpositive_priced:
+        issues.append(
+            f"nonpositive_prices:{len(nonpositive_priced)}/{len(rows)}"
+        )
 
     exception_count = len(exception_rows)
     if exception_count and exception_count * 10 > record_count * 3:
