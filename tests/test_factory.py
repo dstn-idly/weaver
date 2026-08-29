@@ -213,3 +213,40 @@ def test_reusable_run_accepts_only_fresh_clean_passed_crawls():
     future = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
     assert not reusable_run({**good, "completed_at": future})
     assert not reusable_run("not-a-dict")
+
+
+def test_a_recently_crawled_dealership_is_left_to_rest(tmp_path):
+    """A dealership is a stranger's live website. Crawling Jim Norton Toyota
+    five times in eight hours earned an HTTP 429 — the site was right to
+    refuse, and nothing in the factory had stopped it."""
+
+    import time as _time
+    from datetime import datetime, timedelta, timezone
+
+    from weaver.factory.orchestrator import ORIGIN_COOLDOWN_SECONDS, origin_cooldown_remaining
+    from weaver.factory.store import FactoryStore
+
+    store = FactoryStore(tmp_path)
+    recent = store.create("https://dealer.example/used", "https://dealer.example")
+    recent.state = "failed"
+    recent.updated_at = (datetime.now(timezone.utc) - timedelta(minutes=5)).isoformat()
+
+    queued = store.create("https://dealer.example/used", "https://dealer.example")
+    remaining = origin_cooldown_remaining(store, queued, _time.time())
+    assert remaining > 0
+    assert remaining <= ORIGIN_COOLDOWN_SECONDS
+
+    # A different dealership is unaffected — one slow site must not stall others.
+    other = store.create("https://other-dealer.example/used", "https://other-dealer.example")
+    assert origin_cooldown_remaining(store, other, _time.time()) == 0.0
+
+    # Once the window passes, the same origin is free again.
+    recent.updated_at = (
+        datetime.now(timezone.utc) - timedelta(seconds=ORIGIN_COOLDOWN_SECONDS + 60)
+    ).isoformat()
+    assert origin_cooldown_remaining(store, queued, _time.time()) == 0.0
+
+    # A run that never touched the dealer does not start a cooldown.
+    recent.state = "queued"
+    recent.updated_at = (datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat()
+    assert origin_cooldown_remaining(store, queued, _time.time()) == 0.0

@@ -11,6 +11,8 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import time
+from datetime import datetime
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -274,6 +276,38 @@ async def process_job(store: FactoryStore, job: FactoryJob) -> None:
         )
 
 
+# A dealership is a stranger's live website, not a test fixture. Crawling one
+# five times in eight hours is what earned an HTTP 429 from Jim Norton Toyota
+# (2026-08-29) — the site was right to refuse. The factory now enforces the
+# politeness it was relying on an operator to remember.
+ORIGIN_COOLDOWN_SECONDS = max(
+    0.0,
+    min(float(os.getenv("FACTORY_ORIGIN_COOLDOWN_MIN", "180") or 180) * 60.0, 24 * 3600.0),
+)
+
+
+def origin_cooldown_remaining(store: FactoryStore, job: FactoryJob, now: float) -> float:
+    """Seconds this origin must rest before another crawl may start."""
+
+    if ORIGIN_COOLDOWN_SECONDS <= 0:
+        return 0.0
+    latest = 0.0
+    for other in store.jobs.values():
+        if other.id == job.id or other.origin != job.origin:
+            continue
+        stamp = other.updated_at or other.created_at
+        try:
+            finished = datetime.fromisoformat(str(stamp).replace("Z", "+00:00")).timestamp()
+        except (TypeError, ValueError):
+            continue
+        # Only a run that actually touched the dealer counts.
+        if other.state in ("done", "failed") and finished > latest:
+            latest = finished
+    if latest <= 0:
+        return 0.0
+    return max(0.0, ORIGIN_COOLDOWN_SECONDS - (now - latest))
+
+
 async def factory_worker(store: FactoryStore) -> None:
     while True:
         job = store.next_queued()
@@ -281,6 +315,22 @@ async def factory_worker(store: FactoryStore) -> None:
             store.wakeup.clear()
             try:
                 await asyncio.wait_for(store.wakeup.wait(), timeout=30)
+            except asyncio.TimeoutError:
+                pass
+            continue
+        cooling = origin_cooldown_remaining(store, job, time.time())
+        if cooling > 0:
+            # Leave it queued and say so, rather than hammering the dealership
+            # or silently dropping the customer's request.
+            if not job.events or job.events[-1].get("type") != "origin_cooldown":
+                await store.emit(job, "origin_cooldown", {
+                    "origin": job.origin,
+                    "resumes_in_minutes": round(cooling / 60.0),
+                    "detail": "this dealership was crawled recently; waiting before another pass",
+                })
+            store.wakeup.clear()
+            try:
+                await asyncio.wait_for(store.wakeup.wait(), timeout=min(cooling, 300.0))
             except asyncio.TimeoutError:
                 pass
             continue
