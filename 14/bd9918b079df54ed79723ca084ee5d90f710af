@@ -1,0 +1,29 @@
+weaver/vehicle/extract.py
+  s_da9cd4ad208db2::t_48496232125c8a 566-589
+  s_da9cd4ad208db2::t_719fd1032bb8f4 540-544,546-547
+weaver/vehicle/qa.py
+  s_da9cd4ad208db2::t_7213d559adfdd9 187-195
+  s_da9cd4ad208db2::t_f4e51ea60326c1 220-234
+  s_da9cd4ad208db2::t_aee4d055d0b783 416-425,427,429-432
+  s_da9cd4ad208db2::t_cef2cef29080aa 45-46,76-77,102-108,469-470
+tests/test_vehicle_extract.py
+  s_da9cd4ad208db2::t_915d57a5f291ad 311-342
+tests/test_vehicle_qa.py
+  s_da9cd4ad208db2::t_4f4813cfbd7513 193,203-265
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "14bd9918b079df54ed79723ca084ee5d90f710af",
+  "prompts": {},
+  "sessions": {
+    "s_da9cd4ad208db2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4cd1a6ac-f843-47f4-ac8d-77cbe7e08a68",
+        "model": "claude-opus-5"
+      },
+      "human_author": "dustin thach <epikunder321123@gmail.com>"
+    }
+  }
+}
