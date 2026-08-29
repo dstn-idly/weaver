@@ -1,0 +1,27 @@
+tests/test_openai_retry.py
+  s_da9cd4ad208db2::t_c89bd796173ecc 8,88-122
+weaver/factory/luna.py
+  s_da9cd4ad208db2::t_3beaf4afcf20cc 17,127-129
+weaver/openai_retry.py
+  s_da9cd4ad208db2::t_1605f13b8171e6 41-67,101-102,122-123,132,134
+weaver/vehicle/infer.py
+  s_da9cd4ad208db2::t_6c7a76db8bdf40 48,2213-2217
+weaver/vehicle/repair.py
+  s_da9cd4ad208db2::t_69495b6a26287b 33,329-331
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "41794ac9bf594b40e01bd17aedcb855d018ca5c1",
+  "prompts": {},
+  "sessions": {
+    "s_da9cd4ad208db2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4cd1a6ac-f843-47f4-ac8d-77cbe7e08a68",
+        "model": "claude-opus-5"
+      },
+      "human_author": "dustin thach <epikunder321123@gmail.com>"
+    }
+  }
+}
