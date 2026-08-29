@@ -1429,3 +1429,36 @@ def test_http_hrefs_on_the_dealers_own_https_page_still_harvest() -> None:
     assert "li.vehicle-item" in _listing_card_selector_candidates(
         html, listing_url=page, origin=origin
     )
+
+
+def test_detail_candidates_nominate_background_image_gallery_containers() -> None:
+    """Wayne Reaves galleries are all CSS-background divs with no <img>.
+
+    A container carrying two or more background-image photo carriers is
+    nominated even without a gallery-named class — nomination only feeds the
+    closed, replay-verified gallery_selector contract, and admission of
+    background photos stays inside vdp.py's configured-gallery ownership
+    proof. A labelled related rail is still never nominated.
+    """
+
+    html = """
+    <html><body><main>
+      <div class="img-wrapper pure-g">
+        <div class="l-box"><div class="img" style="background-image:url('https://dealer.example/service/picture/37621/2425/705aeccea3d44271ffd35f946b9fa550851965aa?thumb');"></div></div>
+        <div class="l-box"><div class="img" style="background-image:url('https://dealer.example/service/picture/37621/2425/66a8f4294368746a58c0d46ed05bd1be2b92b8bb?thumb');"></div></div>
+        <div class="l-box"><div class="img" data-background-image="https://dealer.example/service/picture/37621/2425/20609e66909851a7a07ce6791a2d2e1e66ada3cc"></div></div>
+      </div>
+      <div class="lonely-banner" style="background-image:url('https://dealer.example/banner.jpg')"></div>
+      <aside class="similar-rail">
+        <div class="img" style="background-image:url('https://dealer.example/service/picture/37621/2229/c59ccb9df4c2b50eacc0dbe5c45da9cbd94abbdd?thumb');"></div>
+        <div class="img" style="background-image:url('https://dealer.example/service/picture/37621/2293/c59ccb9df4c2b50eacc0dbe5c45da9cbd94abbee?thumb');"></div>
+      </aside>
+    </main></body></html>
+    """
+    _roots, galleries = _detail_selector_candidates(html)
+
+    assert any("img-wrapper" in selector for selector in galleries)
+    # A single decorative background never qualifies a container.
+    assert not any("lonely-banner" in selector for selector in galleries)
+    # Labelled related regions stay out of the nomination set.
+    assert not any("similar-rail" in selector for selector in galleries)

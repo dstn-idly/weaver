@@ -1329,12 +1329,27 @@ def _detail_selector_candidates(
                 *[str(value) for value in (node.get("class") or [])],
             ]
         )
-        if not gallery_meaningful.search(signature) or related.search(signature):
+        if related.search(signature):
             continue
-        image_count = len(
-            node.select(
-                "img, [data-full], [data-full-src], [data-zoom-image], a[href]"
-            )
+        # Wayne Reaves galleries carry every photo as a CSS background on
+        # unnamed divs (``div.img`` inside ``div.img-wrapper``), so a
+        # background-carrying container is nominated even without a
+        # gallery-named signature. Nomination is only a candidate for the
+        # closed, replay-verified gallery_selector contract — admission of
+        # background photos still happens exclusively inside vdp.py's
+        # configured-gallery ownership proof, never document-wide.
+        background_count = len(
+            node.select("[data-background-image], [style*='background-image']")
+        )
+        if not gallery_meaningful.search(signature) and background_count < 2:
+            continue
+        image_count = max(
+            len(
+                node.select(
+                    "img, [data-full], [data-full-src], [data-zoom-image], a[href]"
+                )
+            ),
+            background_count,
         )
         for name, value in node.attrs.items():
             if str(name).lstrip(":").lower().replace("-", "") in {"photourls", "imageurls", "galleryurls"}:

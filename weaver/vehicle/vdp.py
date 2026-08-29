@@ -137,6 +137,27 @@ _WORDPRESS_ORIGINAL_PATH_RE = re.compile(
     r"[A-Za-z0-9][A-Za-z0-9_.-]{0,255}\.(?:jpe?g|png|webp)$",
     re.I,
 )
+# Wayne Reaves serves every gallery photo as a CSS background-image on a
+# <div>, never an <img>, from the DEALER'S OWN domain (never a host
+# allowlist), at the extensionless path
+# ``/service/picture/{dealerId}/{vehicleId}/{40-hex}`` (``?thumb`` marks the
+# small rendition; photo_asset_key already folds it). Verified live on
+# iautodealerservices.com: the page at ``/inventory/37621/view/2425/...``
+# backgrounds ``/service/picture/37621/2425/{hash}`` while its full-inventory
+# rail backgrounds ``/service/picture/37621/2229/{hash}`` and friends — the
+# two numeric segments are the SAME ``{dealerId}/{vehicleId}`` ownership pair
+# the detail URL carries, not a width/height pair.
+_WAYNE_REAVES_PICTURE_PATH_RE = re.compile(
+    r"^/service/picture/(?P<dealer>\d{1,5})/(?P<vehicle>\d{1,5})/[0-9a-f]{40}$",
+    re.I,
+)
+_WAYNE_REAVES_DETAIL_PATH_RE = re.compile(
+    r"^/inventory/(?P<dealer>\d{1,10})/view/(?P<vehicle>\d{1,10})(?:/|$)",
+)
+_CSS_BACKGROUND_IMAGE_RE = re.compile(
+    r"background(?:-image)?\s*:\s*url\(\s*(['\"]?)\s*([^'\")]+?)\s*\1\s*\)",
+    re.I,
+)
 _NEXT_FLIGHT_MARKER = "self.__next_f.push("
 _NEXT_FLIGHT_REFERENCE_RE = re.compile(
     r"^\$(?:[0-9a-z]+|L[0-9a-z]+|undefined|null)$",
@@ -1525,8 +1546,20 @@ def _gallery_containers(
             continue
         images = len(node.find_all("img"))
         full_links = len(node.select("a[href], a[data-src], a[data-full-src], [data-full], [data-full-image], [data-zoom-image], [data-original]"))
-        if images or full_links:
-            candidates.append((max(images, full_links), node))
+        backgrounds = 0
+        if gallery_selector:
+            # Wayne Reaves galleries render every photo as a CSS background
+            # div with no <img> at all. Counting background carriers is
+            # allowed ONLY under a configured (closed, reviewed) gallery
+            # selector — automatic discovery must never qualify a container by
+            # document-wide background scanning.
+            backgrounds = sum(
+                1
+                for child in (node, *node.find_all(True, limit=2_000))
+                if isinstance(child, Tag) and _node_background_image_urls(child)
+            )
+        if images or full_links or backgrounds:
+            candidates.append((max(images, full_links, backgrounds), node))
     if not candidates:
         return []
     candidates.sort(key=lambda item: item[0], reverse=True)
@@ -1636,7 +1669,133 @@ def _srcset_largest(raw: Any) -> tuple[str | None, int | None]:
     return best_url, best_width
 
 
-def _acceptable_image(url: str | None) -> bool:
+def _wayne_reaves_detail_pair(page_url: str | None) -> tuple[str, str] | None:
+    """The ``{dealerId}/{vehicleId}`` pair the requested VDP URL names."""
+
+    if not page_url:
+        return None
+    try:
+        parsed = urlsplit(page_url)
+    except ValueError:
+        return None
+    match = _WAYNE_REAVES_DETAIL_PATH_RE.match(parsed.path)
+    if not match:
+        return None
+    return (match.group("dealer"), match.group("vehicle"))
+
+
+def _wayne_reaves_owned_picture(url: str, page_url: str | None) -> bool:
+    """Accept an extensionless Wayne Reaves photo only with full ownership.
+
+    The photo must be same-origin with the VDP being extracted (Wayne Reaves
+    serves photos from each dealer's OWN domain, so a hostname allowlist is
+    impossible), match the exact ``/service/picture/{dealerId}/{vehicleId}/
+    {40-hex}`` grammar with at most the ``?thumb`` rendition marker, and carry
+    the SAME ``{dealerId}/{vehicleId}`` pair the requested detail URL names at
+    ``/inventory/{dealerId}/view/{vehicleId}/``. A detail URL without that
+    pair FAILS CLOSED: no extensionless photo is admitted for it.
+    """
+
+    detail_pair = _wayne_reaves_detail_pair(page_url)
+    if detail_pair is None:
+        return False
+    try:
+        photo = urlsplit(url)
+        page = urlsplit(page_url or "")
+    except ValueError:
+        return False
+    match = _WAYNE_REAVES_PICTURE_PATH_RE.fullmatch(photo.path)
+    if not match:
+        return False
+    if (match.group("dealer"), match.group("vehicle")) != detail_pair:
+        return False
+    if photo.query.casefold() not in {"", "thumb"} or photo.fragment:
+        return False
+    try:
+        photo_port = photo.port
+        page_port = page.port
+    except ValueError:
+        return False
+    photo_host = (photo.hostname or "").casefold().removeprefix("www.")
+    page_host = (page.hostname or "").casefold().removeprefix("www.")
+    # The dealer's own www alias is the same dealership — the capture reached
+    # iautodealerservices via www while every photo URL is bare-host, and an
+    # exact comparison admitted ZERO photos from the one live-verified site.
+    # Consistent with the transport layer's _origin_key.
+    return bool(
+        photo.scheme.casefold() == page.scheme.casefold()
+        and photo_host
+        and photo_host == page_host
+        and photo_port == page_port
+    )
+
+
+def _wayne_reaves_foreign_background(
+    container: Tag | BeautifulSoup,
+    page_url: str,
+) -> bool:
+    """Detect a Wayne Reaves background photo of ANOTHER vehicle in scope.
+
+    A configured selector that accidentally scoops a related-inventory region
+    would mix pairs; one foreign pair inside the container fails the whole
+    gallery proof closed instead of silently keeping the owned subset.
+    """
+
+    detail_pair = _wayne_reaves_detail_pair(page_url)
+    nodes: list[Tag] = [container] if isinstance(container, Tag) else []
+    nodes.extend(
+        node
+        for node in container.find_all(True, limit=20_000)
+        if isinstance(node, Tag)
+    )
+    for node in nodes:
+        for raw in _node_background_image_urls(node):
+            url = safe_data_url(page_url, raw)
+            if not url:
+                continue
+            try:
+                parsed = urlsplit(url)
+            except ValueError:
+                continue
+            match = _WAYNE_REAVES_PICTURE_PATH_RE.fullmatch(parsed.path)
+            if not match:
+                continue
+            if detail_pair is None or (
+                (match.group("dealer"), match.group("vehicle")) != detail_pair
+            ):
+                return True
+    return False
+
+
+def _node_background_image_urls(node: Tag) -> list[str]:
+    """Raw background photo candidates one node itself declares.
+
+    Reads only the node's inline ``style`` background-image and its
+    ``data-background-image`` attribute. Callers stay responsible for scope: a
+    document-wide background reader is forbidden (on one real DealerCenter VDP
+    every ``[data-background-image]`` node was the similar-vehicles rail), so
+    these values are interpreted only inside an ownership-proven gallery
+    container.
+    """
+
+    values: list[str] = []
+    style = node.get("style")
+    if isinstance(style, str):
+        for match in _CSS_BACKGROUND_IMAGE_RE.finditer(style[:10_000]):
+            raw = html_module.unescape(match.group(2)).strip()
+            if raw and raw not in values:
+                values.append(raw)
+    declared = node.get("data-background-image")
+    if isinstance(declared, str) and declared.strip():
+        text = html_module.unescape(declared).strip()
+        match = _CSS_BACKGROUND_IMAGE_RE.search(text[:10_000])
+        raw = match.group(2).strip() if match else text.strip("'\"")
+        if raw and raw not in values:
+            values.append(raw)
+    return values
+
+
+def _acceptable_image(url: str | None, *, page_url: str | None = None) -> bool:
     if not url or _BAD_IMAGE_RE.search(url) or re.search(r"[?&](?:thumb|thumbnail)=", url, re.I):
         return False
     if _CDN_STOCK_PATH_RE.search(url):
@@ -1676,6 +1835,11 @@ def _acceptable_image(url: str | None) -> bool:
         # path. Ownership is still established by the unique VIN-bound Flight
         # mapping; this exact host/path exception only admits that owned URL.
         return True
+    if _WAYNE_REAVES_PICTURE_PATH_RE.fullmatch(parsed_path):
+        # Wayne Reaves extensionless photos are accepted only same-origin with
+        # the requested VDP AND carrying that VDP's own {dealerId}/{vehicleId}
+        # pair; without page context or the URL pair this fails closed.
+        return _wayne_reaves_owned_picture(url, page_url)
     return bool(_IMAGE_EXT_RE.search(url) or re.search(r"/(?:image|media|photo)/", parsed_path, re.I))
 
 
@@ -1949,7 +2113,7 @@ def _vin_bound_gallery_photos(
             )
             for candidate in candidates:
                 url = safe_data_url(base_url, candidate)
-                if not _acceptable_image(url):
+                if not _acceptable_image(url, page_url=base_url):
                     continue
                 normalized, width, known_full = _known_full_resolution_variant(url or "")
                 key = normalized.casefold()
@@ -1991,12 +2155,42 @@ def _same_image_variant(base_url: str, variant_url: str) -> bool:
         return False
 
 
-def _node_photo(node: Tag, *, base_url: str, gallery_owned: bool = False) -> PhotoEvidence | None:
+_IMAGESCF_SIZE_PATH_RE = re.compile(r"^/(\d{1,5})/(\d{1,5})/")
+
+
+def _imagescf_size_width(url: str) -> int | None:
+    """The declared pixel width of an imagescf.dealercenter.net rendition.
+
+    Only on that host is a leading ``/{w}/{h}/`` pair KNOWN to be a size (the
+    same grammar photo_asset_key already folds there). Anywhere else two bare
+    numbers prove nothing and this returns None.
+    """
+
+    try:
+        parsed = urlsplit(url)
+    except ValueError:
+        return None
+    if (parsed.hostname or "").casefold() != "imagescf.dealercenter.net":
+        return None
+    match = _IMAGESCF_SIZE_PATH_RE.match(parsed.path)
+    if not match:
+        return None
+    width = int(match.group(1))
+    return width if 1 <= width <= 20_000 else None
+
+
+def _node_photo(
+    node: Tag,
+    *,
+    base_url: str,
+    gallery_owned: bool = False,
+    allow_background: bool = False,
+) -> PhotoEvidence | None:
     candidates: list[tuple[int, PhotoEvidence]] = []
 
     def add(raw: Any, source: str, priority: int, width: int | None = None) -> None:
         url = safe_data_url(base_url, raw)
-        if not _acceptable_image(url):
+        if not _acceptable_image(url, page_url=base_url):
             return
         url, known_width, known_full = _known_full_resolution_variant(url or "")
         if known_width is not None:
@@ -2018,6 +2212,31 @@ def _node_photo(node: Tag, *, base_url: str, gallery_owned: bool = False) -> Pho
         } or bool(width and width >= 1_000)
         candidates.append((priority + (min(width or 0, 9_999) // 10), PhotoEvidence(url or "", source, width, full)))
 
+    if allow_background:
+        # A configured selector is a hint about WHERE to look, never proof of
+        # WHO owns what it finds: a stale selector matching an unlabelled
+        # background-card rail would attribute other vehicles' photos to this
+        # VIN. So every background URL must individually pass the Wayne
+        # Reaves ownership proof — same origin as the VDP and the exact
+        # {dealerId}/{vehicleId} pair the detail URL names. Ordinary .jpg
+        # backgrounds are never admitted, on any platform. The bare
+        # (un-thumbed) spelling of a proven asset is the dealer-published
+        # original (verified live: 1024x576 vs a 3.7KB ?thumb), the same
+        # deterministic rendition rewrite the known-CDN registry performs,
+        # so it carries the registered known_cdn_full label; a ?thumb keeps
+        # the evidence-only background_image label and folds onto the
+        # original in dedupe.
+        for raw in _node_background_image_urls(node):
+            resolved = safe_data_url(base_url, raw)
+            if not resolved or not _wayne_reaves_owned_picture(resolved, base_url):
+                continue
+            bare = resolved.split("?", 1)[0]
+            if resolved == bare:
+                add(bare, "known_cdn_full", 925)
+            else:
+                add(bare, "known_cdn_full", 925)
+                add(resolved, "background_image", 400)
+
     for attr in (
         "data-full",
         "data-full-image",
@@ -2034,6 +2253,27 @@ def _node_photo(node: Tag, *, base_url: str, gallery_owned: bool = False) -> Pho
             add(node.get(attr), "data_full", 900)
 
     if node.name == "img":
+        pin_url = safe_data_url(base_url, node.get("data-pin-media"))
+        src_url = safe_data_url(base_url, node.get("src"))
+        if pin_url and src_url and pin_url != src_url:
+            # data-pin-media is trusted only as a STRICTLY LARGER rendition
+            # of the node's own asset: same identity under photo_asset_key
+            # (basename equality let /vehicles/9999/1.jpg replace vehicle
+            # 1002's photo), and a proven size from the CDN's own {w}/{h}
+            # path on the one host where that grammar is established. On the
+            # real DWS fixture 390 of 390 pins EQUAL the src — a pin that
+            # adds nothing adds nothing. The recorded width lets the existing
+            # width>=1000 evidence clause judge it; full-resolution is never
+            # asserted without that proof.
+            pin_width = _imagescf_size_width(pin_url)
+            src_width = _imagescf_size_width(src_url)
+            if (
+                photo_asset_key(pin_url) == photo_asset_key(src_url)
+                and pin_width is not None
+                and src_width is not None
+                and pin_width > src_width
+            ):
+                add(node.get("data-pin-media"), "pin_media", 860, width=pin_width)
         anchor = node.find_parent("a")
         if anchor and anchor.find("img") is node:
             add(anchor.get("href"), "gallery_anchor", 850)
@@ -2177,7 +2417,15 @@ def _configured_gallery_identity_proven(
         selected = (
             container.select(gallery_item_selector)
             if gallery_item_selector
-            else container.find_all(["img", "a"])
+            else [
+                node
+                for node in (container, *container.find_all(True))
+                if isinstance(node, Tag)
+                and (
+                    node.name in {"img", "a"}
+                    or _node_background_image_urls(node)
+                )
+            ]
         )
     except Exception:
         return False
@@ -2191,7 +2439,12 @@ def _configured_gallery_identity_proven(
     for node in selected[:2_000]:
         if not isinstance(node, Tag) or _is_related(node, scope):
             continue
-        photo = _node_photo(node, base_url=base_url, gallery_owned=True)
+        photo = _node_photo(
+            node,
+            base_url=base_url,
+            gallery_owned=True,
+            allow_background=True,
+        )
         if photo is None:
             continue
         identity_nodes = [node]
@@ -2234,6 +2487,23 @@ def _configured_gallery_identity_proven(
         return True
     if page_identity_proven and all(
         values == {expected_vin} for values in per_asset_url_vins
+    ):
+        return True
+    # Wayne Reaves ownership proof: the requested detail URL names this
+    # vehicle's {dealerId}/{vehicleId} pair at /inventory/{dealerId}/view/
+    # {vehicleId}/, and every photo repeats that exact pair in its own
+    # /service/picture/{dealerId}/{vehicleId}/{40-hex} path (verified live:
+    # the related-inventory rail's photos carry OTHER vehicleIds). Admit the
+    # gallery only when every selected URL matches the requested pair AND the
+    # container holds no background photo of any other pair; a detail URL
+    # without the pair fails closed inside _wayne_reaves_owned_picture.
+    if (
+        page_identity_proven
+        and owned_urls
+        and all(
+            _wayne_reaves_owned_picture(url, base_url) for url in owned_urls
+        )
+        and not _wayne_reaves_foreign_background(container, base_url)
     ):
         return True
     if not page_identity_proven or not all_known_full:
@@ -2345,7 +2615,7 @@ def _mapping_images(mapping: Mapping[str, Any], base_url: str, source: str) -> l
                         add_value(child, depth=depth + 1)
                     return
             url = safe_data_url(base_url, value)
-            if _acceptable_image(url):
+            if _acceptable_image(url, page_url=base_url):
                 normalized, width, known_full = _known_full_resolution_variant(url or "")
                 images.append(
                     PhotoEvidence(
@@ -2423,6 +2693,20 @@ def _dom_photos(
                 selected_nodes = container.select(gallery_item_selector)
             except Exception:
                 selected_nodes = []
+        elif gallery_selector:
+            # Only a configured gallery scope may surface CSS-background photo
+            # carriers (Wayne Reaves renders its whole gallery that way);
+            # automatic discovery keeps the img/anchor-only scan so a
+            # document-wide background reader can never appear.
+            selected_nodes = [
+                node
+                for node in (container, *container.find_all(True))
+                if isinstance(node, Tag)
+                and (
+                    node.name in {"img", "a"}
+                    or _node_background_image_urls(node)
+                )
+            ]
         else:
             selected_nodes = container.find_all(["img", "a"])
         for node in selected_nodes:
@@ -2459,7 +2743,12 @@ def _dom_photos(
                 if expected_vin.casefold() not in local_markup.casefold():
                     asset_identity_missing = True
                     continue
-            candidate = _node_photo(node, base_url=base_url, gallery_owned=True)
+            candidate = _node_photo(
+                node,
+                base_url=base_url,
+                gallery_owned=True,
+                allow_background=bool(gallery_selector),
+            )
             key = candidate.url.casefold() if candidate else ""
             if candidate and key not in seen_container_urls:
                 seen_container_urls.add(key)
@@ -2539,7 +2828,7 @@ def _dom_photos(
     if not photos:
         meta = soup.select_one('meta[property="og:image"], meta[name="twitter:image"]')
         url = safe_data_url(base_url, meta.get("content") if meta else None)
-        if _acceptable_image(url) and not _dom_marks_image_as_branding(
+        if _acceptable_image(url, page_url=base_url) and not _dom_marks_image_as_branding(
             soup,
             base_url=base_url,
             image_url=url or "",
@@ -2606,9 +2895,11 @@ def _dedupe_photos(photos: Iterable[PhotoEvidence], maximum: int) -> tuple[Photo
     source_strength = {
         "data_full": 6,
         "known_cdn_full": 6,
+        "pin_media": 5,
         "gallery_anchor": 5,
         "srcset": 4,
         "img_src": 3,
+        "background_image": 3,
         "lazy_src": 2,
         "ddc_gallery": 1,
         "cdn_prefix_gallery": 1,

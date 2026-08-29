@@ -2036,3 +2036,375 @@ def test_size_segments_fold_only_under_grammars_that_prove_them() -> None:
         photo_asset_key("https://cdn.example/1116/836/abc123.jpg")
     )
     assert photo_asset_key("https://cdn.x/2020/1234/a.jpg") != photo_asset_key("https://cdn.x/a.jpg")
+
+
+# --- Wayne Reaves CSS-background galleries -------------------------------
+# Live evidence (iautodealerservices.com): every gallery photo is a CSS
+# background-image on a <div>, extensionless, served from the dealer's OWN
+# domain at /service/picture/{dealerId}/{vehicleId}/{40-hex}[?thumb] — the
+# SAME {dealerId}/{vehicleId} pair the VDP URL names at
+# /inventory/{dealerId}/view/{vehicleId}/. The full-inventory rail on the
+# same page backgrounds OTHER vehicleIds.
+
+WR_VIN = "JH4DC53804S006378"
+WR_URL = "https://dealer.example/inventory/37621/view/2425/CITY-FL/2004-Acura-RSX"
+WR_HASH_1 = "705aeccea3d44271ffd35f946b9fa550851965aa"
+WR_HASH_2 = "66a8f4294368746a58c0d46ed05bd1be2b92b8bb"
+WR_HASH_3 = "20609e66909851a7a07ce6791a2d2e1e66ada3cc"
+WR_FOREIGN_HASH = "c59ccb9df4c2b50eacc0dbe5c45da9cbd94abbdd"
+
+
+def _wr_picture(vehicle_id: str, digest: str, thumb: bool = True) -> str:
+    suffix = "?thumb" if thumb else ""
+    return f"https://dealer.example/service/picture/37621/{vehicle_id}/{digest}{suffix}"
+
+
+def _wr_page(gallery_html: str, *, extra: str = "", vin: str = WR_VIN) -> str:
+    return f"""
+    <html><head><link rel="canonical" href="{WR_URL}"></head><body>
+      <main>
+        <h1>2004 Acura RSX</h1>
+        <ul><li itemprop="vehicleIdentificationNumber"><span>VIN:</span><data>{vin}</data></li></ul>
+        {gallery_html}
+        {extra}
+      </main>
+    </body></html>
+    """
+
+
+def test_wayne_reaves_background_gallery_owned_by_detail_url_pair() -> None:
+    """Configured gallery of owned-pair background divs is the photo set."""
+
+    gallery = f"""
+    <div class="img-wrapper">
+      <div class="hero" style="background-image:url('{_wr_picture('2425', WR_HASH_1, thumb=False)}')"></div>
+      <div class="l-box"><div class="img" style="background-image:url('{_wr_picture('2425', WR_HASH_1)}');"></div></div>
+      <div class="l-box"><div class="img" style="background-image:url('{_wr_picture('2425', WR_HASH_2)}');"></div></div>
+      <div class="l-box"><div class="img" data-background-image="{_wr_picture('2425', WR_HASH_3)}"></div></div>
+    </div>
+    """
+    rail = f"""
+    <div class="full-width-inv">
+      <a href="/inventory/37621/view/2229/CITY-FL/2015-Chevy-Tahoe">
+        <img src="{_wr_picture('2229', WR_FOREIGN_HASH, thumb=False)}">
+      </a>
+      <div style="background-image:url('{_wr_picture('2293', WR_FOREIGN_HASH, thumb=False)}')"></div>
+    </div>
+    """
+    detail = DetailSpec(
+        root_selector=None,
+        gallery_selector=".img-wrapper",
+        fields={},
+        max_photos=80,
+    )
+
+    result = extract_vdp(
+        _wr_page(gallery, extra=rail),
+        detail_url=WR_URL,
+        origin="https://dealer.example",
+        detail=detail,
+        expected_vin=WR_VIN,
+    )
+
+    assert result.identity_proven
+    assert result.record["vin"] == WR_VIN
+    # Each proven asset resolves to the ONE un-thumbed original the dealer
+    # published — the ?thumb spellings fold onto it — and the pair-proven
+    # original carries the registered full-resolution label, so these photos
+    # actually pass the inference and QA gates instead of dying there.
+    assert [photo.url for photo in result.photos] == [
+        _wr_picture("2425", WR_HASH_1, thumb=False),
+        _wr_picture("2425", WR_HASH_2, thumb=False),
+        _wr_picture("2425", WR_HASH_3, thumb=False),
+    ]
+    assert all("/2425/" in photo.url for photo in result.photos)
+    assert all(photo.source == "known_cdn_full" for photo in result.photos)
+    assert all(photo.full_resolution_candidate for photo in result.photos)
+
+
+def test_wayne_reaves_pair_proof_admits_gallery_without_direct_dom_identity() -> None:
+    """The new acceptance branch stands on its own for structured identity."""
+
+    gallery = f"""
+    <div class="img-wrapper">
+      <div class="img" style="background-image:url('{_wr_picture('2425', WR_HASH_1)}');"></div>
+      <div class="img" style="background-image:url('{_wr_picture('2425', WR_HASH_2)}');"></div>
+    </div>
+    """
+    html = f"""
+    <html><head><link rel="canonical" href="{WR_URL}">
+      <script type="application/ld+json">{json.dumps({
+          "@type": "Vehicle",
+          "vehicleIdentificationNumber": WR_VIN,
+          "name": "2004 Acura RSX",
+      })}</script>
+    </head><body><main>{gallery}</main></body></html>
+    """
+    detail = DetailSpec(
+        root_selector=None,
+        gallery_selector=".img-wrapper",
+        fields={},
+        max_photos=80,
+    )
+
+    result = extract_vdp(
+        html,
+        detail_url=WR_URL,
+        origin="https://dealer.example",
+        detail=detail,
+        expected_vin=WR_VIN,
+    )
+
+    assert result.identity_proven
+    assert [photo.url for photo in result.photos] == [
+        _wr_picture("2425", WR_HASH_1, thumb=False),
+        _wr_picture("2425", WR_HASH_2, thumb=False),
+    ]
+    assert all(photo.source == "known_cdn_full" for photo in result.photos)
+
+
+def test_wayne_reaves_foreign_pair_inside_gallery_fails_the_proof_closed() -> None:
+    """One other-vehicle background inside the container kills the gallery."""
+
+    gallery = f"""
+    <div class="img-wrapper">
+      <div class="img" style="background-image:url('{_wr_picture('2425', WR_HASH_1)}');"></div>
+      <div class="img" style="background-image:url('{_wr_picture('2425', WR_HASH_2)}');"></div>
+      <div class="img" style="background-image:url('{_wr_picture('2229', WR_FOREIGN_HASH)}');"></div>
+    </div>
+    """
+    html = f"""
+    <html><head><link rel="canonical" href="{WR_URL}">
+      <script type="application/ld+json">{json.dumps({
+          "@type": "Vehicle",
+          "vehicleIdentificationNumber": WR_VIN,
+      })}</script>
+    </head><body><main>{gallery}</main></body></html>
+    """
+    detail = DetailSpec(
+        root_selector=None,
+        gallery_selector=".img-wrapper",
+        fields={},
+        max_photos=80,
+    )
+
+    result = extract_vdp(
+        html,
+        detail_url=WR_URL,
+        origin="https://dealer.example",
+        detail=detail,
+        expected_vin=WR_VIN,
+    )
+
+    assert result.photos == ()
+    assert "photos" not in result.record
+
+
+def test_wayne_reaves_backgrounds_are_refused_without_a_configured_gallery() -> None:
+    """No document-wide or auto-discovered background reader exists."""
+
+    gallery = f"""
+    <div class="photos-wrapper">
+      <div class="img" style="background-image:url('{_wr_picture('2425', WR_HASH_1)}');"></div>
+      <div class="img" style="background-image:url('{_wr_picture('2425', WR_HASH_2)}');"></div>
+    </div>
+    """
+    detail = DetailSpec(root_selector=None, fields={}, max_photos=80)
+
+    result = extract_vdp(
+        _wr_page(gallery),
+        detail_url=WR_URL,
+        origin="https://dealer.example",
+        detail=detail,
+        expected_vin=WR_VIN,
+    )
+
+    assert result.identity_proven
+    assert result.photos == ()
+
+
+def test_wayne_reaves_similar_vehicles_rail_backgrounds_are_refused() -> None:
+    """A selector that lands in a labelled related rail proves nothing."""
+
+    rail = f"""
+    <aside class="similar-vehicles">
+      <div class="photos-wrapper">
+        <div class="img" style="background-image:url('{_wr_picture('2229', WR_FOREIGN_HASH)}');"></div>
+        <div class="img" style="background-image:url('{_wr_picture('2293', WR_HASH_2)}');"></div>
+      </div>
+    </aside>
+    """
+    detail = DetailSpec(
+        root_selector=None,
+        gallery_selector=".photos-wrapper",
+        fields={},
+        max_photos=80,
+    )
+
+    result = extract_vdp(
+        _wr_page("", extra=rail),
+        detail_url=WR_URL,
+        origin="https://dealer.example",
+        detail=detail,
+        expected_vin=WR_VIN,
+    )
+
+    assert result.photos == ()
+
+
+def test_wayne_reaves_acceptance_is_same_origin_pair_and_shape_only() -> None:
+    """Unit matrix for the extensionless /service/picture acceptance."""
+
+    from weaver.vehicle.vdp import _acceptable_image
+
+    owned = f"https://dealer.example/service/picture/37621/2425/{WR_HASH_1}"
+    assert _acceptable_image(owned, page_url=WR_URL)
+    assert _acceptable_image(owned + "?thumb", page_url=WR_URL)
+    # Same-origin only: another dealer's domain (or scheme) never qualifies.
+    assert not _acceptable_image(
+        f"https://other.example/service/picture/37621/2425/{WR_HASH_1}",
+        page_url=WR_URL,
+    )
+    assert not _acceptable_image(
+        f"http://dealer.example/service/picture/37621/2425/{WR_HASH_1}",
+        page_url=WR_URL,
+    )
+    # Exact pair only: the vehicleId (or dealerId) of another unit is refused.
+    assert not _acceptable_image(
+        f"https://dealer.example/service/picture/37621/2229/{WR_HASH_1}",
+        page_url=WR_URL,
+    )
+    assert not _acceptable_image(
+        f"https://dealer.example/service/picture/99999/2425/{WR_HASH_1}",
+        page_url=WR_URL,
+    )
+    # Exact path shape only.
+    assert not _acceptable_image(
+        "https://dealer.example/service/picture/37621/2425/nothex",
+        page_url=WR_URL,
+    )
+    assert not _acceptable_image(
+        f"https://dealer.example/service/picture/37621/2425/{WR_HASH_1}/extra",
+        page_url=WR_URL,
+    )
+    assert not _acceptable_image(
+        f"https://dealer.example/service/picture/37621/2425/{WR_HASH_1[:-1]}",
+        page_url=WR_URL,
+    )
+    # Only the valueless ?thumb rendition marker may ride along.
+    assert not _acceptable_image(owned + "?thumb&next=1", page_url=WR_URL)
+    # FAIL CLOSED: a detail URL without the /inventory/{dealerId}/view/
+    # {vehicleId} pair authorizes no extensionless photo at all.
+    assert not _acceptable_image(
+        owned, page_url="https://dealer.example/2004-acura-rsx"
+    )
+    assert not _acceptable_image(owned, page_url=None)
+
+
+def test_data_pin_media_accepted_only_with_same_host_and_same_basename() -> None:
+    """DealerCenter's 1116px data-pin-media rendition of the SAME asset."""
+
+    html = f"""
+    <html><head><link rel="canonical" href="{URL}"></head><body>
+      <main class="vehicle" data-vin="{VIN}">
+        <section class="primary-gallery">
+          <img src="https://imagescf.dealercenter.net/640/480/aaa11111.jpg"
+               data-pin-media="https://imagescf.dealercenter.net/1116/837/aaa11111.jpg">
+          <img src="https://imagescf.dealercenter.net/640/480/bbb22222.jpg"
+               data-pin-media="https://evil.example/1116/837/bbb22222.jpg">
+          <img src="https://imagescf.dealercenter.net/640/480/ccc33333.jpg"
+               data-pin-media="https://imagescf.dealercenter.net/1116/837/zzz99999.jpg">
+        </section>
+      </main>
+    </body></html>
+    """
+    detail = DetailSpec(
+        root_selector="main.vehicle",
+        gallery_selector=".primary-gallery",
+        gallery_item_selector="img",
+        fields={},
+        max_photos=80,
+    )
+
+    result = extract_vdp(
+        html,
+        detail_url=URL,
+        origin="https://dealer.example",
+        detail=detail,
+        expected_vin=VIN,
+    )
+
+    urls = [photo.url for photo in result.photos]
+    # Same host + same basename: the pin rendition is this asset's
+    # full-resolution evidence.
+    assert urls[0] == "https://imagescf.dealercenter.net/1116/837/aaa11111.jpg"
+    assert result.photos[0].full_resolution_candidate
+    # Another host, or another basename, is NOT the same asset: keep src.
+    assert urls[1] == "https://imagescf.dealercenter.net/640/480/bbb22222.jpg"
+    assert urls[2] == "https://imagescf.dealercenter.net/640/480/ccc33333.jpg"
+    assert not result.photos[1].full_resolution_candidate
+    assert not result.photos[2].full_resolution_candidate
+    assert len(urls) == 3
+
+
+def test_a_configured_selector_is_not_permission_to_own_ordinary_backgrounds() -> None:
+    """The adversarial panel's demonstrated misattribution: a configured
+    gallery selector matching an unlabelled background-card rail of ordinary
+    .jpg backgrounds attributed five foreign vehicles' photos to the page VIN.
+    A selector says where to look; ownership is proven per asset or not at
+    all — ordinary background URLs are never admitted, on any platform."""
+
+    vin = "1HGBH41JXMN109186"
+    url = f"https://dealer.example/vdp/{vin}"
+    rail = "".join(
+        f'<div class="card" style="background-image:url(\'https://cdn.example/lot/car{i}.jpg\')"></div>'
+        for i in range(5)
+    )
+    html = (
+        f'<html><head><link rel="canonical" href="{url}"></head><body>'
+        f'<main data-vin="{vin}"><div class="grid">{rail}</div></main></body></html>'
+    )
+    result = extract_vdp(
+        html,
+        detail_url=url,
+        origin="https://dealer.example",
+        detail=DetailSpec(root_selector=None, gallery_selector=".grid", fields={}, max_photos=80),
+        expected_vin=vin,
+    )
+    assert result.identity_proven
+    assert result.photos == ()
+
+
+def test_pin_media_needs_same_asset_and_strictly_larger_proven_size() -> None:
+    """On the real DealerCenter fixture 390 of 390 pins EQUAL the img's own
+    src — evidence of nothing — and basename equality let vehicle 9999's
+    photo replace vehicle 1002's. A pin counts only as the same asset under
+    photo_asset_key at a strictly larger size the CDN's own path declares."""
+
+    from bs4 import BeautifulSoup
+
+    from weaver.vehicle.vdp import _node_photo
+
+    def photo_for(src: str, pin: str):
+        node = BeautifulSoup(
+            f'<img src="{src}" data-pin-media="{pin}">', "html.parser"
+        ).find("img")
+        return _node_photo(node, base_url="https://dealer.example/vdp/x")
+
+    small = "https://imagescf.dealercenter.net/320/240/202608-abc.jpg"
+    large = "https://imagescf.dealercenter.net/1920/1080/202608-abc.jpg"
+    upgraded = photo_for(small, large)
+    assert upgraded is not None and upgraded.url == large
+    assert upgraded.width == 1920 and upgraded.full_resolution_candidate
+
+    # A pin equal to the src proves nothing and adds nothing.
+    same = photo_for(small, small)
+    assert same is None or same.url == small and not same.full_resolution_candidate
+    # A different asset with the same filename is refused.
+    other = photo_for(
+        "https://cdn.example/vehicles/1002/1.jpg", "https://cdn.example/vehicles/9999/1.jpg"
+    )
+    assert other is None or other.url != "https://cdn.example/vehicles/9999/1.jpg"
+    # A smaller or size-unproven pin is refused.
+    downgrade = photo_for(large, small)
+    assert downgrade is None or downgrade.url != small
