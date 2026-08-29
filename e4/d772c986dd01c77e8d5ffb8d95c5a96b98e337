@@ -1,0 +1,23 @@
+tests/test_vehicle_pagination.py
+  s_da9cd4ad208db2::t_bfc8a522e49b7b 203-300
+weaver/vehicle/pagination.py
+  s_da9cd4ad208db2::t_2346164e47c796 18-22,246-334,416-434
+weaver/vehicle/lessons.py
+  s_da9cd4ad208db2::t_e6e56229757438 134-139
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "e4d772c986dd01c77e8d5ffb8d95c5a96b98e337",
+  "prompts": {},
+  "sessions": {
+    "s_da9cd4ad208db2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4cd1a6ac-f843-47f4-ac8d-77cbe7e08a68",
+        "model": "claude-fable-5"
+      },
+      "human_author": "dustin thach <epikunder321123@gmail.com>"
+    }
+  }
+}
