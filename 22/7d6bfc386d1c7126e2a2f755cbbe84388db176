@@ -1,0 +1,21 @@
+tests/test_vehicle_pipeline.py
+  s_da9cd4ad208db2::t_2c236b20af398f 705-730
+weaver/vehicle/pipeline.py
+  s_da9cd4ad208db2::t_0af9b0820372c5 34-54,266
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "227d6bfc386d1c7126e2a2f755cbbe84388db176",
+  "prompts": {},
+  "sessions": {
+    "s_da9cd4ad208db2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4cd1a6ac-f843-47f4-ac8d-77cbe7e08a68",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "dustin thach <epikunder321123@gmail.com>"
+    }
+  }
+}
