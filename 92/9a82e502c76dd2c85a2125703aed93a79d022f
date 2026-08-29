@@ -1,0 +1,25 @@
+tests/test_vehicle_infer.py
+  s_da9cd4ad208db2::t_7861d1f47eb54a 1432-1464
+tests/test_vehicle_vdp.py
+  s_da9cd4ad208db2::t_7ba08acf14615e 2039-2410
+weaver/vehicle/infer.py
+  s_da9cd4ad208db2::t_85307ab8e77f02 1332,1334-1352
+weaver/vehicle/vdp.py
+  s_da9cd4ad208db2::t_7cadbb9d7c262d 140-160,1549-1562,1672-1798,1838-1842,2116,2158-2188,2193,2215-2239,2256-2276,2420-2428,2442-2447,2492-2508,2618,2696-2709,2746-2751,2831,2898,2902
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "929a82e502c76dd2c85a2125703aed93a79d022f",
+  "prompts": {},
+  "sessions": {
+    "s_da9cd4ad208db2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4cd1a6ac-f843-47f4-ac8d-77cbe7e08a68",
+        "model": "claude-fable-5"
+      },
+      "human_author": "dustin thach <epikunder321123@gmail.com>"
+    }
+  }
+}
