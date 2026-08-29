@@ -90,6 +90,23 @@ FIELD_NOTES: tuple[str, ...] = (
     "URL's shape. Bind to the nearest single card: a key read from the results "
     "grid would let one vehicle authorize another's URL.",
 
+    "CARDS: not every dealership renders a thumbnail. A server-rendered "
+    "no-JS inventory page may publish a VIN per card and no <img> at all, and "
+    "DealerCenter draws its card photo as a role=img div with "
+    "data-background-image. A VIN in the card's own text is evidence on its "
+    "own; an image only stands in where no VIN does.",
+
+    "CARDS: one card may publish the same car twice — a canonical VDP link "
+    "plus a call-to-action repeating that vehicle id in the query. Treat a "
+    "query parameter whose value is already spelled in the URL's own path as "
+    "repeating identity, not carrying it, or every real card looks like two "
+    "vehicles and gets rejected.",
+
+    "LINKS: a dealer may write http:// hrefs on an https page for its own "
+    "host. Browsers upgrade those; harvest them the same way. Never fold the "
+    "scheme into the navigation authorization check — only into link "
+    "harvesting, and only upgrading, never downgrading.",
+
     # ── IDENTITY AND COMPLETENESS ────────────────────────────────────────────
     "IDENTITY: a photo may only belong to the VIN whose page published it. "
     "Photos shared between two vehicles mean the gallery selector escaped the "

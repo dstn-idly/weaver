@@ -3726,3 +3726,63 @@ def test_folding_the_www_alias_must_not_fold_away_the_query() -> None:
     from weaver.vehicle.transport import _origin_key
 
     assert _origin_key("https://dealer.example/x") == _origin_key("https://www.dealer.example/x")
+
+
+def test_a_dealer_that_writes_http_links_on_an_https_page_is_still_itself() -> None:
+    """Browsers apply upgrade-insecure-requests; we did not, and _origin_key
+    folds "www." while comparing the scheme exactly. Universal Nissan serves an
+    https inventory page whose every vehicle href is written
+    http://www.universal-nissan.com/... — its own host, its own cars — and all
+    300 were discarded before any authority check ran.
+    """
+
+    from weaver.vehicle.transport import _dealer_same_origin_url, _same_origin, _upgraded_dealer_url
+
+    origin = "https://universal-nissan.com"
+    assert _dealer_same_origin_url(
+        "https://www.universal-nissan.com/llm/inventory/",
+        "http://www.universal-nissan.com/inventory/used-2022-nissan-rogue-JN8AT3BB9NW123456/",
+        origin,
+    ) == "https://www.universal-nissan.com/inventory/used-2022-nissan-rogue-JN8AT3BB9NW123456/"
+
+    # Upgrade only, and only for the dealer's own host.
+    assert _upgraded_dealer_url("http://evil.example/x", origin) is None
+    assert _upgraded_dealer_url("http://universal-nissan.com.evil.example/x", origin) is None
+    assert _upgraded_dealer_url("https://universal-nissan.com/x", "http://universal-nissan.com") is None
+
+    # The navigation authorization boundary must NOT fold the scheme: doing so
+    # there would let a plaintext, MITM-able response count as dealer-authorized.
+    assert not _same_origin("http://universal-nissan.com/x", origin)
+
+
+def test_one_card_publishing_its_id_twice_is_still_one_vehicle() -> None:
+    """Dealer.com grid cards publish each car twice: the canonical URL and a
+    "Personalize Payments" button repeating that same id in the query. Keyed
+    separately, every real card looked like two vehicles and was rejected — so
+    Weaver could only ever see that dealership's 4-car recommendations widget,
+    never its 181-car inventory.
+    """
+
+    from weaver.vehicle.identity import card_scope_identity_key, detail_url_identity_key
+
+    canonical = (
+        "https://dealer.example/used/Honda/2026-Honda-CR-V-Hybrid-"
+        "23d5bde6ac180771c28b0c0eed10ee88.htm"
+    )
+    button = (
+        canonical
+        + "?itemId=23d5bde6ac180771c28b0c0eed10ee88"
+        + "&vehicleId=23d5bde6ac180771c28b0c0eed10ee88"
+    )
+    assert card_scope_identity_key(canonical) == card_scope_identity_key(button)
+    # The replay/photo-ownership key is deliberately untouched.
+    assert detail_url_identity_key(canonical) != detail_url_identity_key(button)
+
+    # A parameter that is the ONLY place identity lives never folds...
+    assert card_scope_identity_key("https://dealer.example/vdp.aspx?stock=10429000") != (
+        card_scope_identity_key("https://dealer.example/vdp.aspx?stock=10430000")
+    )
+    # ...and a short generic value cannot collapse two different routes.
+    assert card_scope_identity_key("https://dealer.example/inv/?year=2026") != (
+        card_scope_identity_key("https://dealer.example/inv/?year=2025")
+    )

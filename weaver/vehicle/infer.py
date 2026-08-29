@@ -33,7 +33,7 @@ from .extract import card_stock_keys, extract_listing_page
 from .identity import (
     clean_vin,
     detail_url_authority,
-    detail_url_identity_key,
+    card_scope_identity_key,
     has_template_marker,
     is_surrogate_vin,
     normalize_detail_url,
@@ -510,7 +510,7 @@ def _authoritative_detail_urls_in(
             local_stock_keys=card_stock_keys(anchor, ancestor_depth=4),
         ):
             continue
-        key = detail_url_identity_key(url)
+        key = card_scope_identity_key(url)
         if not key or (allowed_keys is not None and key not in allowed_keys):
             continue
         previous = by_key.get(key)
@@ -569,12 +569,21 @@ def _listing_card_selector_candidates(
                 break
             text = parent.get_text(" ", strip=True)[:8_000]
             has_image = parent.find("img") is not None
+            # A dealer's server-rendered, no-JS inventory page can carry a
+            # published VIN per card and no thumbnail at all. Requiring a
+            # literal <img> assumed every SRP renders photography, so a page
+            # with 100 schema.org/Car cards produced no catalog. This is the
+            # rule _local_card_vehicle_evidence already applies one screen
+            # above: a VIN is evidence on its own, and an image only stands in
+            # where no VIN does. The VIN must be in the candidate container's
+            # OWN text, so the evidence still lives inside the card.
+            has_card_vin = bool(_VIN_TEXT_RE.search(text))
             has_vehicle_fact = bool(
                 _PRICE_RE.search(text)
                 or _VIN_TEXT_RE.search(text)
                 or re.search(r"\b(?:19|20)\d{2}\b", text)
             )
-            if has_image and has_vehicle_fact:
+            if (has_image or has_card_vin) and has_vehicle_fact:
                 best = parent
             current = parent
         if best is not None:
@@ -793,6 +802,21 @@ def _card_detail_urls(
     )
 
 
+def _has_card_imagery(node: Tag) -> bool:
+    """Whether a card shows a photo, however the platform renders one.
+
+    DealerCenter's listing cards contain no <img> at all: the photo is a
+    role="img" div carrying data-background-image. This is a SHAPE signal used
+    to recognise a repeated vehicle card — the URL is never read here and no
+    ownership claim is made, so admitting the CSS spelling changes which nodes
+    look like cards and nothing about which photos belong to which VIN.
+    """
+
+    if node.find("img") is not None:
+        return True
+    return node.select_one("[data-background-image], [style*='background-image']") is not None
+
+
 def _strong_card_selector_candidates(
     html: str,
     *,
@@ -824,7 +848,7 @@ def _strong_card_selector_candidates(
             origin=origin,
             limit=50,
         )
-        if (key := detail_url_identity_key(url))
+        if (key := card_scope_identity_key(url))
     }
     if not page_authority:
         return ()
@@ -832,7 +856,7 @@ def _strong_card_selector_candidates(
     anchors: list[Tag] = []
     for anchor in soup.select("a[href]")[:20_000]:
         url = same_origin_url(listing_url, anchor.get("href"), origin)
-        if url and detail_url_identity_key(url) in page_authority:
+        if url and card_scope_identity_key(url) in page_authority:
             anchors.append(anchor)
     for anchor in anchors[:2_000]:
         current: Tag | None = anchor
@@ -849,7 +873,7 @@ def _strong_card_selector_candidates(
                 break
             if len(urls) == 1:
                 text = current.get_text(" ", strip=True)[:8_000]
-                image = current.find("img") is not None
+                image = _has_card_imagery(current)
                 vin = bool(_VIN_TEXT_RE.search(text) or vin_from_url(urls[0]))
                 year = bool(re.search(r"\b(?:19|20)\d{2}\b", text))
                 price = bool(_PRICE_RE.search(text) or _CARD_PRICE_EVIDENCE_RE.search(text))
@@ -875,7 +899,7 @@ def _strong_card_selector_candidates(
                 origin=origin,
                 allowed_keys=page_authority,
             )
-            if len(urls) != 1 or node.find("img") is None:
+            if len(urls) != 1 or not _has_card_imagery(node):
                 continue
             text = node.get_text(" ", strip=True)[:8_000]
             vin = bool(_VIN_TEXT_RE.search(text) or vin_from_url(urls[0]))

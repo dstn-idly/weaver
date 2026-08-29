@@ -12,6 +12,7 @@ from bs4 import BeautifulSoup, Tag
 from .identity import (
     clean_vin,
     detail_url_authority,
+    card_scope_identity_key,
     detail_url_identity_key,
     is_surrogate_vin,
     safe_data_url,
@@ -334,7 +335,7 @@ def _find_detail_link(card: Tag, selector: str, page_url: str, origin: str) -> s
             local_stock_keys=card_stock_keys(node, ancestor_depth=4),
         ):
             continue
-        key = detail_url_identity_key(url)
+        key = card_scope_identity_key(url)
         if not key:
             continue
         previous = by_key.get(key)

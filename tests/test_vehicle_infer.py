@@ -1179,3 +1179,57 @@ def test_detail_contract_can_isolate_picture_assets_from_watermark_siblings() ->
     assert verified_roots
     assert verified_galleries == ("ul#lightSlider",)
     assert verified_items == ("picture > img",)
+
+
+def test_a_card_may_prove_itself_with_a_vin_instead_of_a_thumbnail() -> None:
+    """A dealer's server-rendered, no-JS inventory page carries a published VIN
+    per card and no <img> at all. Requiring a literal thumbnail assumed every
+    SRP renders photography, so a page of 100 schema.org/Car cards produced no
+    selector catalog. A VIN is evidence on its own — the rule
+    _local_card_vehicle_evidence already applies one screen above.
+    """
+
+    from weaver.vehicle.infer import _listing_card_selector_candidates
+
+    def card(vin: str, name: str, price: str) -> str:
+        return (
+            '<li class="vehicle-item" itemscope itemtype="https://schema.org/Car">'
+            f'<a href="/inventory/used-2022-nissan-rogue-{vin.lower()}/">{name}</a>'
+            f"<span>VIN {vin}</span><span>{price}</span><span>2022</span></li>"
+        )
+
+    html = (
+        "<html><body><ul>"
+        + card("JN8AT3BB9NW123456", "2022 Nissan Rogue SV", "$24,995")
+        + card("1HGBH41JXMN109186", "2021 Honda Civic EX", "$21,500")
+        + card("JHMCM56557C404453", "2007 Honda Accord", "$8,995")
+        + "</ul></body></html>"
+    )
+    selectors = _listing_card_selector_candidates(
+        html,
+        listing_url="https://dealer.example/llm/inventory/",
+        origin="https://dealer.example",
+    )
+    assert "li.vehicle-item" in selectors
+
+
+def test_a_card_photo_need_not_be_an_img_element() -> None:
+    """DealerCenter listing cards contain no <img>: the photo is a role="img"
+    div carrying data-background-image. This is a SHAPE signal for recognising
+    a repeated vehicle card — no URL is read and no ownership is claimed."""
+
+    from bs4 import BeautifulSoup
+
+    from weaver.vehicle.infer import _has_card_imagery
+
+    soup = BeautifulSoup(
+        '<div class="card"><div role="img" data-background-image="/p/10429.jpg"></div></div>'
+        '<div class="styled"><span style="background-image:url(\'/p/10430.jpg\')"></span></div>'
+        '<div class="classic"><img src="/p/10431.jpg"></div>'
+        '<div class="bare"><p>2021 Ford F-150</p></div>',
+        "html.parser",
+    )
+    assert _has_card_imagery(soup.select_one(".card"))
+    assert _has_card_imagery(soup.select_one(".styled"))
+    assert _has_card_imagery(soup.select_one(".classic"))
+    assert not _has_card_imagery(soup.select_one(".bare"))

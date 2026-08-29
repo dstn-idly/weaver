@@ -264,11 +264,44 @@ def _dealer_same_origin_url(page_url: str, value: object, origin: str) -> str | 
     if not resolved_origin:
         return None
     safe = same_origin_url(page_url, value, resolved_origin)
+    if safe and not _same_origin(safe, origin):
+        # Browsers apply upgrade-insecure-requests; we did not, and
+        # _origin_key folds "www." but compares the scheme exactly. Universal
+        # Nissan serves an https page whose every vehicle href is written
+        # http://www.universal-nissan.com/... — its own host, its own cars —
+        # and all 300 of them were discarded before any authority check ran.
+        # Upgrade only, only to the dealer's own host, and only here: this
+        # helper's output is a fetch hint, whereas _same_origin/_origin_key
+        # authorize navigation, and folding the scheme there would let a
+        # plaintext, MITM-able response count as dealer-authorized.
+        upgraded = _upgraded_dealer_url(safe, origin)
+        if upgraded is not None:
+            safe = upgraded
     return (
         safe
         if safe and _same_origin(safe, origin) and not _is_robots_url(safe)
         else None
     )
+
+
+def _upgraded_dealer_url(url: str, origin: str) -> str | None:
+    """Rewrite http->https for the dealer's own host. Never the reverse."""
+
+    try:
+        parsed = urlsplit(url)
+        origin_parsed = urlsplit(origin)
+    except ValueError:
+        return None
+    if parsed.scheme.lower() != "http" or origin_parsed.scheme.lower() != "https":
+        return None
+    host = (parsed.hostname or "").lower().removeprefix("www.")
+    origin_host = (origin_parsed.hostname or "").lower().removeprefix("www.")
+    if not host or host != origin_host:
+        return None
+    if parsed.port not in (None, 80):
+        return None
+    netloc = parsed.hostname or ""
+    return urlunsplit(("https", netloc, parsed.path, parsed.query, parsed.fragment))
 
 
 _YEAR_RE = re.compile(r"(?<!\d)(?:19|20)\d{2}(?!\d)")

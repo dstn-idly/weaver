@@ -451,6 +451,47 @@ def detail_url_authority(
     return None
 
 
+def card_scope_identity_key(raw: str) -> str | None:
+    """How many DISTINCT vehicles one listing card links to.
+
+    Strictly narrower than ``detail_url_identity_key``, and used only where
+    that question is asked. Dealer.com grid cards publish each car twice: the
+    canonical ``…-23d5bde6ac180771c28b0c0eed10ee88.htm`` and a "Personalize
+    Payments" button repeating that same id in the query
+    (``?itemId=23d5bde6…&vehicleId=23d5bde6…``). Keyed separately, every real
+    card looked like two vehicles, so the card was rejected and Weaver could
+    only ever see that dealership's 4-car recommendations widget — never its
+    181-car inventory.
+
+    So drop a query parameter whose value is already spelled in the URL's own
+    path: it repeats identity rather than carrying any. The length floor keeps
+    a short generic value (``?year=2026``) from collapsing two genuinely
+    different routes, and a parameter that is the ONLY place identity lives
+    (``/vdp.aspx?stock=1234``) never appears in the path and so never folds.
+
+    ``normalize_detail_url`` deliberately does NOT change: it also keys replay
+    identity, photo ownership, and the fixture/ETag cache, and has a
+    byte-compatible twin in the extension runtime.
+    """
+
+    normalized = normalize_detail_url(raw)
+    if not normalized:
+        return normalized
+    head, separator, query = normalized.partition("?")
+    if not separator:
+        return normalized
+    path = head.casefold()
+    kept = [
+        pair
+        for pair in query.split("&")
+        if not (
+            (value := unquote(pair.partition("=")[2])).casefold() in path
+            and len(value) >= 8
+        )
+    ]
+    return head + ("?" + "&".join(kept) if kept else "")
+
+
 def detail_url_identity_key(raw: str) -> str | None:
     """Normalize repeated card anchors to one stable VDP identity."""
 
