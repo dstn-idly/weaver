@@ -298,9 +298,11 @@ def verify_records(records: Sequence[Mapping[str, Any]], evidence: RunEvidence) 
         "description",
     )
     for index, row in enumerate(rows):
-        if _is_photo_exception(row):
+        if _is_photo_exception(row) or _is_price_exception(row):
             # Classified, corroborated, and counted separately: neither
-            # publishable (Marketplace requires photos) nor broken.
+            # publishable (Marketplace requires photos and a price) nor
+            # broken. Counting one as "blocked" would make a passing run
+            # unpromotable, because promotion requires zero blocked rows.
             continue
         identity = str(row.get("vin") or row.get("detail_url") or index)
         photos = row.get("photos") if isinstance(row.get("photos"), (list, tuple)) else []

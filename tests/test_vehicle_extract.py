@@ -355,3 +355,63 @@ def test_withheld_price_outranks_a_year_shaped_selector_value() -> None:
     assert _looks_like_year_not_price(32000, 2023) is False
     assert _looks_like_year_not_price(None, 2023) is False
     assert _looks_like_year_not_price(2023, None) is False
+
+
+def test_a_card_that_publishes_a_price_keeps_it_despite_call_to_action_copy() -> None:
+    """Corroboration explains an ABSENCE; it must never strip a price the card
+    actually published. "Call for details" sits next to real prices on ordinary
+    dealer cards, and stripping there publishes the car as $0."""
+
+    from bs4 import BeautifulSoup
+
+    from weaver.vehicle.extract import extract_listing_page
+    from weaver.vehicle.models import parse_spec
+
+    spec = parse_spec({
+        "schema": "autoposting.vehicle-extraction",
+        "v": 2,
+        "origin": "https://dealer.example",
+        "start_urls": ["https://dealer.example/used"],
+        "listing": {
+            "card_selector": "div.card",
+            "detail_link_selector": "a.vdp",
+            "fields": {
+                "vin": {"selector": "span.vin", "transform": "vin"},
+                "year": {"selector": "span.year", "transform": "integer"},
+                "price": {"selector": "span.price", "transform": "money"},
+            },
+        },
+        "detail": {"root_selector": "main", "fields": {}},
+    })
+
+    html = """
+    <div class="card">
+      <a class="vdp" href="/viewdetails/used/jn8at3dd9mw320693/2021-nissan-rogue">2021 Nissan Rogue</a>
+      <span class="vin">JN8AT3DD9MW320693</span><span class="year">2021</span>
+      <span class="price">$28,995</span><a>Call for Details</a>
+    </div>
+    <div class="card">
+      <a class="vdp" href="/viewdetails/used/jtm16rfv7pd096660/2023-toyota-rav4">2023 Toyota RAV4</a>
+      <span class="vin">JTM16RFV7PD096660</span><span class="year">2023</span>
+      <span>Call For Price</span>
+    </div>
+    """
+    result = extract_listing_page(
+        html, page_url="https://dealer.example/used", origin="https://dealer.example", spec=spec.listing
+    )
+    by_vin = {row["vin"]: row for row in result.records}
+    priced = by_vin["JN8AT3DD9MW320693"]
+    assert priced["price"] == 28995
+    assert "price_exception" not in priced
+    withheld = by_vin["JTM16RFV7PD096660"]
+    assert "price" not in withheld
+    assert withheld["price_exception"] == "no_price_published"
+
+
+def test_withheld_price_is_never_refilled_from_the_detail_page() -> None:
+    from weaver.vehicle.extract import merge_fill_missing
+
+    base = {"vin": "JTM16RFV7PD096660", "price_exception": "no_price_published"}
+    merged = merge_fill_missing(base, {"price": 30988, "mileage": 64221})
+    assert "price" not in merged
+    assert merged["mileage"] == 64221

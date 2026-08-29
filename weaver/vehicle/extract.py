@@ -526,32 +526,36 @@ def extract_listing_page(
         record["detail_url"] = detail_url
         record["source_listing_url"] = page_url
         jsonld_facts = jsonld_by_vin.get(vin)
+        dealer_asserts_no_price = False
         if jsonld_facts:
             for field_name in _JSONLD_AUTHORITATIVE_FIELDS:
                 if field_name not in jsonld_facts:
                     continue
                 if field_name == "price" and not _positive_price(jsonld_facts[field_name]):
-                    # Dealers publish price: 0 as an "unpriced yet" sentinel on
-                    # just-arrived units while the VDP carries the real price.
-                    # Zero is never a price and must not claim authority.
+                    # The dealer's own typed data saying price 0 is an
+                    # assertion that this unit has NO price — the strongest
+                    # evidence on the page. It cannot become a price, and it
+                    # must discard whatever the selector scraped, because a
+                    # price selector aimed at a priceless card returns the
+                    # first number it finds (a model year, a "$750 bonus", a
+                    # monthly payment). Dropping this backstop lets that
+                    # garbage publish silently.
+                    dealer_asserts_no_price = True
                     continue
                 record[field_name] = jsonld_facts[field_name]
-        # Price precedence, strongest first. A card that says the dealer is
-        # withholding the price HAS no price, so the exception outranks every
-        # scraped value: a price selector aimed at a priceless card returns
-        # the first number it finds — the model year — and that silent garbage
-        # is far worse than an honest absence. Publishing a price the dealer
-        # deliberately hides is their compliance risk, so it is never inferred
-        # from the VDP either.
-        if _price_withheld(card):
+        # Price precedence, strongest first.
+        if dealer_asserts_no_price or _looks_like_year_not_price(
+            record.get("price"), record.get("year")
+        ):
             record.pop("price", None)
-            record["price_exception"] = "no_price_published"
-        elif _looks_like_year_not_price(record.get("price"), record.get("year")):
-            # Same reader failure without the corroborating label: refuse the
-            # value rather than publish a $2,023 car. QA fails the run for it.
+        if not _positive_price(record.get("price")):
+            # No usable price survived. Only now does the card's own
+            # "Call For Price" text mean anything: corroboration explains an
+            # absence, it never overrides a price the card actually published
+            # (routine "call for details" CTA copy sits beside real prices).
             record.pop("price", None)
-        elif not _positive_price(record.get("price")):
-            record.pop("price", None)
+            if _price_withheld(card):
+                record["price_exception"] = "no_price_published"
         records.append(record)
         details.append(detail_url)
     return ListingPageResult(
@@ -610,12 +614,16 @@ def merge_fill_missing(base: Mapping[str, Any], detail: Mapping[str, Any]) -> di
     """VDP data fills SRP gaps; the VDP's real VIN can promote a URL key."""
 
     merged = dict(base)
+    withheld_price = merged.get("price_exception") == "no_price_published"
     for key, value in detail.items():
         if value in (None, "", []):
             continue
-        if key == "price" and not _positive_price(value):
-            # A zero/negative detail price is the same "unpriced" sentinel —
-            # it must not overwrite or satisfy anything.
+        if key == "price" and (not _positive_price(value) or withheld_price):
+            # A zero/negative detail price is the same "unpriced" sentinel, and
+            # a withheld price stays withheld: the dealer's VDP structured data
+            # very often still carries the number they chose not to display, and
+            # refilling it here would republish exactly what the exception
+            # exists to protect.
             continue
         if key == "vin" and clean_vin(value) and is_surrogate_vin(merged.get("vin")):
             merged[key] = clean_vin(value)
