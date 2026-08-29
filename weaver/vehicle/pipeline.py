@@ -216,6 +216,20 @@ async def _discover_and_infer(
         },
         source_id,
     )
+    # Inference runs in a worker thread; hand it a bridge back to this loop so
+    # it can ask for ONE fresh render when the listing snapshot caught the SPA
+    # mid-hydration and the verified representative's card is not selectable
+    # yet (the Sugarloaf failure: three paid attempts on a dead contract).
+    loop = asyncio.get_running_loop()
+    fetch_rendered = getattr(session, "fetch_rendered", None)
+
+    def _refetch_listing() -> str:
+        if not callable(fetch_rendered):
+            return ""
+        return asyncio.run_coroutine_threadsafe(
+            fetch_rendered(listing_url), loop
+        ).result(timeout=300)
+
     inferred, inference_meta = await asyncio.to_thread(
         infer_vehicle_spec,
         listing_html,
@@ -225,6 +239,7 @@ async def _discover_and_infer(
         start_urls=[listing_url],
         api_key=os.getenv("OPENAI_API_KEY"),
         max_attempts=3,
+        refetch_listing=_refetch_listing,
     )
     candidate = parse_spec(inferred)
     if candidate.origin != requested_origin:

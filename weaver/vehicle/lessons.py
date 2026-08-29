@@ -118,6 +118,12 @@ FIELD_NOTES: tuple[str, ...] = (
     "under a grammar that proves they are sizes — generic adjacent numbers "
     "may be a date and an id. A valueless ?thumb is also a rendition marker.",
 
+    "LISTINGS: a rendered SPA snapshot is a moment, not the page. Dealer.com's "
+    "inventory app can serve 3 hydrated cards on a page that says 181, and the "
+    "verified representative's card may not be selectable yet. Check that some "
+    "catalog row PRODUCES the representative before spending a model attempt; "
+    "one fresh render usually completes hydration.",
+
     # ── IDENTITY AND COMPLETENESS ────────────────────────────────────────────
     "IDENTITY: a photo may only belong to the VIN whose page published it. "
     "Photos shared between two vehicles mean the gallery selector escaped the "

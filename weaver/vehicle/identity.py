@@ -175,8 +175,33 @@ def same_origin_url(base_url: str, value: Any, origin: str, *, keep_fragment: bo
         parsed = urlsplit(absolute)
     except ValueError:
         return None
-    if has_template_marker(absolute) or url_origin(absolute) != origin:
+    if has_template_marker(absolute):
         return None
+    if url_origin(absolute) != origin:
+        # Browsers apply upgrade-insecure-requests to same-host http
+        # references on an https page; we did not, and Universal Nissan's
+        # https inventory page writes every vehicle href as http:// on its
+        # own host — all of them died here on the scheme alone, before any
+        # card or VIN evidence was read. Upgrade-only, same host only, and
+        # the exact-origin check still decides: this can never widen the
+        # origin set, only spell the dealer's own links the way the page
+        # that published them is served.
+        try:
+            origin_parsed = urlsplit(origin)
+        except ValueError:
+            return None
+        if (
+            parsed.scheme.lower() != "http"
+            or origin_parsed.scheme.lower() != "https"
+            or not parsed.hostname
+            or parsed.hostname.lower() != (origin_parsed.hostname or "").lower()
+            or parsed.port not in (None, 80)
+        ):
+            return None
+        absolute = urlunsplit(("https", parsed.hostname.lower(), parsed.path, parsed.query, parsed.fragment))
+        parsed = urlsplit(absolute)
+        if url_origin(absolute) != origin:
+            return None
     return urlunsplit(
         (parsed.scheme.lower(), parsed.netloc.lower(), parsed.path or "/", parsed.query, parsed.fragment if keep_fragment else "")
     )

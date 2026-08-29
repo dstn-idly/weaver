@@ -1263,3 +1263,169 @@ def test_a_card_vin_may_live_in_the_href_instead_of_the_text() -> None:
         origin="https://dealer.example",
     )
     assert "li.vehicle-item" in selectors
+
+
+def _widget_only_listing() -> str:
+    """A snapshot caught mid-hydration: the recommendations widget rendered,
+    the real inventory grid did not, so the verified representative's card is
+    not selectable anywhere on the page."""
+
+    return f"""
+    <html><body>
+      <ul class="vehicle-list"><li class="vehicle-list-item">
+        <a href="/used/2024-honda-pilot-{SECOND_VIN}">2024 Honda Pilot</a>
+        <span>2024</span><span>$41,000</span><img src="/images/pilot.jpg">
+      </li></ul>
+      <div id="inventory-results1-app-root"><div class="placeholder-card"></div></div>
+    </body></html>
+    """
+
+
+def test_a_representative_no_selector_can_produce_stops_inference_before_paying(
+    listing_html: str,
+) -> None:
+    """Sugarloaf burned three identical model attempts per run, three runs in
+    a row: discovery verified a grid car, the snapshot's only selectable cards
+    were a 4-car recommendations widget, and validation is required to refuse
+    a proposal that cannot produce the representative. The contract was dead
+    before the first attempt — say so instead of paying for it."""
+
+    client = _FakeClient()  # any model call is an AssertionError
+    with pytest.raises(SpecInferenceError, match="not producible from the listing"):
+        infer_vehicle_spec(
+            _widget_only_listing(),
+            LISTING_URL,
+            detail_html=f'<main data-vin="{VIN}"></main>',
+            detail_url=DETAIL_URL,
+            start_urls=[LISTING_URL],
+            api_key="test-key",
+            session=client,
+        )
+    assert client.calls == []
+
+
+def test_one_refetch_lets_a_late_hydration_recover(
+    monkeypatch: pytest.MonkeyPatch,
+    listing_html: str,
+    detail_html: str,
+    proposal: dict[str, Any],
+) -> None:
+    """The refetch bridge renders the listing once more; if the card has
+    hydrated by then, inference proceeds normally on the fresh bytes."""
+
+    monkeypatch.delenv("WEAVER_MODEL", raising=False)
+    monkeypatch.delenv("OPENAI_SCRAPER_MODEL", raising=False)
+    refetches: list[int] = []
+
+    def refetch() -> str:
+        refetches.append(1)
+        return listing_html  # hydration finished
+
+    client = _FakeClient(_response(proposal))
+    spec, metadata = infer_vehicle_spec(
+        _widget_only_listing(),
+        LISTING_URL,
+        detail_html=detail_html,
+        detail_url=DETAIL_URL,
+        start_urls=[LISTING_URL],
+        api_key="test-key",
+        session=client,
+        refetch_listing=refetch,
+    )
+    assert refetches == [1]
+    assert metadata["listing_refetched"] is True
+    assert spec.origin == "https://dealer.example"
+
+    # A refetch that is STILL mid-hydration fails truthfully, once.
+    stubborn: list[int] = []
+
+    def stubborn_refetch() -> str:
+        stubborn.append(1)
+        return _widget_only_listing()
+
+    silent = _FakeClient()
+    with pytest.raises(SpecInferenceError, match="not producible from the listing"):
+        infer_vehicle_spec(
+            _widget_only_listing(),
+            LISTING_URL,
+            detail_html=detail_html,
+            detail_url=DETAIL_URL,
+            start_urls=[LISTING_URL],
+            api_key="test-key",
+            session=silent,
+            refetch_listing=stubborn_refetch,
+        )
+    assert stubborn == [1]
+    assert silent.calls == []
+
+
+def test_rows_that_cannot_produce_the_representative_are_not_offered() -> None:
+    """When the representative is a grid car, the recommendations-widget row
+    is exactly the one dropped — the fix can never bless the widget."""
+
+    from weaver.vehicle.infer import producible_catalog_rows
+
+    html = f"""
+    <html><body>
+      <ul class="vehicle-list"><li class="vehicle-list-item">
+        <a href="/used/2024-honda-pilot-{SECOND_VIN}">2024 Honda Pilot</a>
+        <span>2024</span><span>$41,000</span><img src="/images/pilot.jpg">
+      </li></ul>
+      <ul class="vehicle-card-grid">
+        <li class="vehicle-card box"><a href="/used/2025-toyota-rav4-{VIN}">2025 Toyota RAV4</a>
+          <span>2025</span><span>$32,500</span><img src="/images/rav4.jpg"></li>
+      </ul>
+    </body></html>
+    """
+    catalog = (
+        {"selector": "li.vehicle-list-item", "detail_link_selector": "a[href]", "locally_matched_cards": 1},
+        {"selector": "ul.vehicle-card-grid > li.vehicle-card.box", "detail_link_selector": "a[href]", "locally_matched_cards": 1},
+    )
+    rows = producible_catalog_rows(
+        html,
+        card_catalog=catalog,
+        listing_url=LISTING_URL,
+        origin="https://dealer.example",
+        detail_url=DETAIL_URL,
+    )
+    assert [row["selector"] for row in rows] == ["ul.vehicle-card-grid > li.vehicle-card.box"]
+
+
+def test_http_hrefs_on_the_dealers_own_https_page_still_harvest() -> None:
+    """Universal Nissan's https machine-inventory page writes every vehicle
+    href as http:// on its own host. Browsers upgrade those; our harvesters
+    dropped them on the scheme alone — before any card or VIN evidence ran —
+    so the card catalog came back empty twice, through two different fixes
+    aimed at later stages."""
+
+    from weaver.vehicle.identity import same_origin_url
+    from weaver.vehicle.infer import _listing_card_selector_candidates
+
+    origin = "https://www.universal-nissan.com"
+    page = f"{origin}/llm/inventory/"
+    upgraded = same_origin_url(
+        page, "http://www.universal-nissan.com/inventory/used-2022-nissan-rogue-JN8AT3BB9NW123456/", origin
+    )
+    assert upgraded == f"{origin}/inventory/used-2022-nissan-rogue-JN8AT3BB9NW123456/"
+    # Upgrade only, own host only, exact origin still decides.
+    assert same_origin_url(page, "http://evil.example/x", origin) is None
+    assert same_origin_url("http://d.example/", "https://d.example/x", "http://d.example") is None
+    assert same_origin_url(page, "http://www.universal-nissan.com:8080/x", origin) is None
+
+    def card(vin: str, slug: str, name: str, price: str) -> str:
+        return (
+            '<li class="vehicle-item">'
+            f'<a href="http://www.universal-nissan.com/inventory/used-{slug}-{vin.lower()}/">{name}</a>'
+            f"<span>{price}</span><span>2022</span></li>"
+        )
+
+    html = (
+        "<html><body><ul>"
+        + card("JN8AT3BB9NW123456", "nissan-rogue", "2022 Nissan Rogue SV", "$24,995")
+        + card("1HGBH41JXMN109186", "honda-civic", "2021 Honda Civic EX", "$21,500")
+        + card("JHMCM56557C404453", "honda-accord", "2007 Honda Accord", "$8,995")
+        + "</ul></body></html>"
+    )
+    assert "li.vehicle-item" in _listing_card_selector_candidates(
+        html, listing_url=page, origin=origin
+    )

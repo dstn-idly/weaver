@@ -16,7 +16,7 @@ resource budgets remain owned by the application and vehicle engine.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 import html as html_module
 import ipaddress
 import json
@@ -942,6 +942,44 @@ def _application_card_selector_candidates(
         maximum=maximum,
     )
     return tuple(dict.fromkeys((*repeated, *fallback)))[:maximum]
+
+
+def producible_catalog_rows(
+    listing_html: str,
+    *,
+    card_catalog: Sequence[Mapping[str, Any]],
+    listing_url: str,
+    origin: str,
+    detail_url: str,
+) -> tuple[Mapping[str, Any], ...]:
+    """Catalog rows whose cards actually link the verified representative VDP.
+
+    Discovery verifies a representative vehicle page; inference pins the model
+    to catalog rows; validation then requires the proposal to PRODUCE that
+    page. When the listing snapshot caught an SPA mid-hydration, the
+    representative's card may not exist as a selectable row yet — every
+    proposable selector is then doomed, and Sugarloaf burned three identical
+    model attempts a run, three runs in a row, on that dead contract. This is
+    the deterministic version of validation's producibility question, asked
+    BEFORE any model call.
+    """
+
+    wanted = normalize_detail_url(detail_url)
+    if not wanted:
+        return ()
+    soup = BeautifulSoup(listing_html or "", "html.parser")
+    rows: list[Mapping[str, Any]] = []
+    for row in card_catalog:
+        try:
+            nodes = [node for node in soup.select(str(row["selector"])) if isinstance(node, Tag)]
+        except Exception:
+            continue
+        for node in nodes[:2_000]:
+            urls = _card_detail_urls(node, page_url=listing_url, origin=origin)
+            if any(normalize_detail_url(url) == wanted for url in urls):
+                rows.append(row)
+                break
+    return tuple(rows)
 
 
 def _card_selector_catalog(
@@ -2029,6 +2067,7 @@ def infer_vehicle_spec(
     model: str | None = None,
     session: _ClientLike | None = None,
     max_attempts: int = MAX_ATTEMPTS,
+    refetch_listing: Callable[[], str] | None = None,
 ) -> tuple[VehicleSpec, dict[str, Any]]:
     """Infer a locally replayed closed spec in at most three model candidates.
 
@@ -2075,6 +2114,58 @@ def infer_vehicle_spec(
         raise SpecInferenceError(
             "application vehicle-card selector catalog did not resolve locally"
         )
+    listing_refetched = False
+    if detail_url is not None:
+        producible = producible_catalog_rows(
+            listing_html,
+            card_catalog=card_catalog,
+            listing_url=listing_url,
+            origin=origin,
+            detail_url=detail_url,
+        )
+        if not producible and refetch_listing is not None:
+            # The snapshot caught the SPA mid-hydration: the representative's
+            # card is not selectable yet. One fresh render gets hydration a
+            # second chance before any paid attempt.
+            refreshed = refetch_listing()
+            if isinstance(refreshed, str) and refreshed:
+                listing_refetched = True
+                listing_html = refreshed
+                card_selectors = _application_card_selector_candidates(
+                    listing_html,
+                    listing_url=listing_url,
+                    origin=origin,
+                )
+                if not card_selectors:
+                    raise SpecInferenceError(
+                        "application could not produce a locally verified vehicle-card selector catalog"
+                    )
+                card_catalog = _card_selector_catalog(
+                    listing_html,
+                    selectors=card_selectors,
+                    listing_url=listing_url,
+                    origin=origin,
+                )
+                if not card_catalog:
+                    raise SpecInferenceError(
+                        "application vehicle-card selector catalog did not resolve locally"
+                    )
+                producible = producible_catalog_rows(
+                    listing_html,
+                    card_catalog=card_catalog,
+                    listing_url=listing_url,
+                    origin=origin,
+                    detail_url=detail_url,
+                )
+        if not producible:
+            raise SpecInferenceError(
+                "the verified vehicle page is not producible from the listing "
+                "snapshot's card catalog; the listing likely rendered "
+                "mid-hydration — refetch and retry rather than spending model attempts"
+            )
+        # Rows that cannot produce the representative cannot pass validation;
+        # offering them to the model only manufactures guaranteed failures.
+        card_catalog = producible
     detail_link_selectors = tuple(
         dict.fromkeys(str(row["detail_link_selector"]) for row in card_catalog)
     )
@@ -2273,6 +2364,7 @@ def infer_vehicle_spec(
                     "model": body["model"],
                     "validation": validation,
                     "prior_failures": list(failures),
+                    "listing_refetched": listing_refetched,
                 }
             except (httpx.HTTPError, SpecInferenceError, TypeError, ValueError) as exc:
                 safe = _redact(str(exc))[:500]
