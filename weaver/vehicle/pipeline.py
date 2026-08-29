@@ -31,6 +31,27 @@ from .repair import (
 from .transport import PersistentDealerSession, capture_dealer_fixtures, discover_vehicle_evidence
 
 
+def _same_authorized_origin(candidate: str, authorized: str) -> bool:
+    """Whether an inferred spec's origin is the operator-authorized dealership.
+
+    Exact origin equality, except that a leading ``www.`` on either host is
+    folded: a dealer whose intake URL is the apex 301s to its www SRP, so the
+    machine route discovery reaches (and now the spec it learns) legitimately
+    carries the www host. This folds ONLY that alias — a different host still
+    escapes — matching the transport layer's navigation-authorization boundary.
+    """
+
+    def _fold(origin: str) -> str:
+        try:
+            parts = urlsplit(origin)
+        except ValueError:
+            return origin
+        host = (parts.hostname or "").lower().removeprefix("www.")
+        return f"{parts.scheme.lower()}://{host}:{parts.port or (443 if parts.scheme.lower() == 'https' else 80)}"
+
+    return candidate == authorized or _fold(candidate) == _fold(authorized)
+
+
 def _origin_from_url(url: str) -> str:
     if not isinstance(url, str) or not url.strip():
         raise ValueError("vehicle URL must be an http(s) URL")
@@ -242,7 +263,7 @@ async def _discover_and_infer(
         refetch_listing=_refetch_listing,
     )
     candidate = parse_spec(inferred)
-    if candidate.origin != requested_origin:
+    if not _same_authorized_origin(candidate.origin, requested_origin):
         raise ValueError("inferred vehicle spec escaped the authorized origin")
     return candidate, dict(inference_meta)
 

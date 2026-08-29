@@ -702,3 +702,29 @@ async def test_a_wedged_run_is_stopped_by_the_run_deadline(
     with pytest.raises(pipeline.VehicleRunDeadlineExceeded) as excinfo:
         await pipeline.run_vehicle_pipeline(record)
     assert "last-known-good inventory is unchanged" in str(excinfo.value)
+
+
+def test_a_dealers_www_spec_does_not_escape_its_apex_intake_origin() -> None:
+    """Universal Nissan's intake URL is the apex; discovery follows the site's
+    own machine route to the www SRP (the apex 301s there), so the inferred
+    spec legitimately carries the www origin. Exact-host equality rejected that
+    valid spec as an origin escape once discovery finally reached it. A leading
+    www is folded — and nothing else, so a different host still escapes."""
+
+    from weaver.vehicle.pipeline import _same_authorized_origin
+
+    assert _same_authorized_origin(
+        "https://www.universal-nissan.com", "https://universal-nissan.com"
+    )
+    assert _same_authorized_origin(
+        "https://universal-nissan.com", "https://www.universal-nissan.com"
+    )
+    assert _same_authorized_origin("https://dealer.example", "https://dealer.example")
+    # A model-inferred spec still cannot point the crawl elsewhere.
+    assert not _same_authorized_origin("https://www.evil.com", "https://universal-nissan.com")
+    assert not _same_authorized_origin(
+        "https://api.universal-nissan.com", "https://universal-nissan.com"
+    )
+    assert not _same_authorized_origin(
+        "http://universal-nissan.com", "https://universal-nissan.com"
+    )
