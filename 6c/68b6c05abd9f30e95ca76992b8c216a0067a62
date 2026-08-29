@@ -1,0 +1,22 @@
+weaver/vehicle/extract.py
+  s_da9cd4ad208db2::t_0dbca314e38141 573-584
+  s_da9cd4ad208db2::t_437c081a7d4241 539-553
+tests/test_vehicle_extract.py
+  s_da9cd4ad208db2::t_d289ce630bf5f7 343-357
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "6c68b6c05abd9f30e95ca76992b8c216a0067a62",
+  "prompts": {},
+  "sessions": {
+    "s_da9cd4ad208db2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4cd1a6ac-f843-47f4-ac8d-77cbe7e08a68",
+        "model": "claude-opus-5"
+      },
+      "human_author": "dustin thach <epikunder321123@gmail.com>"
+    }
+  }
+}
