@@ -24,7 +24,7 @@ from urllib.parse import parse_qsl, unquote, urljoin, urlsplit, urlunsplit
 import httpx
 from bs4 import BeautifulSoup, Tag
 
-from .extract import extract_listing_page
+from .extract import card_stock_keys, extract_listing_page
 from .artifacts import (
     VehicleArtifactIntegrityError,
     VerifiedDetailCacheEntry,
@@ -1058,6 +1058,7 @@ def representative_detail_links(
         authority = detail_url_authority(
             url,
             local_vehicle_evidence=card_score >= 70,
+            local_stock_keys=card_stock_keys(anchor, ancestor_depth=8),
         )
         if not authority:
             continue
@@ -1133,7 +1134,18 @@ def inventory_candidate_links(
     soup = page if isinstance(page, BeautifulSoup) else BeautifulSoup(page or "", "html.parser")
     ranked: list[tuple[int, int, str]] = []
     order = 0
-    for anchor in soup.select("a[href]")[:20_000]:
+    # A dealer whose storefront is a JavaScript app may also publish a
+    # server-rendered inventory route meant for machines, and announce it in
+    # <head> rather than as a link a shopper clicks. Edmark Toyota does exactly
+    # that (rel=alternate -> /llm/inventory/, 599 vehicles, no JS required)
+    # while its shoppable SRP ships an empty <div id="hits"> it fills from an
+    # API. Scanning anchors alone could never reach the page the dealer built
+    # for us. This is a fetch HINT read from untrusted page content, never
+    # authority: the fetched page still has to yield its own identity-proven
+    # VDPs to be admitted.
+    sources: list[Tag] = list(soup.select("a[href]")[:20_000])
+    sources.extend(soup.select('link[rel~="alternate"][type="text/html"][href]')[:20])
+    for anchor in sources:
         url = _dealer_same_origin_url(page_url, anchor.get("href"), origin)
         if not url or vin_from_url(url):
             continue
@@ -1150,7 +1162,11 @@ def inventory_candidate_links(
             and not _NON_DETAIL_TAIL_RE.fullmatch(tail)
         ):
             continue
+        # A <link> carries no clickable text; its title is the label the
+        # dealer chose for the route ("Browse Vehicle Inventory").
         text = " ".join(anchor.get_text(" ", strip=True).split())[:500]
+        if not text:
+            text = " ".join(str(anchor.get("title") or "").split())[:500]
         haystack = f"{path} {text}".casefold()
         score = 0
         if _INVENTORY_PATH_RE.search(path):
@@ -1819,6 +1835,19 @@ class PersistentDealerSession:
                 ),
             )
         if status_code >= 400:
+            # A WAF refusal is judged AFTER the transient triage above and
+            # only on a 403. Cloudflare serves its whole error family from one
+            # template, so a 429 "you are being rate limited" and a 5xx origin
+            # blip look like a block; deciding first would have eaten the
+            # Retry-After backoff lane for exactly the dealers Cloudflare
+            # fronts — and one of them has already rate-limited us.
+            if status_code == 403 and _cloudflare_block_detected(html):
+                # Not a challenge, and not something the dealership can fix:
+                # their firewall refused THIS client.
+                raise VehicleTransportError(
+                    "dealer's firewall blocked this client (Cloudflare error 1020)",
+                    code="dealer_waf_blocked",
+                )
             code = (
                 "dealer_auth_required"
                 if status_code in {401, 403}
@@ -1831,12 +1860,6 @@ class PersistentDealerSession:
             )
         if len(html.encode("utf-8")) > self.max_bytes:
             raise ValueError("vehicle response exceeded the bounded HTML size")
-        if _challenge_detected((html or "")[:200_000].lower()):
-            raise VehicleTransportError(
-                "persistent browser returned challenge or empty vehicle HTML after the bounded transport ladder",
-                code="owner_action_required",
-                owner_action_required=True,
-            )
         if _blank_rendered_shell(html):
             # A hydrating SPA shows an under-300-character skeleton until its
             # router mounts content; one slow hydration must earn a bounded
@@ -1963,8 +1986,16 @@ class PersistentDealerSession:
                 await route.abort()
                 return
 
-            credential_external = not exact_credential_origin
-            if credential_external:
+            # The dealer's own ``www.`` alias is NOT a third party. Navigation
+            # already authorizes it (``_same_origin`` folds the prefix), but
+            # the budget and lane below were keyed on exact-origin equality,
+            # which does not. So an explicitly-www dealer URL burned the
+            # third-party budget and was issued cookie-less through
+            # ``route.fetch`` — and Cloudflare answers a cookie-less
+            # non-browser client with a 403 challenge (universal-nissan) or a
+            # WAF 1020 block (orlandoautolounge). Both dealers 301 apex->www,
+            # so the crawl was guaranteed to reach that lane.
+            if not dealer_authorized:
                 if not dealer_authorized and not cloudflare_challenge:
                     if resource_type not in _THIRD_PARTY_RESOURCE_TYPES:
                         await route.abort()
@@ -2011,11 +2042,15 @@ class PersistentDealerSession:
                         await route.abort()
                         return
 
-            # Normal exact-origin requests keep Chromium's native transport and
-            # browser-managed cookies. No service credential was installed at
-            # page/context level, so there is nothing to leak on a redirect;
-            # each redirect is intercepted and validated again.
-            if exact_credential_origin and not access_headers:
+            # Requests to the dealer's own origin — including its ``www.``
+            # alias — keep Chromium's native transport and browser-managed
+            # cookies. No service credential was installed at page/context
+            # level, so there is nothing to leak on a redirect; each redirect
+            # is intercepted and validated again. When a CF Access token IS
+            # configured this branch is skipped and injection below stays
+            # keyed on the exact credential origin, so the token still reaches
+            # only the host it was issued for.
+            if dealer_authorized and not access_headers:
                 await route.continue_()
                 return
 
@@ -2249,17 +2284,65 @@ class PersistentDealerSession:
         return response.text
 
 
+# A page's evidence is not always in its first 200 KB. One dealer's Cloudflare
+# interstitial ran 236,424 characters and put ``_cf_chl_opt`` at character
+# 233,358, so a fixed prefix window declared it clean and the run reported an
+# auth failure instead of a challenge. Read both ends of a large document.
+_CLASSIFIER_WINDOW = 200_000
+
+
+def _classifier_sample(html: str) -> str:
+    text = (html or "").lower()
+    if len(text) <= _CLASSIFIER_WINDOW * 2:
+        return text
+    return text[:_CLASSIFIER_WINDOW] + text[-_CLASSIFIER_WINDOW:]
+
+
+# Every marker here must name the VERDICT, never a string Cloudflare also
+# serves from ordinary pages. That distinction is the whole lesson of this
+# module: "/cdn-cgi/challenge-platform/" is a beacon injected into healthy 200
+# pages, "challenges.cloudflare.com/turnstile" is the public lead-form widget
+# dealers put on finance forms, and "cf.errors.css" is the stylesheet shared by
+# the entire cf-error family — including the 1015 rate-limit page and 5xx
+# origin errors, which are transient and must keep their retry lane.
+_CF_CHALLENGE_MARKERS = (
+    "_cf_chl_opt",
+    "enable javascript and cookies to continue",
+    "just a moment...",
+)
+
+_CF_BLOCK_MARKERS = ("sorry, you have been blocked",)
+
+
+def _cloudflare_block_detected(html: str) -> bool:
+    """A WAF *block* (error 1020), which no amount of waiting will clear.
+
+    This is a different animal from a challenge: there is nothing to solve.
+    orlandoautolounge served a 4,486-byte "Sorry, you have been blocked" page
+    and we reported it as a challenge the dealership's owner had to act on.
+    """
+
+    sample = _classifier_sample(html)
+    if not any(marker in sample for marker in _CF_BLOCK_MARKERS):
+        return False
+    return not any(marker in sample for marker in _CF_CHALLENGE_MARKERS)
+
+
 def _challenge_detected(html: str) -> bool:
-    sample = (html or "")[:200_000].lower()
-    return any(
-        marker in sample
-        for marker in (
-            "/cdn-cgi/challenge-platform/",
-            "_cf_chl_opt",
-            "enable javascript and cookies to continue",
-            "just a moment...",
-        )
-    )
+    """Whether this document is a challenge interstitial we must not mistake
+    for the dealer's page.
+
+    Only the definitive markers count. ``/cdn-cgi/challenge-platform/`` is
+    deliberately NOT evidence: Cloudflare injects that beacon into ordinary
+    200 pages (JavaScript Detections) and serves it from every page in its
+    error family — including the 1015 rate-limit page, which is transient and
+    must reach the Retry-After lane rather than be reported as a challenge the
+    dealership has to act on. Every real interstitial carries one of the
+    markers below.
+    """
+
+    sample = _classifier_sample(html)
+    return any(marker in sample for marker in _CF_CHALLENGE_MARKERS)
 
 
 _STATIC_IMAGE_URL_RE = re.compile(
@@ -2285,14 +2368,35 @@ def _static_gallery_adequate(html: str, minimum: int = 3) -> bool:
 
 
 def _blank_rendered_shell(html: str) -> bool:
-    sample = (html or "")[:200_000].lower()
+    """Whether a rendered document is still a pre-hydration skeleton.
+
+    Measures the page's CONTENT, not a fixed prefix of its source. A real
+    DealerCenter VDP carried a 122,433-character inline ``<style>`` in
+    ``<head>``, so ``<body>`` began at character 285,622: a 10,781-character
+    page measured as 220 characters, was ruled a blank shell, and retried into
+    a false owner_action_required.
+    """
+
+    raw = html or ""
+    start = raw.lower().find("<body")
+    if start != -1:
+        raw = raw[start:]
+    sample = raw[: _CLASSIFIER_WINDOW * 2].lower()
+    # Truncating mid-element can leave a <script>/<style> open, whose source
+    # would then be counted as visible prose.
+    cut = max(sample.rfind("<script"), sample.rfind("<style"))
+    if cut != -1 and "</script>" not in sample[cut:] and "</style>" not in sample[cut:]:
+        sample = sample[:cut]
     visible = re.sub(r"<script\b[^>]*>.*?</script>|<style\b[^>]*>.*?</style>|<[^>]+>", " ", sample, flags=re.I | re.S)
     return len(" ".join(visible.split())) < 300
 
 
 def _challenge_or_empty(html: str) -> bool:
-    sample = (html or "")[:200_000].lower()
-    return _challenge_detected(sample) or _blank_rendered_shell(html)
+    return (
+        _challenge_detected(html)
+        or _cloudflare_block_detected(html)
+        or _blank_rendered_shell(html)
+    )
 
 
 class _NavigationHang(Exception):
@@ -2632,7 +2736,29 @@ async def discover_vehicle_evidence(
     # inventory route (and makes the candidate evidence misleading).
     candidate_order = candidate_urls if candidate_urls else [start_url]
     for url in candidate_order:
+        # Fold the ``www.`` alias for THIS dedupe only. A dealer that 301s
+        # apex->www publishes both spellings of one SRP, and scouting both
+        # spends a candidate slot (and a browser render) to fetch the same
+        # page twice. canonical_page_url itself must not fold it: it also keys
+        # the static-ETag cache and the replay fixture index, where one host
+        # spelling answering for the other would be a correctness bug.
         key = canonical_page_url(url)
+        folded = _origin_key(url)
+        if folded is not None:
+            parts = urlsplit(key)
+            # Fold the HOST and nothing else. Dropping the query collapsed
+            # genuinely different routes — /inventory/?location=orlando and
+            # ?location=sanford are two rooftops, not one page — and every one
+            # after the first was silently never fetched.
+            key = urlunsplit(
+                (
+                    folded[0],
+                    f"{folded[1]}:{folded[2]}",
+                    parts.path or "/",
+                    parts.query,
+                    "",
+                )
+            )
         if key not in seen:
             seen.add(key)
             ordered.append(url)

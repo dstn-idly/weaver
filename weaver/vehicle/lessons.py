@@ -61,6 +61,35 @@ FIELD_NOTES: tuple[str, ...] = (
     "unphotographed, and stopping at the first car in the list threw away a "
     "lot whose other 179 vehicles were fully photographed.",
 
+    "PHOTOS: manufacturer art is not photography of the unit. Dealer.com "
+    "paint chips (images.dealer.com/autodata/.../color/, /ddc/vehicles/.../"
+    "color/) and generic OEM stock-photo folders are shared by every identical "
+    "trim. A car whose whole gallery is that art has NO photos and is a "
+    "corroborated no-photos-published exception, never a two-photo listing.",
+
+    "PHOTOS: the same asset served at two sizes is one photo, and the size can "
+    "live in the query (?impolicy=downsize_bkpt&w=1024) as easily as the path "
+    "(/resize/1024x1024/). Counting renditions separately is how one picture "
+    "satisfies a two-photo test.",
+
+    "PLATFORMS: a gallery widget's state key is not a constant. The same "
+    "Dealer.com gallery appears as 'vehicle-gallery' on one build and "
+    "'ws-vehicle-media'/'media1' on another; pinning one literal made every "
+    "photographed car on a lot report a single photo.",
+
+    "DISCOVERY: a dealer whose storefront is a JavaScript app may publish a "
+    "server-rendered inventory route for machines and announce it in <head> as "
+    "<link rel=alternate type=text/html> (or in /llms.txt), not as a link "
+    "anyone clicks. Scanning anchors alone cannot reach the page the "
+    "dealership built for exactly this purpose.",
+
+    "IDENTITY: when a VDP route carries no VIN, no year and no detail keyword "
+    "(DealerCenter/DWS ships /inventory/{make}/{model}/{stock}/), authority "
+    "comes from the dealer's OWN card attribute — the stock number in "
+    "data-vehicle-stock-no matching the URL's last segment — never from the "
+    "URL's shape. Bind to the nearest single card: a key read from the results "
+    "grid would let one vehicle authorize another's URL.",
+
     # ── IDENTITY AND COMPLETENESS ────────────────────────────────────────────
     "IDENTITY: a photo may only belong to the VIN whose page published it. "
     "Photos shared between two vehicles mean the gallery selector escaped the "

@@ -5,11 +5,14 @@ from types import SimpleNamespace
 import pytest
 from weaver.vehicle.models import parse_spec
 from weaver.vehicle.replay import CrawlLimits
+from bs4 import BeautifulSoup
+
 from weaver.vehicle.transport import (
     PersistentDealerSession,
     VehicleTransportError,
     capture_dealer_fixtures,
     discover_vehicle_evidence,
+    inventory_candidate_links,
     representative_detail_links,
 )
 from weaver.security import (
@@ -3344,3 +3347,382 @@ def test_discovery_still_yields_a_representative_vdp_on_an_unphotographed_lot() 
         assert detail_url == first
 
     asyncio.run(run())
+
+
+def test_the_dealers_own_www_alias_is_not_a_third_party(monkeypatch) -> None:
+    """Navigation authorized the www alias; transport treated it as a stranger.
+
+    ``_same_origin`` folds a leading ``www.`` but ``_exact_origin`` does not, so
+    a request to the dealer's OWN www host fell past the native-transport
+    branch into the sanitising lane, which force-clears the cookie header and
+    issues the request through Playwright's API context instead of the browser.
+    Cloudflare answers that cookie-less non-browser client with a 403 challenge
+    (universal-nissan) or a WAF 1020 block (orlandoautolounge). Both dealers
+    301 apex to www, so reaching that lane was guaranteed, not unlucky.
+    """
+
+    async def allow(url):
+        return SimpleNamespace(url=url, hostname=url.split("/", 3)[2].split(":", 1)[0])
+
+    monkeypatch.setattr("weaver.vehicle.transport.validate_public_url", allow)
+
+    async def run():
+        session = PersistentDealerSession(
+            "https://dealer.example",
+            browser_max_requests=40,
+            browser_max_third_party_requests=1,
+            browser_max_third_party_hosts=16,
+        )
+        page = BrowserPage()
+        await session._page_setup(page)
+
+        alias = BrowserRoute(
+            BrowserRequest("https://www.dealer.example/used/", resource_type="document", navigation=True)
+        )
+        await page.context.handler(alias)
+        # Native transport: browser-managed cookies reach the dealer's own host.
+        assert alias.continued and not alias.aborted
+        assert alias.fetch_kwargs is None
+
+        alias_subresource = BrowserRoute(
+            BrowserRequest("https://www.dealer.example/assets/app.js", resource_type="script")
+        )
+        await page.context.handler(alias_subresource)
+        assert alias_subresource.continued and not alias_subresource.aborted
+
+        # ...and the alias must not have spent the third-party budget, which is
+        # only one request wide here. A real third party still gets it.
+        stranger = BrowserRoute(
+            BrowserRequest("https://tracker.example/pixel.js", resource_type="script")
+        )
+        await page.context.handler(stranger)
+        assert stranger.fulfilled and not stranger.aborted
+
+        second_stranger = BrowserRoute(
+            BrowserRequest("https://tracker2.example/pixel.js", resource_type="script")
+        )
+        await page.context.handler(second_stranger)
+        assert second_stranger.aborted
+
+    asyncio.run(run())
+
+
+def test_a_cf_access_token_still_reaches_only_its_exact_origin(monkeypatch) -> None:
+    """Widening the native lane must not widen where a secret is injected."""
+
+    async def allow(url):
+        return SimpleNamespace(url=url, hostname=url.split("/", 3)[2].split(":", 1)[0])
+
+    monkeypatch.setattr("weaver.vehicle.transport.validate_public_url", allow)
+    monkeypatch.setenv("WEAVER_CF_ACCESS_CLIENT_ID", "id-value")
+    monkeypatch.setenv("WEAVER_CF_ACCESS_CLIENT_SECRET", "secret-value")
+    monkeypatch.setenv("WEAVER_CF_ACCESS_ORIGIN", "https://dealer.example")
+
+    async def run():
+        session = PersistentDealerSession("https://dealer.example")
+        page = BrowserPage()
+        await session._page_setup(page)
+        alias = BrowserRoute(
+            BrowserRequest("https://www.dealer.example/used/", resource_type="document", navigation=True)
+        )
+        await page.context.handler(alias)
+        # The alias is authorized to be FETCHED, but it is not the origin the
+        # Access token was issued for, so the token is not attached to it.
+        headers = (alias.fetch_kwargs or {}).get("headers") or {}
+        lowered = {name.casefold(): value for name, value in headers.items()}
+        assert "cf-access-client-id" not in lowered
+        assert "cf-access-client-secret" not in lowered
+
+    asyncio.run(run())
+
+
+def test_a_dealer_published_inventory_route_need_not_be_a_clickable_link() -> None:
+    """Edmark Toyota's shoppable SRP is an empty div its JS fills from an API.
+
+    The dealer also publishes a server-rendered, no-JS inventory page for
+    machines and announces it in <head> as rel=alternate. Scanning anchors
+    alone could never reach the page the dealership built for exactly this.
+    """
+
+    html = (
+        '<html><head>'
+        '<link rel="alternate" type="text/html" title="Browse Vehicle Inventory" '
+        'href="https://dealer.example/llm/inventory/">'
+        '<link rel="alternate" type="application/rss+xml" href="https://dealer.example/feed/">'
+        '<link rel="alternate" type="text/html" href="https://other-dealer.example/llm/inventory/">'
+        '</head><body>'
+        '<a href="/about-us/">About Us</a>'
+        '</body></html>'
+    )
+    candidates = inventory_candidate_links(
+        html,
+        page_url="https://dealer.example/",
+        origin="https://dealer.example",
+    )
+    assert "https://dealer.example/llm/inventory/" in candidates
+    # A feed is not an inventory page, and another dealer's route is not ours.
+    assert not any("/feed/" in url for url in candidates)
+    assert not any("other-dealer" in url for url in candidates)
+
+
+def test_a_big_page_is_judged_by_its_content_not_its_first_200kb() -> None:
+    """A real VDP carried a 122KB inline <style>, so <body> began past a fixed
+    prefix window: a 10,781-character page measured as 220 and was retried into
+    a false owner_action_required. And a 236KB Cloudflare interstitial hid
+    ``_cf_chl_opt`` past that same window, so a solvable challenge was reported
+    as an auth failure."""
+
+    from weaver.vehicle.transport import _blank_rendered_shell, _challenge_detected
+
+    filler = "a{color:#fff}" * 20_000  # > 200KB of inline CSS in <head>
+    real_page = (
+        "<html><head><style>" + filler + "</style></head><body>"
+        + ("<p>2021 Honda Civic EX one owner clean carfax priced to move today. </p>" * 30)
+        + "</body></html>"
+    )
+    assert len(real_page) > 200_000
+    assert not _blank_rendered_shell(real_page)
+
+    shell = "<html><head><style>" + filler + "</style></head><body><div id='app'></div></body></html>"
+    assert _blank_rendered_shell(shell)
+
+    late_challenge = "<html><body>" + ("<span>x</span>" * 20_000) + "<script>window._cf_chl_opt={};</script></body></html>"
+    assert len(late_challenge) > 200_000
+    assert _challenge_detected(late_challenge)
+
+
+def test_a_cloudflare_block_is_not_a_challenge_the_dealer_can_fix() -> None:
+    """Error 1020 is a refusal, not a puzzle. We reported it as something the
+    dealership's owner had to act on, and the only evidence was a script path
+    Cloudflare also serves from ordinary 200 pages."""
+
+    from weaver.vehicle.transport import _challenge_detected, _cloudflare_block_detected
+
+    block = (
+        "<html><head><title>Attention Required! | Cloudflare</title>"
+        '<link rel="stylesheet" href="/cdn-cgi/styles/cf.errors.css"></head><body>'
+        "<h1>Sorry, you have been blocked</h1>"
+        '<script src="/cdn-cgi/challenge-platform/scripts/precursor/main.js"></script>'
+        "</body></html>"
+    )
+    assert _cloudflare_block_detected(block)
+    assert not _challenge_detected(block)
+
+    challenge = (
+        "<html><head><title>Just a moment...</title></head><body>"
+        "Enable JavaScript and cookies to continue"
+        '<script src="/cdn-cgi/challenge-platform/test.js"></script></body></html>'
+    )
+    assert _challenge_detected(challenge)
+    assert not _cloudflare_block_detected(challenge)
+
+    # Cloudflare injects the same beacon into ordinary pages (JavaScript
+    # Detections). A page with real content is not an interstitial.
+    ordinary = (
+        "<html><body>"
+        + ("<p>2019 Toyota Camry SE, 34,120 miles, one owner, clean history. </p>" * 20)
+        + '<script src="/cdn-cgi/challenge-platform/h/b/scripts/jsd/main.js"></script>'
+        "</body></html>"
+    )
+    assert not _challenge_detected(ordinary)
+    assert not _cloudflare_block_detected(ordinary)
+
+
+def test_a_dealercenter_stock_route_is_owned_by_its_own_card() -> None:
+    """DealerCenter/DWS publishes /inventory/{make}/{model}/{stock}/ — no VIN,
+    no detail keyword, no year — so every VDP on two dealerships was dropped
+    and discovery reported zero vehicles. Authority is not the URL shape: it is
+    the dealer's own per-card stock number matching the URL tail, which the
+    platform builds from that same record.
+    """
+
+    from weaver.vehicle.extract import card_stock_keys
+
+    def card(stock: str, vin: str, make: str, model: str) -> str:
+        return (
+            '<div class="list-group-item dws-vehicle-listing-item">'
+            f'<a class="dws-vehicle-view-detail-link" href="/inventory/{make}/{model}/{stock}/">'
+            f"1997 {make.upper()} {model.upper()} $34,995</a>"
+            '<div class="dws-vlp-modal-control-container" '
+            f'data-vehicle-stock-no="{stock}" data-vehicle-vin="{vin}" '
+            f'data-unique-vehicle-id="{stock}-{vin}"><img src="/p/{stock}.jpg"></div>'
+            "</div>"
+        )
+
+    page = (
+        '<html><body><div class="list-group">'
+        + card("10429", "1B3ER69E7VV301227", "dodge", "viper")
+        + card("10296", "WP0AB2A99KS123456", "porsche", "911")
+        + '<a href="/inventory/dodge/">All Dodge</a>'
+        + "</div></body></html>"
+    )
+    links = representative_detail_links(
+        page,
+        page_url="https://dealer.example/inventory/",
+        origin="https://dealer.example",
+    )
+    assert "https://dealer.example/inventory/dodge/viper/10429/" in links
+    assert "https://dealer.example/inventory/porsche/911/10296/" in links
+    # A category link publishes no card-local stock key, so it gains nothing.
+    assert "https://dealer.example/inventory/dodge/" not in links
+
+    # The binding must be scoped to ONE card. If the walk ran up into the
+    # results grid, vehicle A's stock number could authorize vehicle B's URL.
+    soup = BeautifulSoup(page, "html.parser")
+    grid = soup.select_one(".list-group")
+    assert card_stock_keys(grid) == frozenset()
+    one_card = soup.select_one(".dws-vehicle-listing-item")
+    assert card_stock_keys(one_card) == frozenset({"10429", "10429-1b3er69e7vv301227"})
+
+
+def test_a_stock_route_is_refused_when_the_card_does_not_publish_that_key() -> None:
+    """Without the equality test this shape is just /a/b/c/ — the reason the
+    URL-shape version of this rule was refused."""
+
+    from weaver.vehicle.identity import detail_url_authority, stock_key_candidates
+
+    keys = stock_key_candidates(["10429"])
+    assert (
+        detail_url_authority(
+            "https://dealer.example/inventory/dodge/viper/10429/",
+            local_vehicle_evidence=True,
+            local_stock_keys=keys,
+        )
+        == "vehicle_stock_path"
+    )
+    # A different vehicle's URL is not authorized by this card.
+    assert (
+        detail_url_authority(
+            "https://dealer.example/inventory/dodge/viper/10430/",
+            local_vehicle_evidence=True,
+            local_stock_keys=keys,
+        )
+        is None
+    )
+    # Card evidence alone is not enough, and neither is the shape alone.
+    assert (
+        detail_url_authority(
+            "https://dealer.example/inventory/dodge/viper/10429/",
+            local_vehicle_evidence=False,
+            local_stock_keys=keys,
+        )
+        is None
+    )
+    assert (
+        detail_url_authority(
+            "https://dealer.example/inventory/dodge/viper/10429/",
+            local_vehicle_evidence=True,
+        )
+        is None
+    )
+    # A template placeholder can never stand in for a published stock number.
+    assert stock_key_candidates(["{{StockNumber}}", "  ", "abcd", None]) == frozenset()
+
+
+def test_a_cloudflare_rate_limit_is_transient_not_a_firewall_refusal() -> None:
+    """Cloudflare serves its whole error family from one template, so a 1015
+    "you are being rate limited" page and a 5xx origin blip carry the same
+    stylesheet as a 1020 block. Judging a block before the status triage ate
+    the Retry-After backoff lane for exactly the dealers Cloudflare fronts —
+    and one of them has already rate-limited this project.
+    """
+
+    from weaver.vehicle.transport import _challenge_detected, _cloudflare_block_detected
+
+    def cf_error(title: str, headline: str) -> str:
+        return (
+            f"<html><head><title>{title}</title>"
+            '<link rel="stylesheet" id="cf_styles-css" href="/cdn-cgi/styles/cf.errors.css">'
+            f"</head><body><h1>{headline}</h1>"
+            '<script src="/cdn-cgi/challenge-platform/scripts/precursor/main.js"></script>'
+            "</body></html>"
+        )
+
+    throttled = cf_error("Access denied | Cloudflare", "You are being rate limited")
+    origin_down = cf_error("dealer.example | 522: Connection timed out", "Connection timed out")
+    for page in (throttled, origin_down):
+        assert not _cloudflare_block_detected(page)
+        assert not _challenge_detected(page)
+
+    # The real refusal still reads as one.
+    blocked = cf_error("Attention Required! | Cloudflare", "Sorry, you have been blocked")
+    assert _cloudflare_block_detected(blocked)
+    assert not _challenge_detected(blocked)
+
+
+def test_a_turnstile_lead_form_is_not_a_challenge_page() -> None:
+    """``challenges.cloudflare.com/turnstile`` is the PUBLIC widget dealers put
+    on finance and contact forms — the egress guard in this same module
+    whitelists it as a legitimate dealer subresource. Treating it as challenge
+    evidence turned a healthy 200 inventory page into owner_action_required.
+    """
+
+    from weaver.vehicle.transport import _challenge_or_empty, _challenge_detected
+
+    healthy_srp = (
+        "<html><body>"
+        + (
+            "<article class='vehicle'><a href='/inventory/ford/f150/10390/'>"
+            "2021 Ford F-150 XLT SuperCrew 4WD, 34,120 miles, one owner, clean "
+            "history, $34,995</a></article>"
+        ) * 12
+        + '<form class="lead"><div class="cf-turnstile" data-sitekey="0x4AAA"></div>'
+        '<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>'
+        "</form></body></html>"
+    )
+    assert not _challenge_detected(healthy_srp)
+    assert not _challenge_or_empty(healthy_srp)
+
+
+def test_folding_the_www_alias_must_not_fold_away_the_query() -> None:
+    """Two rooftops on one path are two pages. Dropping the query collapsed
+    them and silently never fetched the second."""
+
+    orlando = "https://dealer.example/inventory/?location=orlando"
+    sanford = "https://dealer.example/inventory/?location=sanford"
+    first_vdp = "https://dealer.example/inventory/ford/f150/10390/"
+
+    class RooftopTransport:
+        def __init__(self):
+            self.calls = []
+            self.pages = {
+                "https://dealer.example/": (
+                    f'<a href="{orlando}">Used inventory Orlando</a>'
+                    f'<a href="{sanford}">Used inventory Sanford</a>'
+                ),
+                # The first rooftop is a client-rendered shell with no cars...
+                orlando: "<div id='inventory-app'>Loading inventory</div>",
+                # ...and the second is the one that actually serves vehicles.
+                sanford: (
+                    '<article class="vehicle"><div data-vehicle-stock-no="10390">'
+                    f'<a href="{first_vdp}">2021 Ford F-150 $34,995</a>'
+                    '<img src="/p/10390.jpg"></div></article>'
+                    '<article class="vehicle"><div data-vehicle-stock-no="10392">'
+                    '<a href="https://dealer.example/inventory/ford/f250/10392/">2022 Ford F-250 $51,000</a>'
+                    '<img src="/p/10392.jpg"></div></article>'
+                ),
+                first_vdp: _photographed_vdp("1HGBH41JXMN109186"),
+                "https://dealer.example/inventory/ford/f250/10392/": _photographed_vdp("JHMCM56557C404453"),
+            }
+
+        async def fetch(self, url):
+            self.calls.append(url)
+            return self.pages[url]
+
+    async def run():
+        transport = RooftopTransport()
+        listing_url, _lh, _du, _dh, _c = await discover_vehicle_evidence(
+            "https://dealer.example/",
+            session=transport,
+            max_candidates=8,
+        )
+        # The barren rooftop must not have hidden the one with cars.
+        assert listing_url == sanford
+        assert orlando in transport.calls and sanford in transport.calls
+
+    asyncio.run(run())
+
+    # ...while the www alias of one page is still one page.
+    from weaver.vehicle.transport import _origin_key
+
+    assert _origin_key("https://dealer.example/x") == _origin_key("https://www.dealer.example/x")

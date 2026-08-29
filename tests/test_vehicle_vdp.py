@@ -1851,3 +1851,115 @@ def test_a_vin_in_the_photo_path_proves_ownership() -> None:
     # Without a real VIN there is nothing to prove ownership against.
     assert _vin_path_gallery_candidates(soup, None) == []
     assert _vin_path_gallery_candidates(soup, "URLKEY12345678901") == []
+
+
+def test_dealercom_names_its_gallery_widget_more_than_one_way() -> None:
+    """Sugarloaf CDJR's Dealer.com build publishes the gallery under
+    ``ws-vehicle-media``/``media1``, not ``vehicle-gallery``. Pinning the
+    literal made every fully photographed car on that lot report one photo."""
+
+    vin = "1C6SRFFT4NN123456"
+    url = f"https://dealer.example/used/Ram/2026-Ram-1500-9f2ab1c4.htm"
+    state = json.dumps(
+        {
+            "vehicle": {"vin": vin},
+            "media": {
+                "imagesToDisplay": [
+                    {"uri": "https://pictures.dealer.com/s/sugarloaf/0123/a-front.jpg"},
+                    {"uri": "https://pictures.dealer.com/s/sugarloaf/0123/b-side.jpg"},
+                    {"uri": "https://pictures.dealer.com/s/sugarloaf/0123/c-rear.jpg"},
+                ]
+            },
+        }
+    )
+    html = (
+        f'<html><head><link rel="canonical" href="{url}"></head><body>'
+        f'<main data-vin="{vin}"><h1>2026 Ram 1500</h1></main>'
+        f"<script>DDC.WS.state['ws-vehicle-media']['media1'] = {state};</script>"
+        "</body></html>"
+    )
+    result = extract_vdp(
+        html,
+        detail_url=url,
+        origin="https://dealer.example",
+        detail=DetailSpec(root_selector=None, fields={}),
+        expected_vin=None,
+    )
+    assert result.identity_proven
+    assert len(result.photos) == 3
+    assert [photo.url for photo in result.photos] == [
+        "https://pictures.dealer.com/s/sugarloaf/0123/a-front.jpg",
+        "https://pictures.dealer.com/s/sugarloaf/0123/b-side.jpg",
+        "https://pictures.dealer.com/s/sugarloaf/0123/c-rear.jpg",
+    ]
+
+    # Control: the decoder really is what supplies them. Under a widget name
+    # that is not a gallery, the same page proves identity and nothing else.
+    unrelated = html.replace("ws-vehicle-media", "ws-vehicle-pricing")
+    assert extract_vdp(
+        unrelated,
+        detail_url=url,
+        origin="https://dealer.example",
+        detail=DetailSpec(root_selector=None, fields={}),
+        expected_vin=None,
+    ).photos == ()
+
+
+def test_manufacturer_paint_chips_are_not_photographs_of_the_unit() -> None:
+    """A 2026 Ram whose whole "gallery" was two Dealer.com paint chips passed
+    the two-photo test, was chosen as the page a whole dealership's spec was
+    learned from, and blocked the honest no-photos-published exception."""
+
+    vin = "1C6SRFJT1VN575915"
+    url = "https://dealer.example/new/Ram/2027-Ram-1500-462b1c44.htm"
+    chips = [
+        "https://images.dealer.com/autodata/us/color/2026/USD60RAS012A0/PXJ.jpg",
+        "https://images.dealer.com/autodata/us/color/2026/USD60RAS012A0/PW7.jpg",
+    ]
+    ld = json.dumps(
+        {
+            "@context": "https://schema.org",
+            "@type": "Car",
+            "vehicleIdentificationNumber": vin,
+            "name": "2027 Ram 1500",
+            "image": chips,
+        }
+    )
+    html = (
+        f'<html><head><link rel="canonical" href="{url}">'
+        f'<meta property="og:image" content="{chips[0]}">'
+        f'</head><body><main data-vin="{vin}">'
+        f'<script type="application/ld+json">{ld}</script>'
+        "</main></body></html>"
+    )
+    result = extract_vdp(
+        html,
+        detail_url=url,
+        origin="https://dealer.example",
+        detail=DetailSpec(root_selector=None, fields={}),
+        expected_vin=None,
+    )
+    assert result.identity_proven
+    # Manufacturer art is not unit photography, so this car has NO photos...
+    assert len(result.photos) == 0
+    # ...and says so, which is what routes it to the photo exception instead of
+    # being published as a two-photo listing.
+    assert result.placeholder_photo_published
+
+
+def test_one_photo_served_at_two_sizes_is_still_one_photo() -> None:
+    """The rendition can live in the query as well as the path. Dealer.com
+    serves ``?impolicy=downsize_bkpt&w=1024`` and ``&w=640`` of one asset;
+    counting those as two is the same miscount that listed 43 of a dealer's
+    289 live vehicles with the same image twice."""
+
+    from weaver.vehicle.vdp import photo_asset_key
+
+    base = "https://pictures.dealer.com/s/sugarloaf/0123/a-front.jpg"
+    assert photo_asset_key(f"{base}?impolicy=downsize_bkpt&w=1024") == photo_asset_key(
+        f"{base}?impolicy=downsize_bkpt&w=640"
+    )
+    assert photo_asset_key(f"{base}?impolicy=resize&width=800&height=600") == photo_asset_key(base)
+    # A query that identifies a DIFFERENT asset is still meaningful.
+    assert photo_asset_key(f"{base}?id=7") != photo_asset_key(f"{base}?id=8")
+    assert photo_asset_key(base) != photo_asset_key(base.replace("a-front", "b-side"))

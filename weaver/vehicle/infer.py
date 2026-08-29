@@ -29,7 +29,7 @@ from bs4 import BeautifulSoup, Comment, NavigableString, Tag
 import httpx
 import soupsieve
 
-from .extract import extract_listing_page
+from .extract import card_stock_keys, extract_listing_page
 from .identity import (
     clean_vin,
     detail_url_authority,
@@ -507,6 +507,7 @@ def _authoritative_detail_urls_in(
         if not url or not detail_url_authority(
             url,
             local_vehicle_evidence=local_evidence,
+            local_stock_keys=card_stock_keys(anchor, ancestor_depth=4),
         ):
             continue
         key = detail_url_identity_key(url)

@@ -16,6 +16,7 @@ from .identity import (
     is_surrogate_vin,
     safe_data_url,
     same_origin_url,
+    stock_key_candidates,
     surrogate_vin,
     vin_from_url,
 )
@@ -62,6 +63,52 @@ class ListingPageResult:
     raw_card_count: int
     rejected_card_count: int
     expected_total: int | None
+
+
+# The stock keys a dealer's own vehicle card publishes. DealerCenter/DWS
+# builds its VDP path from exactly this record, so the attribute is the
+# dealership's own statement that this URL is this vehicle.
+_STOCK_KEY_ATTRS = (
+    "data-vehicle-stock-no",
+    "data-vehicle-stock-number",
+    "data-stock-number",
+    "data-stock-no",
+    "data-stocknumber",
+    "data-unique-vehicle-id",
+)
+
+
+def card_stock_keys(node: Tag, *, ancestor_depth: int = 0) -> frozenset[str]:
+    """Stock keys published by the ONE card that owns ``node``.
+
+    The binding is only as trustworthy as its scope: an ancestor walk that
+    runs past the card into the results grid would let one vehicle's stock
+    number authorize a different vehicle's URL, which is precisely the
+    cross-vehicle attribution the extractor exists to prevent. So this stops
+    at the NEAREST enclosing element that publishes any stock key, and accepts
+    it only if that element speaks for a single vehicle — one distinct value
+    per attribute it publishes. A grid container holding many cards publishes
+    many, and is refused.
+    """
+
+    scope: Tag | None = node
+    for _depth in range(max(0, ancestor_depth) + 1):
+        if scope is None or scope.name in {"html", "body", "nav", "header", "footer"}:
+            return frozenset()
+        by_attribute: dict[str, set[str]] = {}
+        for attribute in _STOCK_KEY_ATTRS:
+            values: list[str | None] = [scope.get(attribute)]
+            for descendant in scope.find_all(attrs={attribute: True}, limit=16):
+                values.append(descendant.get(attribute))
+            found = stock_key_candidates(values)
+            if found:
+                by_attribute[attribute] = set(found)
+        if by_attribute:
+            if any(len(values) != 1 for values in by_attribute.values()):
+                return frozenset()  # more than one vehicle in scope
+            return frozenset().union(*by_attribute.values())
+        scope = scope.parent if isinstance(scope.parent, Tag) else None
+    return frozenset()
 
 
 def clean_text(value: Any, *, limit: int | None = None) -> str | None:
@@ -284,6 +331,7 @@ def _find_detail_link(card: Tag, selector: str, page_url: str, origin: str) -> s
         if not url or not detail_url_authority(
             url,
             local_vehicle_evidence=local_evidence,
+            local_stock_keys=card_stock_keys(node, ancestor_depth=4),
         ):
             continue
         key = detail_url_identity_key(url)

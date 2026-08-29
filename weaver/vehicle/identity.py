@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from typing import Any
 from urllib.parse import parse_qsl, quote, unquote, urljoin, urlsplit, urlunsplit
 
@@ -304,10 +305,42 @@ def plausible_detail_url(raw: str) -> bool:
     return True
 
 
+_STOCK_KEY = re.compile(r"[A-Za-z0-9][A-Za-z0-9-]{2,23}")
+
+
+def stock_key_candidates(values: Iterable[str | None]) -> frozenset[str]:
+    """Normalize a card's published stock keys for URL-tail comparison.
+
+    DealerCenter/DWS builds its VDP path as
+    ``encodeURIComponent(StockNumber).toLowerCase()`` from the same record
+    that emits ``data-vehicle-stock-no``, so the comparison must be
+    percent-decoded and case-insensitive: a dealer with stock ``A1234``
+    publishes the attribute as ``A1234`` and the URL tail as ``a1234``.
+    """
+
+    keys: set[str] = set()
+    for value in values:
+        if not isinstance(value, str):
+            continue
+        candidate = unquote(value).strip().casefold()
+        # Mustache/Handlebars card templates ship with the placeholder still
+        # in the attribute; it can never equal a real URL tail, but rejecting
+        # it keeps the set honest.
+        if "{" in candidate or "}" in candidate:
+            continue
+        if not _STOCK_KEY.fullmatch(candidate):
+            continue
+        if not any(character.isdigit() for character in candidate):
+            continue
+        keys.add(candidate)
+    return frozenset(keys)
+
+
 def detail_url_authority(
     raw: str,
     *,
     local_vehicle_evidence: bool,
+    local_stock_keys: frozenset[str] | None = None,
 ) -> str | None:
     """Return the bounded proof that a card URL is a canonical VDP route.
 
@@ -400,6 +433,21 @@ def detail_url_authority(
         and any(re.search(r"[A-Za-z]{2,}", part) for part in path_parts[2:-1])
     ):
         return "vehicle_hierarchy"
+    # DealerCenter/DWS publishes ``/inventory/{make}/{model}/{stock}/`` — no
+    # VIN, no detail keyword, no year anywhere in the path — so every one of
+    # a dealership's VDPs was dropped and discovery found zero vehicles (386
+    # real VDP anchors on one page alone). Authority here is NOT the URL
+    # shape: it is the dealer's own per-card stock number matching the URL
+    # tail. A nav, filter, or category link carries no card-local stock key,
+    # so it cannot reach this branch, and a card template's ``{{StockNumber}}``
+    # placeholder can never equal a real tail.
+    if (
+        local_vehicle_evidence
+        and local_stock_keys
+        and 2 <= len(path_parts) <= 8
+        and route_tail.casefold() in local_stock_keys
+    ):
+        return "vehicle_stock_path"
     return None
 
 

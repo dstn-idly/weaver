@@ -122,12 +122,18 @@ _NEXT_FLIGHT_REFERENCE_RE = re.compile(
     r"^\$(?:[0-9a-z]+|L[0-9a-z]+|undefined|null)$",
     re.I,
 )
+# Dealer.com ships the same gallery widget under more than one state key:
+# older builds name it "vehicle-gallery", Sugarloaf CDJR's names it
+# "ws-vehicle-media"/"media1". Pinning the literal made every photographed car
+# on that dealership report a single photo.
+_DDC_GALLERY_KEY = "vehicle-(?:gallery|media)"
 _DDC_GALLERY_STATE_RE = re.compile(
     r"DDC\.(?:WS|OSIRIS)\.state\s*"
-    r"\[[^\]\r\n]{1,80}vehicle-gallery[^\]\r\n]{0,80}\]"
+    r"\[[^\]\r\n]{1,80}" + _DDC_GALLERY_KEY + r"[^\]\r\n]{0,80}\]"
     r"(?:\s*\[[^\]\r\n]{1,80}\])?\s*=\s*",
     re.I,
 )
+_DDC_GALLERY_HINT_RE = re.compile(_DDC_GALLERY_KEY, re.I)
 _RAW_DATA_VEHICLE_RE = re.compile(r"\bdata-vehicle\s*=\s*([\"'])(.*?)\1", re.I | re.S)
 _RAW_BODY_DATA_VEHICLE_RE = re.compile(
     r"<body\b[^>]*?\bdata-vehicle\s*=\s*([\"'])(.*?)\1",
@@ -657,11 +663,26 @@ _CDN_PLACEHOLDER_RE = re.compile(
 # ("styleid=0" Evox fallbacks and friends). A primary from one of these is the
 # platform's placeholder: the dealer published no photos of this exact unit.
 _STOCK_RENDER_PRIMARY_RE = re.compile(
-    r"secureoffersites\.com/images/GetEvoxImage|evoximages\.", re.I
+    r"secureoffersites\.com/images/GetEvoxImage"
+    r"|evoximages\."
+    # Dealer.com manufacturer art: paint chips under /autodata/../color/ and
+    # /ddc/vehicles/../color/, and the generic OEM stock-photo folders. A
+    # 2026 Ram whose whole "gallery" was two of these chips passed the
+    # two-photo test and was chosen to teach an entire dealership's spec.
+    r"|images\.dealer\.com/autodata/[^\s\"'<>,\\]*/color/"
+    r"|images\.dealer\.com/ddc/vehicles/[^\s\"'<>,\\]*/color/"
+    r"|pictures\.dealer\.com/[^\s\"'<>,\\]*oem_vin_stock_photos/",
+    re.I,
 )
 # Manufacturer art shipped inside the dealer's own CDN folder; shared across
 # identical units, so it can never count as unit photography.
-_CDN_STOCK_PATH_RE = re.compile(r"/stock_images/", re.I)
+_CDN_STOCK_PATH_RE = re.compile(
+    r"/stock_images/"
+    r"|/autodata/[^\s\"'<>,\\]*/color/"
+    r"|/ddc/vehicles/[^\s\"'<>,\\]*/color/"
+    r"|oem_vin_stock_photos/",
+    re.I,
+)
 
 
 def _cdn_prefix_owned_urls(soup: BeautifulSoup) -> list[str] | None:
@@ -760,7 +781,7 @@ def _ddc_gallery_candidates(soup: BeautifulSoup) -> list[_StructuredCandidate]:
     output: list[_StructuredCandidate] = []
     for script in soup.find_all("script", limit=4_000):
         raw = script.string or script.get_text()
-        if not isinstance(raw, str) or "vehicle-gallery" not in raw:
+        if not isinstance(raw, str) or not _DDC_GALLERY_HINT_RE.search(raw):
             continue
         for match in list(_DDC_GALLERY_STATE_RE.finditer(raw))[:16]:
             try:
@@ -776,6 +797,14 @@ def _ddc_gallery_candidates(soup: BeautifulSoup) -> list[_StructuredCandidate]:
                 and not is_surrogate_vin(vin)
             }
             if len(vins) != 1:
+                continue
+            # The widget names a VIN; the PAGE must be the one that owns it.
+            # Widening this decoder past the single "vehicle-gallery" key
+            # enlarged its reach, and nothing here had ever checked the
+            # widget's VIN against the document's own primary — a related-
+            # vehicle media widget would have handed its photos to this page.
+            page_vin = _document_primary_vin(soup)
+            if page_vin and not is_surrogate_vin(page_vin) and page_vin not in vins:
                 continue
             media = value.get("media")
             if not isinstance(media, Mapping):
@@ -2472,6 +2501,13 @@ def _dom_photos(
 
 
 _PHOTO_RENDITION_SEGMENT_RE = re.compile(r"/(?:resize/)?\d{1,5}x\d{1,5}(?=/)", re.I)
+# The same rendition can live in the QUERY instead of the path. Dealer.com
+# serves one asset as ?impolicy=downsize_bkpt&w=1024 and again at w=640, which
+# the path-only fold counted as two photos — the very miscount this key
+# exists to prevent, arriving through the other half of the URL.
+_PHOTO_RENDITION_QUERY_KEYS = frozenset(
+    {"impolicy", "w", "h", "width", "height", "downsize", "downsize_bkpt", "resize", "sz", "quality", "q"}
+)
 
 
 def photo_asset_key(url: str) -> str:
@@ -2485,7 +2521,16 @@ def photo_asset_key(url: str) -> str:
     duplicate from hiding behind a resize.
     """
 
-    return _PHOTO_RENDITION_SEGMENT_RE.sub("", str(url or "")).casefold()
+    folded = _PHOTO_RENDITION_SEGMENT_RE.sub("", str(url or ""))
+    head, sep, query = folded.partition("?")
+    if not sep:
+        return folded.casefold()
+    kept = [
+        pair
+        for pair in query.split("&")
+        if pair and pair.split("=", 1)[0].casefold() not in _PHOTO_RENDITION_QUERY_KEYS
+    ]
+    return (head + ("?" + "&".join(kept) if kept else "")).casefold()
 
 
 def _dedupe_photos(photos: Iterable[PhotoEvidence], maximum: int) -> tuple[PhotoEvidence, ...]:
@@ -2521,9 +2566,26 @@ def _dedupe_photos(photos: Iterable[PhotoEvidence], maximum: int) -> tuple[Photo
             widths = [value for value in (existing.width, photo.width) if value is not None]
             # Between two renditions of one asset keep the un-resized URL: it
             # is the full-size original the dealer published.
-            kept_url = existing.url
-            if _PHOTO_RENDITION_SEGMENT_RE.search(existing.url) and not _PHOTO_RENDITION_SEGMENT_RE.search(photo.url):
-                kept_url = photo.url
+            def _rendition_rank(url: str) -> tuple[int, int]:
+                """How much of a rendition this URL is; lower is more original."""
+
+                query = urlsplit(url).query
+                downsized = sum(
+                    1
+                    for pair in query.split("&")
+                    if pair and pair.split("=", 1)[0].casefold() in _PHOTO_RENDITION_QUERY_KEYS
+                )
+                return (1 if _PHOTO_RENDITION_SEGMENT_RE.search(url) else 0, downsized)
+
+            # Between two renditions of one asset keep the un-resized URL: it is
+            # the full-size original the dealer published. This must use the
+            # SAME notion of "rendition" as the key that collapsed them —
+            # judging only the path let a folded pair keep the thumbnail URL
+            # while inheriting the original's width.
+            kept_url = min(
+                (existing.url, photo.url),
+                key=lambda value: (_rendition_rank(value), value != existing.url),
+            )
             output[existing_index] = PhotoEvidence(
                 url=kept_url,
                 source=strongest.source,
