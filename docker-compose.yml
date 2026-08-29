@@ -24,12 +24,16 @@ services:
     security_opt:
       - no-new-privileges:true
       - seccomp=./seccomp_profile.json
-    pids_limit: 256
+    # One Chromium is tens of processes, so parallel dealer crawls hit the
+    # PID ceiling long before CPU or memory: at three concurrent crawls the
+    # container sat at exactly 256/256 pids and the shell could not even fork
+    # (2026-08-29), while the 12-core host idled at 0.66 load.
+    pids_limit: 2048
     # Sticky-browser dealer crawls render hundreds of heavy SPA pages through
     # one Chromium; a 2g cgroup OOM-killed the browser mid-run (2026-08-28).
-    mem_limit: 8g
-    cpus: 3.0
-    shm_size: 1gb
+    mem_limit: 12g
+    cpus: 6.0
+    shm_size: 2gb
     tmpfs:
       - /tmp:rw,nosuid,nodev,noexec,size=512m
 
