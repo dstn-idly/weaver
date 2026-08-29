@@ -344,20 +344,25 @@ async def run_vehicle_pipeline(record: Any) -> None:
                     raise
                 active_attempt_error = exc
 
-            needs_replacement = bool(
-                active_spec is not None
-                and (
-                    active_attempt_error is not None
-                    or not _complete_replay(replay)
-                )
-            )
-            # SELF-REPAIR TIER. Before discarding the spec and re-inferring one
-            # from scratch, try to fix what QA says is broken. The candidate is
-            # judged by replaying the fixtures ALREADY captured for this run, so
-            # an attempt costs one model call and a local replay instead of
-            # another polite crawl of the dealer's website, and it is adopted
-            # only if it scores strictly better than the spec it replaces.
-            if needs_replacement and active_attempt_error is None and fixtures is not None:
+            # SELF-REPAIR TIER. Try to fix what QA says is broken before doing
+            # anything more expensive. The candidate is judged by replaying the
+            # fixtures ALREADY captured for this run, so an attempt costs one
+            # model call and a local replay instead of another polite crawl of
+            # the dealer's website, and it is adopted only if it scores
+            # strictly better than the spec it replaces.
+            #
+            # This runs for a FRESHLY INFERRED spec as well as a stale
+            # last-known-good one. Gating it on an existing active spec made
+            # repair reachable only for a returning dealership whose scraper had
+            # drifted — never for a first-time onboarding, which is precisely
+            # when a first inference is most likely to get a selector wrong and
+            # when there is no previous good spec to fall back to.
+            if (
+                active_attempt_error is None
+                and fixtures is not None
+                and replay is not None
+                and not _complete_replay(replay)
+            ):
                 baseline_report = replay
                 repair_evidence = reduce_evidence_for_repair(fixtures)
                 repair_qa = reduce_qa_for_repair(replay.qa)
@@ -415,10 +420,17 @@ async def run_vehicle_pipeline(record: Any) -> None:
                         "info",
                         source_id,
                     )
-                    # Only a repair that reaches a COMPLETE, passing snapshot
-                    # ends the failure path; a partial improvement still hands
-                    # off to rediscovery below with better selectors in hand.
-                    needs_replacement = not _complete_replay(replay)
+
+            # Computed AFTER repair so a spec the model successfully fixed does
+            # not get thrown away by rediscovery. A first run still never
+            # rediscovers: inference is what produced this spec.
+            needs_replacement = bool(
+                active_spec is not None
+                and (
+                    active_attempt_error is not None
+                    or not _complete_replay(replay)
+                )
+            )
 
             if needs_replacement:
                 reason = (

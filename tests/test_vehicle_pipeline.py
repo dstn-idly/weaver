@@ -565,3 +565,116 @@ async def test_inference_error_closes_session_and_preserves_active_pointer(
     assert any(event == "error" for event, _payload, _source in record.events)
     assert record.vehicle_cf_access_client_id is None
     assert record.vehicle_cf_access_client_secret is None
+
+
+@pytest.mark.asyncio
+async def test_a_first_time_dealership_gets_a_repair_attempt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Repair must reach a FRESHLY INFERRED spec, not only a stale
+    last-known-good one.
+
+    Gating it on an existing active spec made self-repair reachable only for a
+    returning dealership whose scraper had drifted — never for a first-time
+    onboarding, which is exactly when inference is most likely to bind a
+    selector wrong and when there is no previous good spec to fall back to
+    (Jim Norton Toyota, 2026-08-29: QA rejected the first inference and zero
+    repair attempts fired).
+    """
+
+    monkeypatch.setattr(pipeline, "data_root", lambda: tmp_path)
+    _FakeDealerSession.instances.clear()
+    monkeypatch.setattr(pipeline, "PersistentDealerSession", _FakeDealerSession)
+
+    inferred = parse_spec(_spec_dict(card_selector=".wrong-card"))
+    repaired = parse_spec(_spec_dict(card_selector=".right-card"))
+    detail_url = f"{ORIGIN}/vehicle/{VIN}"
+    fixtures = FixtureSet(
+        listing_pages={inferred.start_urls[0]: "<html>inventory</html>"},
+        detail_pages={detail_url: "<main>VDP</main>"},
+        expected_total=1,
+    )
+
+    async def fake_discovery(start_url, session, *, max_candidates):
+        return (inferred.start_urls[0], "<html>inventory</html>", detail_url, "<main>VDP</main>", [start_url])
+
+    import weaver.vehicle.infer as infer_module
+
+    def fake_infer(listing_html, listing_url, **kwargs):
+        return inferred, {"attempt": 1, "validation": {"detail_validated": True}}
+
+    async def fake_capture(spec, session, *, limits, **kwargs):
+        return fixtures
+
+    def fake_replay(spec, fixtures_arg, **limits):
+        # The inferred spec fails QA; only the repaired selector passes.
+        return _replay(spec, passed=spec.listing.card_selector == ".right-card")
+
+    proposals: list[Any] = []
+
+    async def fake_propose(base_spec, evidence, qa, *, prior_rejection=None, **kwargs):
+        proposals.append({"evidence_keys": sorted(evidence), "qa_keys": sorted(qa)})
+        return repaired, {"diagnosis": "card selector matched no vehicles", "patch_count": 1}
+
+    monkeypatch.setattr(pipeline, "discover_vehicle_evidence", fake_discovery)
+    monkeypatch.setattr(infer_module, "infer_vehicle_spec", fake_infer)
+    monkeypatch.setattr(pipeline, "capture_dealer_fixtures", fake_capture)
+    monkeypatch.setattr(pipeline, "replay_fixtures", fake_replay)
+    monkeypatch.setattr(pipeline, "propose_selector_repair", fake_propose)
+
+    record = _Record(tmp_path, "first-run-repair")
+    await pipeline.run_vehicle_pipeline(record)
+
+    # The repair tier ran on a run that had no last-known-good spec at all…
+    assert proposals, "no repair was attempted for a first-time dealership"
+    # …it was given the real diagnosis and page evidence to work from…
+    assert "listing_html" in proposals[0]["evidence_keys"]
+    assert "issues" in proposals[0]["qa_keys"] or "field_coverage" in proposals[0]["qa_keys"]
+    # …and the repaired spec is what the run finished on.
+    assert record.summary.status == "passed"
+
+
+@pytest.mark.asyncio
+async def test_a_passing_first_inference_never_pays_for_repair(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Repair is for failures only: a first inference that already satisfies QA
+    must not spend a model call."""
+
+    monkeypatch.setattr(pipeline, "data_root", lambda: tmp_path)
+    _FakeDealerSession.instances.clear()
+    monkeypatch.setattr(pipeline, "PersistentDealerSession", _FakeDealerSession)
+
+    inferred = parse_spec(_spec_dict())
+    detail_url = f"{ORIGIN}/vehicle/{VIN}"
+    fixtures = FixtureSet(
+        listing_pages={inferred.start_urls[0]: "<html>inventory</html>"},
+        detail_pages={detail_url: "<main>VDP</main>"},
+        expected_total=1,
+    )
+
+    async def fake_discovery(start_url, session, *, max_candidates):
+        return (inferred.start_urls[0], "<html>inventory</html>", detail_url, "<main>VDP</main>", [start_url])
+
+    import weaver.vehicle.infer as infer_module
+
+    monkeypatch.setattr(infer_module, "infer_vehicle_spec",
+                        lambda listing_html, listing_url, **kwargs: (inferred, {"attempt": 1}))
+
+    async def fake_capture(spec, session, *, limits, **kwargs):
+        return fixtures
+
+    monkeypatch.setattr(pipeline, "discover_vehicle_evidence", fake_discovery)
+    monkeypatch.setattr(pipeline, "capture_dealer_fixtures", fake_capture)
+    monkeypatch.setattr(pipeline, "replay_fixtures", lambda spec, f, **limits: _replay(spec, passed=True))
+
+    async def refuse(*args, **kwargs):
+        raise AssertionError("a passing first inference must not call the repair model")
+
+    monkeypatch.setattr(pipeline, "propose_selector_repair", refuse)
+
+    record = _Record(tmp_path, "first-run-clean")
+    await pipeline.run_vehicle_pipeline(record)
+    assert record.summary.status == "passed"
