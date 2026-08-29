@@ -1963,3 +1963,76 @@ def test_one_photo_served_at_two_sizes_is_still_one_photo() -> None:
     # A query that identifies a DIFFERENT asset is still meaningful.
     assert photo_asset_key(f"{base}?id=7") != photo_asset_key(f"{base}?id=8")
     assert photo_asset_key(base) != photo_asset_key(base.replace("a-front", "b-side"))
+
+
+def test_cars_commerce_vin_filed_photos_are_the_published_originals() -> None:
+    """Post Oak Toyota proved 27 photos on vehicle-images.carscommerce.inc and
+    inference threw all of them away: the vin_path_gallery tier was added
+    without teaching the full-resolution allowlist its label. Registering the
+    CDN relabels them known_cdn_full at the source — the label both gates
+    already trust — and folds the /thumbnails/{size}/ rendition onto its
+    original so 27 assets stop reporting as 28 photos."""
+
+    from weaver.vehicle.vdp import _known_full_resolution_variant, photo_asset_key
+
+    vin = "1N4BL4DV4SN384471"
+    original = (
+        "https://vehicle-images.carscommerce.inc/686c-11001492/"
+        f"{vin}/81f2f21fa2c93c303e25e61cc250af2e.png"
+    )
+    thumbnail = original.replace(f"{vin}/", f"{vin}/thumbnails/large/")
+    assert _known_full_resolution_variant(original) == (original, None, True)
+    # The rendition normalizes to the exact original it is a size of.
+    assert _known_full_resolution_variant(thumbnail) == (original, None, True)
+    # A query-bearing spelling proves nothing.
+    assert _known_full_resolution_variant(original + "?w=640") == (original + "?w=640", None, False)
+    # Another host with the same path shape is not this CDN.
+    foreign = original.replace("vehicle-images.carscommerce.inc", "cdn.example")
+    assert _known_full_resolution_variant(foreign)[2] is False
+
+    html = (
+        f'<main data-vin="{vin}"><div class="gallery">'
+        + "".join(
+            f'<img src="https://vehicle-images.carscommerce.inc/686c-11001492/{vin}/photo{i}.png">'
+            for i in range(4)
+        )
+        + "</div></main>"
+    )
+    result = extract_vdp(
+        html,
+        detail_url=f"https://dealer.example/inventory/used-2025-nissan-altima-{vin.lower()}/",
+        origin="https://dealer.example",
+        detail=DetailSpec(root_selector=None, fields={}),
+        expected_vin=vin,
+    )
+    assert result.identity_proven
+    assert len(result.photos) == 4
+    assert all(photo.source == "known_cdn_full" for photo in result.photos)
+    assert all(photo.full_resolution_candidate for photo in result.photos)
+    # ...and photo_asset_key agrees the thumbnail is the same asset.
+    assert photo_asset_key(thumbnail.replace("/thumbnails/large", "")) == photo_asset_key(original)
+
+
+def test_size_segments_fold_only_under_grammars_that_prove_them() -> None:
+    """Wayne Reaves serves one asset as /service/picture/{w}/{h}/{40-hex} with
+    a valueless ?thumb; DealerCenter as imagescf.dealercenter.net/{w}/{h}/…
+    Counted separately, one photo satisfied the two-photo contract. Generic
+    adjacent numbers must NOT fold — /2020/1234/ may be a date and an id."""
+
+    from weaver.vehicle.vdp import photo_asset_key
+
+    asset = "617a0000000000000000000000000000deadbeef"
+    thumb = f"https://iautodealerservices.com/service/picture/150/84/{asset}?thumb"
+    full = f"https://iautodealerservices.com/service/picture/1024/576/{asset}"
+    assert photo_asset_key(thumb) == photo_asset_key(full)
+    # A different 40-hex asset is a different photo, whatever its size.
+    assert photo_asset_key(full) != photo_asset_key(full.replace("deadbeef", "deadbee0"))
+
+    assert photo_asset_key("https://imagescf.dealercenter.net/279/208/abc123.jpg") == (
+        photo_asset_key("https://imagescf.dealercenter.net/1116/836/abc123.jpg")
+    )
+    # Host-scoped: the same numeric pair on an unknown host stays meaningful.
+    assert photo_asset_key("https://cdn.example/279/208/abc123.jpg") != (
+        photo_asset_key("https://cdn.example/1116/836/abc123.jpg")
+    )
+    assert photo_asset_key("https://cdn.x/2020/1234/a.jpg") != photo_asset_key("https://cdn.x/a.jpg")

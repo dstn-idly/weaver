@@ -73,6 +73,26 @@ _DEALEREPROCESS_DVP_PATH_RE = re.compile(
 )
 _RIDEMOTIVE_IMAGE_PATH_RE = re.compile(r"^/[a-z0-9]{20,64}$")
 _RIDEMOTIVE_IMAGE_ID_RE = re.compile(r"^[a-z0-9]{20,64}$")
+# Cars Commerce (Dealer Inspire) files a car's photos under its VIN:
+# /{shard}-{dealerId}/{VIN}/{asset}.png is the published original, and
+# /{shard}-{dealerId}/{VIN}/thumbnails/{size}/{asset}.png a rendition of that
+# exact asset. Post Oak Toyota proved 27 photos here and inference threw all
+# of them away: the tier that read them (vin_path_gallery) was never added to
+# the full-resolution allowlist when it was built — the extractor learned to
+# see the photos and the gate was never told. Registering the CDN relabels
+# them known_cdn_full at the source, which both gates already trust.
+_CARSCOMMERCE_ORIGINAL_PATH_RE = re.compile(
+    r"^/(?P<prefix>[0-9a-f]{1,8}-\d{1,12})/(?P<vin>[A-HJ-NPR-Z0-9]{17})/"
+    r"(?P<asset>[A-Za-z0-9][A-Za-z0-9._-]{0,255}\.(?:png|jpe?g|webp))$",
+    re.I,
+)
+_CARSCOMMERCE_RENDITION_PATH_RE = re.compile(
+    r"^/(?P<prefix>[0-9a-f]{1,8}-\d{1,12})/(?P<vin>[A-HJ-NPR-Z0-9]{17})/"
+    r"thumbnails/[a-z0-9_-]{1,32}/"
+    r"(?P<asset>[A-Za-z0-9][A-Za-z0-9._-]{0,255}\.(?:png|jpe?g|webp))$",
+    re.I,
+)
+
 _REMORA_ORIGINAL_PATH_RE = re.compile(
     r"^/\d{1,12}/(?P<vin>[A-HJ-NPR-Z0-9]{17})-"
     r"[A-Za-z0-9][A-Za-z0-9._-]{0,255}\.avif$",
@@ -1711,6 +1731,27 @@ def _known_full_resolution_variant(url: str) -> tuple[str, int | None, bool]:
                 True,
             )
         return url, None, False
+    if hostname == "vehicle-images.carscommerce.inc":
+        if parsed.query or parsed.fragment:
+            return url, None, False
+        if _CARSCOMMERCE_ORIGINAL_PATH_RE.fullmatch(parsed.path):
+            return url, None, True
+        rendition = _CARSCOMMERCE_RENDITION_PATH_RE.fullmatch(parsed.path)
+        if rendition:
+            return (
+                urlunsplit(
+                    (
+                        parsed.scheme,
+                        parsed.netloc,
+                        f"/{rendition.group('prefix')}/{rendition.group('vin')}/{rendition.group('asset')}",
+                        "",
+                        "",
+                    )
+                ),
+                None,
+                True,
+            )
+        return url, None, False
     if hostname == "vimg.remora.inc":
         match = _REMORA_ORIGINAL_PATH_RE.fullmatch(parsed.path)
         if match and ".thumb." not in parsed.path.casefold():
@@ -2080,6 +2121,13 @@ def _photo_collection_key(url: str) -> tuple[str, ...] | None:
         match = _BIRCHWOOD_LARGE_PATH_RE.fullmatch(parsed.path)
         if match:
             return ("birchwood", match.group("album"))
+    if hostname == "vehicle-images.carscommerce.inc":
+        match = (
+            _CARSCOMMERCE_ORIGINAL_PATH_RE.fullmatch(parsed.path)
+            or _CARSCOMMERCE_RENDITION_PATH_RE.fullmatch(parsed.path)
+        )
+        if match:
+            return ("carscommerce", match.group("vin").upper())
     if hostname == "vimg.remora.inc":
         match = _REMORA_ORIGINAL_PATH_RE.fullmatch(parsed.path)
         if match:
@@ -2506,7 +2554,24 @@ _PHOTO_RENDITION_SEGMENT_RE = re.compile(r"/(?:resize/)?\d{1,5}x\d{1,5}(?=/)", r
 # the path-only fold counted as two photos — the very miscount this key
 # exists to prevent, arriving through the other half of the URL.
 _PHOTO_RENDITION_QUERY_KEYS = frozenset(
-    {"impolicy", "w", "h", "width", "height", "downsize", "downsize_bkpt", "resize", "sz", "quality", "q"}
+    {
+        "impolicy", "w", "h", "width", "height", "downsize", "downsize_bkpt",
+        "resize", "sz", "quality", "q",
+        # Wayne Reaves marks its small rendition with a VALUELESS ?thumb —
+        # no "=", so the key/value folds never saw it, and one asset's thumb
+        # and original counted as two photos.
+        "thumb", "thumbnail",
+    }
+)
+# Size segments with no "x" separator, foldable ONLY under a grammar where
+# the asset's identity survives without them. Generic adjacent numbers are
+# NOT foldable — /2020/1234/ in an arbitrary path may be a date and an id.
+_PHOTO_SCOPED_RENDITION_RES = (
+    # Wayne Reaves: /service/picture/{w}/{h}/{40-hex asset id}
+    re.compile(r"/service/picture/\d{1,5}/\d{1,5}(?=/[0-9a-f]{40})", re.I),
+    # DealerCenter: imagescf.dealercenter.net/{w}/{h}/{file} — host-scoped,
+    # because only there is a leading numeric pair known to be a size.
+    re.compile(r"^(https://imagescf\.dealercenter\.net)/\d{1,5}/\d{1,5}(?=/)", re.I),
 )
 
 
@@ -2522,6 +2587,8 @@ def photo_asset_key(url: str) -> str:
     """
 
     folded = _PHOTO_RENDITION_SEGMENT_RE.sub("", str(url or ""))
+    for pattern in _PHOTO_SCOPED_RENDITION_RES:
+        folded = pattern.sub(lambda match: match.group(1) if match.groups() else "", folded)
     head, sep, query = folded.partition("?")
     if not sep:
         return folded.casefold()

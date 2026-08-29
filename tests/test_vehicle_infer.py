@@ -1233,3 +1233,33 @@ def test_a_card_photo_need_not_be_an_img_element() -> None:
     assert _has_card_imagery(soup.select_one(".styled"))
     assert _has_card_imagery(soup.select_one(".classic"))
     assert not _has_card_imagery(soup.select_one(".bare"))
+
+
+def test_a_card_vin_may_live_in_the_href_instead_of_the_text() -> None:
+    """Universal Nissan's machine-readable inventory page prints no VIN prose
+    and renders no thumbnail — every card's link is /inventory/…-{vin}/. That
+    href belongs to this card as surely as its text does, so it is card
+    evidence by the same rule."""
+
+    from weaver.vehicle.infer import _listing_card_selector_candidates
+
+    def card(vin: str, slug: str, name: str, price: str) -> str:
+        return (
+            '<li class="vehicle-item">'
+            f'<a href="/inventory/used-{slug}-{vin.lower()}/">{name}</a>'
+            f"<span>{price}</span><span>2022</span></li>"
+        )
+
+    html = (
+        "<html><body><ul>"
+        + card("JN8AT3BB9NW123456", "nissan-rogue", "2022 Nissan Rogue SV", "$24,995")
+        + card("1HGBH41JXMN109186", "honda-civic", "2021 Honda Civic EX", "$21,500")
+        + card("JHMCM56557C404453", "honda-accord", "2007 Honda Accord", "$8,995")
+        + "</ul></body></html>"
+    )
+    selectors = _listing_card_selector_candidates(
+        html,
+        listing_url="https://dealer.example/llm/inventory/",
+        origin="https://dealer.example",
+    )
+    assert "li.vehicle-item" in selectors

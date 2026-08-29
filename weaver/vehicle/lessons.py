@@ -107,6 +107,17 @@ FIELD_NOTES: tuple[str, ...] = (
     "scheme into the navigation authorization check — only into link "
     "harvesting, and only upgrading, never downgrading.",
 
+    "PHOTOS: when a new ownership tier or source label is added to the "
+    "extractor, the inference gate's full-resolution allowlist and the dedupe "
+    "source-strength map must learn it in the SAME change — Post Oak proved "
+    "27 photos that inference threw away because vin_path_gallery was born "
+    "without either registration.",
+
+    "PHOTOS: a rendition's size can be two bare path segments with no 'x' "
+    "(/service/picture/150/84/, imagescf host /279/208/). Fold them ONLY "
+    "under a grammar that proves they are sizes — generic adjacent numbers "
+    "may be a date and an id. A valueless ?thumb is also a rendition marker.",
+
     # ── IDENTITY AND COMPLETENESS ────────────────────────────────────────────
     "IDENTITY: a photo may only belong to the VIN whose page published it. "
     "Photos shared between two vehicles mean the gallery selector escaped the "

@@ -575,9 +575,11 @@ def _listing_card_selector_candidates(
             # with 100 schema.org/Car cards produced no catalog. This is the
             # rule _local_card_vehicle_evidence already applies one screen
             # above: a VIN is evidence on its own, and an image only stands in
-            # where no VIN does. The VIN must be in the candidate container's
-            # OWN text, so the evidence still lives inside the card.
-            has_card_vin = bool(_VIN_TEXT_RE.search(text))
+            # where no VIN does. The VIN may live in the card's own text OR in
+            # the card's single detail href — Universal Nissan's machine page
+            # prints no VIN prose but every card link is /inventory/…-{vin}/,
+            # and that href belongs to this card as surely as its text does.
+            has_card_vin = bool(_VIN_TEXT_RE.search(text)) or bool(vin_from_url(url))
             has_vehicle_fact = bool(
                 _PRICE_RE.search(text)
                 or _VIN_TEXT_RE.search(text)
