@@ -346,3 +346,30 @@ def test_every_model_prompt_carries_the_field_notes():
 
     # Bounded: these ride alongside page evidence in a capped request.
     assert len(rendered) < 8_000
+
+
+def test_the_portal_says_a_queued_job_is_resting_not_stuck(tmp_path):
+    """A polite wait rendered as a bare "queued", which reads as a wedge.
+
+    Twice that sent us looking for a dead worker when the queue was in fact
+    holding on purpose, so the job feed has to name the reason.
+    """
+
+    from datetime import datetime, timedelta, timezone
+
+    from weaver.factory import portal
+    from weaver.factory.store import FactoryStore
+
+    store = FactoryStore(tmp_path)
+    recent = store.create("https://dealer.example/used", "https://dealer.example")
+    recent.state = "failed"
+    recent.last_crawl_at = (datetime.now(timezone.utc) - timedelta(minutes=5)).isoformat()
+
+    resting = store.create("https://dealer.example/used", "https://dealer.example")
+    free = store.create("https://other-dealer.example/used", "https://other-dealer.example")
+
+    annotated = {row["id"]: row for row in portal._annotate(store, store.list_jobs())}
+    assert annotated[resting.id]["cooldown_minutes"] > 0
+    assert annotated[free.id]["cooldown_minutes"] == 0
+    # A finished job is not waiting on anything, so it never claims to be.
+    assert annotated[recent.id]["cooldown_minutes"] == 0

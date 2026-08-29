@@ -7,12 +7,14 @@ fetch-streaming so the token stays in the Authorization header.
 
 from __future__ import annotations
 
+import time
+
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from . import logstream
-from .orchestrator import parse_intake_url
+from .orchestrator import origin_cooldown_remaining, parse_intake_url
 from .simulate import extension_asset
 from .store import FactoryStore
 
@@ -29,6 +31,24 @@ def _require_store() -> FactoryStore:
     if _store is None:
         raise HTTPException(503, "factory store is not initialised")
     return _store
+
+
+def _annotate(store: FactoryStore, summaries: list[dict[str, object]]) -> list[dict[str, object]]:
+    """Tell the portal WHY a queued job is not moving.
+
+    A job resting out its dealership's cooldown rendered as a bare "queued",
+    which reads exactly like a wedged queue — twice it sent us hunting for a
+    dead worker that was in fact being polite on purpose.
+    """
+
+    now = time.time()
+    for summary in summaries:
+        job = store.jobs.get(str(summary.get("id")))
+        if job is None or job.state != "queued":
+            summary["cooldown_minutes"] = 0
+            continue
+        summary["cooldown_minutes"] = round(origin_cooldown_remaining(store, job, now) / 60.0)
+    return summaries
 
 
 class IntakeRequest(BaseModel):
@@ -79,7 +99,8 @@ async def create_job(payload: IntakeRequest) -> dict[str, object]:
 
 @router.get("/api/factory/jobs")
 async def list_jobs() -> list[dict[str, object]]:
-    return _require_store().list_jobs()
+    store = _require_store()
+    return _annotate(store, store.list_jobs())
 
 
 @router.get("/api/factory/jobs/{job_id}")
@@ -88,7 +109,7 @@ async def job_detail(job_id: str) -> JSONResponse:
     job = store.jobs.get(job_id)
     if job is None:
         raise HTTPException(404, "job not found")
-    detail = job.summary()
+    detail = _annotate(store, [job.summary()])[0]
     detail["events"] = job.events[-200:]
     return JSONResponse(detail)
 
@@ -234,11 +255,17 @@ async function refresh() {
     for (const job of jobs) {
       const el = document.createElement("div");
       el.className = "job" + (selected === job.id ? " active" : "");
-      el.innerHTML = `<span class="host">${new URL(job.url).hostname}</span><span class="pill ${job.state}">${job.state === "running" ? job.stage : job.state}</span>`;
+      el.innerHTML = `<span class="host">${new URL(job.url).hostname}</span><span class="pill ${job.state}">${pillText(job)}</span>`;
       el.onclick = () => select(job.id);
       list.appendChild(el);
     }
   } catch (e) {}
+}
+function pillText(job) {
+  if (job.state === "running") return job.stage;
+  // A polite wait is not a stall; say which it is.
+  if (job.state === "queued" && job.cooldown_minutes > 0) return `resting ${job.cooldown_minutes}m`;
+  return job.state;
 }
 async function intake() {
   const url = document.getElementById("intakeUrl").value.trim();

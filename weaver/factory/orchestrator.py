@@ -281,9 +281,13 @@ async def process_job(store: FactoryStore, job: FactoryJob) -> None:
 # five times in eight hours is what earned an HTTP 429 from Jim Norton Toyota
 # (2026-08-29) — the site was right to refuse. The factory now enforces the
 # politeness it was relying on an operator to remember.
+# Three hours was set to stop one requeue loop from hammering Jim Norton into
+# a 429, but it also froze a whole onboarding batch for an afternoon. The
+# runaway case is now caught by the run deadline and the hang watchdog, so the
+# rest only has to be long enough that a retry is not a hammer.
 ORIGIN_COOLDOWN_SECONDS = max(
     0.0,
-    min(float(os.getenv("FACTORY_ORIGIN_COOLDOWN_MIN", "180") or 180) * 60.0, 24 * 3600.0),
+    min(float(os.getenv("FACTORY_ORIGIN_COOLDOWN_MIN", "30") or 30) * 60.0, 24 * 3600.0),
 )
 
 
