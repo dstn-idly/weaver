@@ -318,3 +318,31 @@ def test_different_dealerships_run_together_but_one_never_runs_twice(tmp_path):
     # ...unless an operator explicitly waived it.
     b1.cooldown_override = True
     assert _claimable(store, {"https://a.example"}, now) is b1
+
+
+def test_every_model_prompt_carries_the_field_notes():
+    """The notes exist so a hard-won lesson is not relearned at a customer's
+    expense. All three models that shape a scraper must read them."""
+
+    from weaver.factory.luna import INSTRUCTIONS as LUNA
+    from weaver.vehicle.lessons import FIELD_NOTES, field_notes_prompt
+    from weaver.vehicle.repair import INSTRUCTIONS as REPAIR
+
+    assert len(FIELD_NOTES) >= 10
+    rendered = field_notes_prompt()
+    for prompt in (LUNA, REPAIR):
+        assert "LESSONS FROM PRIOR LIVE" in prompt
+        assert FIELD_NOTES[0][:40] in prompt
+
+    # The specific defects that reached customers must be represented.
+    blob = rendered.lower()
+    for topic in ("model year", "resize", "og:image", "stock", "call for price", "set-cookie"):
+        assert topic in blob, topic
+
+    # Inference builds its prompt at call time; assert the wiring is present.
+    import inspect
+    import weaver.vehicle.infer as infer
+    assert "field_notes_prompt()" in inspect.getsource(infer)
+
+    # Bounded: these ride alongside page evidence in a capped request.
+    assert len(rendered) < 8_000

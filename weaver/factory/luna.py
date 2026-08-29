@@ -15,6 +15,7 @@ from typing import Any
 import httpx
 
 from ..openai_retry import apost_json_with_retry, quota_exhausted_reason
+from ..vehicle.lessons import field_notes_prompt
 
 RESPONSES_URL = "https://api.openai.com/v1/responses"
 DEFAULT_MODEL = "gpt-5.6-luna"
@@ -60,7 +61,7 @@ INSTRUCTIONS = (
     "expected. DO flag values that look "
     "semantically wrong even when in-bounds (a price equal to the model year, "
     "mileage equal to a price, identical values across all records)."
-)
+) + field_notes_prompt()
 
 
 def _clip(value: Any, limit: int) -> str:

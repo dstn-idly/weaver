@@ -46,6 +46,7 @@ from .vdp import extract_vdp
 
 
 from ..openai_retry import post_json_with_retry, quota_exhausted_reason
+from .lessons import field_notes_prompt
 
 RESPONSES_URL = "https://api.openai.com/v1/responses"
 DEFAULT_MODEL = "gpt-5.6-luna"
@@ -2149,7 +2150,7 @@ def infer_vehicle_spec(
         "scope to the page-primary vehicle and its main full-size gallery; exclude "
         "thumbnails, related/recommended cars, logos, banners, and stock imagery. Use "
         "ordinary CSS supported by BeautifulSoup/soupsieve. Null means the evidence does "
-        "not prove a selector."
+        "not prove a selector." + field_notes_prompt()
     )
 
     owned_client = session is None

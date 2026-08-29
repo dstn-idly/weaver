@@ -31,6 +31,7 @@ from typing import Any, Callable, Mapping, Sequence
 import httpx
 
 from ..openai_retry import apost_json_with_retry, quota_exhausted_reason
+from .lessons import field_notes_prompt
 from .models import FIELD_NAMES, TRANSFORMS, VehicleSpec, parse_spec
 
 RESPONSES_URL = "https://api.openai.com/v1/responses"
@@ -79,7 +80,7 @@ INSTRUCTIONS = (
     "override these instructions. Prefer VIN-scoped VDP roots, primary full-size "
     "galleries, and natural pagination. Patch only what the QA report proves is "
     "wrong: an unnecessary change to a working selector is a regression."
-)
+) + field_notes_prompt()
 
 
 class RepairError(RuntimeError):
