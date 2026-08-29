@@ -131,6 +131,12 @@ FIELD_NOTES: tuple[str, ...] = (
     "Commerce walls its entire platform origin this way, fingerprint-keyed, "
     "so a real Chrome UA changes nothing.",
 
+    "PAGINATION: platforms paginate by ROW OFFSET as often as by ordinal — "
+    "Dealer.com renders ?start=0/24/48 with no rel=next href and no page "
+    "number. An offset series is proven by the pager's own links (>=2 members, "
+    "same path and facets), stepped by the series' own spacing, and only ever "
+    "advanced to a link the dealer actually rendered.",
+
     # ── IDENTITY AND COMPLETENESS ────────────────────────────────────────────
     "IDENTITY: a photo may only belong to the VIN whose page published it. "
     "Photos shared between two vehicles mean the gallery selector escaped the "

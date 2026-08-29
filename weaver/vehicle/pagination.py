@@ -15,6 +15,11 @@ from .models import ListingSpec
 
 _PAGE_KEYS = frozenset({"page", "pg", "pagenum", "page_number", "offset", "start"})
 _ONE_BASED_PAGE_KEYS = frozenset({"page", "pg", "pagenum", "page_number"})
+# Dealer.com and other platforms paginate by ROW OFFSET, not page ordinal:
+# /used-inventory/index.htm?start=0, ?start=24, ?start=48. These keys carry a
+# 0-based count of rows already shown, so they are sequenced by adding the
+# page size (the series' own spacing) rather than incremented by one.
+_OFFSET_PAGE_KEYS = frozenset({"start", "offset"})
 _NEXT_RE = re.compile(r"^(?:next|next page|older|more|›|»|→)\s*$", re.I)
 _PATH_PAGE_RE = re.compile(r"/(?:pg|page)/(\d+)(?=/|$)", re.I)
 
@@ -238,6 +243,95 @@ def _series_candidate(
     return best[1] if best else None
 
 
+def _offset_state(url: str) -> tuple[str, int] | None:
+    """The single row-offset key and value on a URL, or None.
+
+    Distinct from ``_page_number``: an offset counts rows already shown
+    (0, 24, 48), so it is one page behind a one-based ordinal and is stepped
+    by the page size, never by one.
+    """
+
+    found: tuple[str, int] | None = None
+    for key, values in _query_map(url).items():
+        if key not in _OFFSET_PAGE_KEYS or len(values) != 1:
+            continue
+        value = values[0].strip()
+        if not value.isdigit() or not 0 <= int(value) <= 10_000_000:
+            return None
+        if found is not None:
+            return None  # two offset keys is not a series we can sequence
+        found = (key, int(value))
+    return found
+
+
+def _offset_series_candidate(
+    nodes: object,
+    *,
+    current_url: str,
+    origin: str,
+    visited: set[str],
+) -> str | None:
+    """Follow a row-offset pager (?start=N) by exactly one published page.
+
+    The page size is the series' OWN spacing — the smallest positive gap
+    between the distinct offsets the page published — so nothing is fabricated
+    and nothing is assumed: the crawl advances only to a link the dealer's own
+    pager renders, one step past where it is now, on an unchanged path/facet
+    series. A model-year or facet control never forms such a series, because
+    each of its members changes the path or a non-page query.
+    """
+
+    current_offset_state = _offset_state(current_url)
+    current_key = current_offset_state[0] if current_offset_state else None
+    current_offset = current_offset_state[1] if current_offset_state else 0
+
+    groups: dict[tuple[str, str, tuple[tuple[str, str], ...]], dict[int, str]] = {}
+    for node in nodes if isinstance(nodes, (list, tuple)) else list(nodes or []):
+        if not isinstance(node, Tag):
+            continue
+        url = same_origin_url(current_url, node.get("href"), origin)
+        if not url:
+            continue
+        url = _collapse_duplicate_page_keys(url)
+        if is_special_or_filter_url(url):
+            continue
+        state = _offset_state(url)
+        if state is None:
+            continue
+        key, offset = state
+        # The offset key must be stable across the series; a page that pages
+        # one facet by ?start and another by ?offset is not one series.
+        if current_key is not None and key != current_key:
+            continue
+        parts = urlsplit(url)
+        path = parts.path.rstrip("/") or "/"
+        if not _INVENTORY_PATH_RE.search(path):
+            continue
+        shape_path, non_page_query = _page_series_shape(url)
+        bucket = (f"{parts.scheme}://{parts.netloc}", shape_path, non_page_query)
+        groups.setdefault(bucket, {}).setdefault(offset, url)
+
+    best: str | None = None
+    best_offset: int | None = None
+    for members in groups.values():
+        offsets = sorted(members)
+        if len(offsets) < 2:
+            continue  # a lone offset link cannot prove a series
+        gaps = [b - a for a, b in zip(offsets, offsets[1:]) if b > a]
+        if not gaps:
+            continue
+        step = min(gaps)
+        if step <= 0:
+            continue
+        target = current_offset + step
+        url = members.get(target)
+        if url is None or canonical_page_url(url) in visited:
+            continue
+        if best_offset is None or target < best_offset:
+            best, best_offset = url, target
+    return best
+
+
 def infer_next_page(
     html: str,
     *,
@@ -318,5 +412,24 @@ def infer_next_page(
     )
     if container_series:
         return PaginationDecision(container_series, "pagination_number_series")
+
+    # Row-offset pagers (Dealer.com ?start=24) publish no rel=next anchor, no
+    # "Next" label our filter accepts, and no one-based ordinal, so every
+    # earlier branch skipped them and a 181-vehicle lot ended at page one.
+    offset_series = _offset_series_candidate(
+        soup.select(
+            "nav a[href], .pagination a[href], [class*='pagination'] a[href], "
+            "[aria-label*='pagination' i] a[href], a[href*='start='], a[href*='offset=']"
+        ),
+        current_url=current_url,
+        origin=origin,
+        visited=seen,
+    )
+    if offset_series:
+        state = _offset_state(offset_series)
+        return PaginationDecision(
+            offset_series,
+            f"pagination_offset_series:{state[1] if state else '?'}",
+        )
 
     return PaginationDecision(None, "natural_end")

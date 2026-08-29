@@ -200,3 +200,101 @@ def test_alias_series_from_pagination_container_without_spec_selector() -> None:
 
     assert decision.url == "https://dealer.example/inventory/used?page=2"
     assert decision.reason == "pagination_number_series"
+
+
+def test_a_row_offset_pager_is_followed_one_published_step_at_a_time() -> None:
+    """Dealer.com paginates by row offset — ?start=0/24/48 — with no rel=next
+    anchor and no one-based ordinal, so a 181-vehicle lot ended at page one
+    with 4 cars and an honest needs_repair. The step is the series' own
+    spacing; the crawl advances only to a link the pager itself renders."""
+
+    from weaver.vehicle.models import ListingSpec
+    from weaver.vehicle.pagination import infer_next_page
+
+    spec = ListingSpec(
+        card_selector="li.vehicle-card", detail_link_selector="a[href]",
+        fields={}, next_page_selector=None, total_selector=None, total_attribute=None,
+    )
+    pager = (
+        '<div class="pagination">'
+        '<a href="/used-inventory/index.htm?start=0">1</a>'
+        '<a href="/used-inventory/index.htm?start=24">2</a>'
+        '<a href="/used-inventory/index.htm?start=48">3</a>'
+        '<span class="pagination-ellipsis">…</span>'
+        '<a href="/used-inventory/index.htm?start=168">8</a>'
+        "</div>"
+    )
+    html = f"<html><body>{pager}</body></html>"
+    origin = "https://dealer.example"
+
+    first = infer_next_page(
+        html,
+        current_url=f"{origin}/used-inventory/index.htm",
+        origin=origin,
+        spec=spec,
+        visited=set(),
+    )
+    assert first.url == f"{origin}/used-inventory/index.htm?start=24"
+    assert first.reason.startswith("pagination_offset_series")
+
+    second = infer_next_page(
+        html,
+        current_url=f"{origin}/used-inventory/index.htm?start=24",
+        origin=origin,
+        spec=spec,
+        visited={f"{origin}/used-inventory/index.htm"},
+    )
+    assert second.url == f"{origin}/used-inventory/index.htm?start=48"
+
+    # From start=48 the pager renders no start=72 link (the ellipsis), so the
+    # crawl does NOT fabricate one — it ends where the published series ends.
+    third = infer_next_page(
+        html,
+        current_url=f"{origin}/used-inventory/index.htm?start=48",
+        origin=origin,
+        spec=spec,
+        visited=set(),
+    )
+    assert third.url is None and third.reason == "natural_end"
+
+
+def test_offset_series_cannot_be_formed_by_facets_or_lone_links() -> None:
+    """A model-year or facet control never forms an offset series: each member
+    changes the path or a non-page query. And a lone ?start link proves
+    nothing."""
+
+    from weaver.vehicle.models import ListingSpec
+    from weaver.vehicle.pagination import infer_next_page
+
+    spec = ListingSpec(
+        card_selector="li.vehicle-card", detail_link_selector="a[href]",
+        fields={}, next_page_selector=None, total_selector=None, total_attribute=None,
+    )
+    origin = "https://dealer.example"
+    current = f"{origin}/used-inventory/index.htm"
+
+    facets = (
+        '<nav><a href="/used-inventory/index.htm?start=24&year=2022">2022</a>'
+        '<a href="/used-inventory/index.htm?start=24&year=2023">2023</a></nav>'
+    )
+    assert infer_next_page(
+        f"<html><body>{facets}</body></html>",
+        current_url=current, origin=origin, spec=spec, visited=set(),
+    ).url is None
+
+    lone = '<div class="pagination"><a href="/used-inventory/index.htm?start=24">2</a></div>'
+    assert infer_next_page(
+        f"<html><body>{lone}</body></html>",
+        current_url=current, origin=origin, spec=spec, visited=set(),
+    ).url is None
+
+    # A non-inventory path can never become a page series.
+    research = (
+        '<div class="pagination">'
+        '<a href="/research/articles?start=0">1</a>'
+        '<a href="/research/articles?start=24">2</a></div>'
+    )
+    assert infer_next_page(
+        f"<html><body>{research}</body></html>",
+        current_url=current, origin=origin, spec=spec, visited=set(),
+    ).url is None
