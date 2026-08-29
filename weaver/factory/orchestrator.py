@@ -313,43 +313,31 @@ def origin_cooldown_remaining(store: FactoryStore, job: FactoryJob, now: float) 
     return max(0.0, ORIGIN_COOLDOWN_SECONDS - (now - latest))
 
 
+# Different dealerships can be crawled at the same time; the SAME dealership
+# never can. Concurrency is bounded because a browser-tier crawl costs real
+# CPU and memory on one box, and because a queue that fans out without limit
+# is how a scraper becomes someone else's incident.
+FACTORY_CONCURRENCY = max(1, min(int(os.getenv("FACTORY_CONCURRENCY", "3") or 3), 6))
+
+
+def _claimable(store: FactoryStore, busy_origins: set[str], now: float) -> FactoryJob | None:
+    """Next queued job whose dealership is free to be crawled right now."""
+
+    queued = [job for job in store.jobs.values() if job.state == "queued"]
+    queued.sort(key=lambda job: job.created_at)
+    for job in queued:
+        if job.origin in busy_origins:
+            continue  # one crawl per dealership at a time, always
+        if origin_cooldown_remaining(store, job, now) > 0 and not job.cooldown_override:
+            continue
+        return job
+    return None
+
+
 async def factory_worker(store: FactoryStore) -> None:
-    while True:
-        job = store.next_queued()
-        if job is None:
-            store.wakeup.clear()
-            try:
-                await asyncio.wait_for(store.wakeup.wait(), timeout=30)
-            except asyncio.TimeoutError:
-                pass
-            continue
-        cooling = origin_cooldown_remaining(store, job, time.time())
-        if cooling > 0 and job.cooldown_override:
-            # A human checked the site and asked for this run anyway. Honour it
-            # once, and say so, so the override is visible in the record.
-            job.cooldown_override = False
-            store.persist(job)
-            await store.emit(job, "origin_cooldown_override", {
-                "origin": job.origin,
-                "waived_minutes": round(cooling / 60.0),
-                "detail": "operator confirmed the dealership is serving again",
-            })
-            cooling = 0.0
-        if cooling > 0:
-            # Leave it queued and say so, rather than hammering the dealership
-            # or silently dropping the customer's request.
-            if not job.events or job.events[-1].get("type") != "origin_cooldown":
-                await store.emit(job, "origin_cooldown", {
-                    "origin": job.origin,
-                    "resumes_in_minutes": round(cooling / 60.0),
-                    "detail": "this dealership was crawled recently; waiting before another pass",
-                })
-            store.wakeup.clear()
-            try:
-                await asyncio.wait_for(store.wakeup.wait(), timeout=min(cooling, 300.0))
-            except asyncio.TimeoutError:
-                pass
-            continue
+    running: dict[str, asyncio.Task] = {}
+
+    async def _run(job: FactoryJob) -> None:
         try:
             await process_job(store, job)
         except Exception as error:  # noqa: BLE001 - every failure must land on the portal
@@ -362,7 +350,51 @@ async def factory_worker(store: FactoryStore) -> None:
             except Exception:  # noqa: BLE001
                 pass
 
+    while True:
+        for origin, task in list(running.items()):
+            if task.done():
+                running.pop(origin, None)
 
+        job = None
+        if len(running) < FACTORY_CONCURRENCY:
+            job = _claimable(store, set(running), time.time())
+
+        if job is not None:
+            if job.cooldown_override:
+                waived = origin_cooldown_remaining(store, job, time.time())
+                job.cooldown_override = False
+                store.persist(job)
+                if waived > 0:
+                    await store.emit(job, "origin_cooldown_override", {
+                        "origin": job.origin,
+                        "waived_minutes": round(waived / 60.0),
+                        "detail": "operator confirmed the dealership is serving again",
+                    })
+            job.state = "running"
+            store.persist(job)
+            running[job.origin] = asyncio.create_task(_run(job))
+            continue
+
+        # Nothing startable: report why the queue is holding, then wait for a
+        # wakeup, a running job to finish, or the shortest cooldown to expire.
+        waits: list[float] = [30.0]
+        for candidate in store.jobs.values():
+            if candidate.state != "queued":
+                continue
+            cooling = origin_cooldown_remaining(store, candidate, time.time())
+            if cooling > 0:
+                waits.append(min(cooling, 300.0))
+                if not candidate.events or candidate.events[-1].get("type") != "origin_cooldown":
+                    await store.emit(candidate, "origin_cooldown", {
+                        "origin": candidate.origin,
+                        "resumes_in_minutes": round(cooling / 60.0),
+                        "detail": "this dealership was crawled recently; waiting before another pass",
+                    })
+        store.wakeup.clear()
+        try:
+            await asyncio.wait_for(store.wakeup.wait(), timeout=min(waits))
+        except asyncio.TimeoutError:
+            pass
 def parse_intake_url(raw: str) -> tuple[str, str]:
     """Validate an intake link; return (url, origin). Deep checks happen in the run."""
 

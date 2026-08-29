@@ -287,3 +287,34 @@ def test_a_requeue_of_the_same_job_cannot_sail_past_the_cooldown(tmp_path):
         datetime.now(timezone.utc) - timedelta(seconds=ORIGIN_COOLDOWN_SECONDS + 60)
     ).isoformat()
     assert origin_cooldown_remaining(store, job, _time.time()) == 0.0
+
+
+def test_different_dealerships_run_together_but_one_never_runs_twice(tmp_path):
+    """Parallelism is across dealerships, never within one. Two crawls of the
+    same lot at once is the behaviour that earned an HTTP 429."""
+
+    import time as _time
+    from datetime import datetime, timedelta, timezone
+
+    from weaver.factory.orchestrator import _claimable
+    from weaver.factory.store import FactoryStore
+
+    store = FactoryStore(tmp_path)
+    a1 = store.create("https://a.example/used", "https://a.example")
+    a2 = store.create("https://a.example/used", "https://a.example")
+    b1 = store.create("https://b.example/used", "https://b.example")
+
+    now = _time.time()
+    # Nothing running: the oldest queued job is claimable.
+    assert _claimable(store, set(), now) is a1
+    # With dealership A busy, A's second job is skipped and B is claimed.
+    assert _claimable(store, {"https://a.example"}, now) is b1
+    # With both busy, nothing is claimable.
+    assert _claimable(store, {"https://a.example", "https://b.example"}, now) is None
+
+    # A dealership inside its cooldown is not claimable...
+    b1.last_crawl_at = (datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat()
+    assert _claimable(store, {"https://a.example"}, now) is None
+    # ...unless an operator explicitly waived it.
+    b1.cooldown_override = True
+    assert _claimable(store, {"https://a.example"}, now) is b1

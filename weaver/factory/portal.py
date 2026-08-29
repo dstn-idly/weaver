@@ -71,8 +71,8 @@ async def create_job(payload: IntakeRequest) -> dict[str, object]:
     except ValueError as error:
         raise HTTPException(422, str(error)) from error
     active = [j for j in store.jobs.values() if j.state in ("queued", "running")]
-    if len(active) >= 5:
-        raise HTTPException(429, "the factory queue is full; let a job finish first")
+    if len(active) >= 40:
+        raise HTTPException(429, "the factory queue is full; let some jobs finish first")
     job = store.create(url, origin)
     return job.summary()
 
