@@ -38,6 +38,33 @@ def _headers_of(response: Any) -> Mapping[str, str]:
     return headers if isinstance(headers, Mapping) else {}
 
 
+PERMANENT_QUOTA_CODES = frozenset({"insufficient_quota", "credit_balance_exhausted"})
+
+
+def quota_exhausted_reason(response: Any) -> str | None:
+    """Return the billing message when a 429 is a spent balance, not throttling.
+
+    OpenAI answers an exhausted credit balance with 429 — the same status as
+    ordinary rate limiting — so a naive retry ladder burns its whole budget and
+    its backoff on a condition that can only be fixed by a human adding funds.
+    """
+
+    if _status_of(response) != 429:
+        return None
+    payload: Any = None
+    try:
+        payload = response.json()
+    except Exception:  # noqa: BLE001 - a body we cannot read is treated as transient
+        return None
+    error = payload.get("error") if isinstance(payload, Mapping) else None
+    if not isinstance(error, Mapping):
+        return None
+    markers = {str(error.get("type") or ""), str(error.get("code") or "")}
+    if not (markers & PERMANENT_QUOTA_CODES):
+        return None
+    return str(error.get("message") or "the OpenAI credit balance is exhausted")[:300]
+
+
 def retry_delay_seconds(response: Any, attempt: int, *, jitter: float | None = None) -> float:
     """Server-directed delay when offered, else bounded exponential backoff."""
 
@@ -71,6 +98,8 @@ def post_json_with_retry(
         response = post(*args, **kwargs)
         if attempt >= attempts or _status_of(response) not in RETRY_STATUSES:
             return response
+        if quota_exhausted_reason(response):
+            return response
         sleep(retry_delay_seconds(response, attempt))
     return response
 
@@ -90,6 +119,8 @@ async def apost_json_with_retry(
         response = await post(*args, **kwargs)
         if attempt >= attempts or _status_of(response) not in RETRY_STATUSES:
             return response
+        if quota_exhausted_reason(response):
+            return response
         await sleep(retry_delay_seconds(response, attempt))
     return response
 
@@ -98,7 +129,9 @@ __all__ = [
     "BACKOFF_CAP_SECONDS",
     "MAX_ATTEMPTS",
     "RETRY_STATUSES",
+    "PERMANENT_QUOTA_CODES",
     "apost_json_with_retry",
+    "quota_exhausted_reason",
     "post_json_with_retry",
     "retry_delay_seconds",
 ]

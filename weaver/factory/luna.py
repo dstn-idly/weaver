@@ -14,7 +14,7 @@ from typing import Any
 
 import httpx
 
-from ..openai_retry import apost_json_with_retry
+from ..openai_retry import apost_json_with_retry, quota_exhausted_reason
 
 RESPONSES_URL = "https://api.openai.com/v1/responses"
 DEFAULT_MODEL = "gpt-5.6-luna"
@@ -124,6 +124,9 @@ async def luna_qa_review(
                 headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
                 json=body,
             )
+        billing = quota_exhausted_reason(response)
+        if billing:
+            raise RuntimeError(f"OpenAI credit balance exhausted: {billing}")
         response.raise_for_status()
         data = response.json()
         text = ""

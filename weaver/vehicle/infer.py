@@ -45,7 +45,7 @@ from .models import DetailSpec, FIELD_NAMES, TRANSFORMS, VehicleSpec, parse_spec
 from .vdp import extract_vdp
 
 
-from ..openai_retry import post_json_with_retry
+from ..openai_retry import post_json_with_retry, quota_exhausted_reason
 
 RESPONSES_URL = "https://api.openai.com/v1/responses"
 DEFAULT_MODEL = "gpt-5.6-luna"
@@ -2210,6 +2210,11 @@ def infer_vehicle_spec(
                     json=body,
                     timeout=httpx.Timeout(180.0, connect=15.0),
                 )
+                billing = quota_exhausted_reason(response)
+                if billing:
+                    # A spent balance is an operator action, not a site problem.
+                    # Say so plainly instead of burying it in an HTTP dump.
+                    raise SpecInferenceError(f"OpenAI credit balance exhausted: {billing}")
                 response.raise_for_status()
                 payload = response.json()
                 if not isinstance(payload, Mapping):

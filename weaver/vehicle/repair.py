@@ -30,7 +30,7 @@ from typing import Any, Callable, Mapping, Sequence
 
 import httpx
 
-from ..openai_retry import apost_json_with_retry
+from ..openai_retry import apost_json_with_retry, quota_exhausted_reason
 from .models import FIELD_NAMES, TRANSFORMS, VehicleSpec, parse_spec
 
 RESPONSES_URL = "https://api.openai.com/v1/responses"
@@ -326,6 +326,9 @@ async def propose_selector_repair(
                 headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
                 json=body,
             )
+        billing = quota_exhausted_reason(response)
+        if billing:
+            raise RepairError(f"OpenAI credit balance exhausted: {billing}")
         response.raise_for_status()
         data = response.json()
     except Exception as exc:  # noqa: BLE001 - transport failures are repair failures

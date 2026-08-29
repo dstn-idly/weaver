@@ -5,6 +5,7 @@ from weaver.openai_retry import (
     BACKOFF_CAP_SECONDS,
     apost_json_with_retry,
     post_json_with_retry,
+    quota_exhausted_reason,
     retry_delay_seconds,
 )
 
@@ -84,3 +85,38 @@ def test_async_variant_retries_the_same_way() -> None:
     )
     assert result.status_code == 200
     assert len(calls) == 2
+
+
+def test_an_exhausted_credit_balance_is_not_retried() -> None:
+    """OpenAI answers a spent balance with 429 — the same status as ordinary
+    throttling. Retrying it burns the whole ladder plus backoff on a condition
+    only a human can fix (Jim Norton, 2026-08-29: credit_balance_exhausted)."""
+
+    calls = []
+    body = {"error": {
+        "message": "You have no credits remaining. Add credits to continue using the API at https://platform.openai.com/settings/organization/billing/.",
+        "type": "insufficient_quota",
+        "code": "credit_balance_exhausted",
+    }}
+
+    def post(url, **kwargs):
+        calls.append(url)
+        return SimpleNamespace(status_code=429, headers={}, json=lambda: body)
+
+    result = post_json_with_retry(post, "https://api.openai.com/v1/responses", sleep=lambda _s: None)
+    assert result.status_code == 429
+    assert len(calls) == 1
+
+    reason = quota_exhausted_reason(result)
+    assert reason and "no credits remaining" in reason
+
+    # Ordinary throttling is still retried, including a body we cannot read.
+    throttled = []
+
+    def throttle(url, **kwargs):
+        throttled.append(url)
+        return SimpleNamespace(status_code=429, headers={}, json=lambda: (_ for _ in ()).throw(ValueError("not json")))
+
+    post_json_with_retry(throttle, "https://api.openai.com/v1/responses", sleep=lambda _s: None)
+    assert len(throttled) == 4
+    assert quota_exhausted_reason(SimpleNamespace(status_code=429, headers={}, json=lambda: {"error": {"type": "rate_limit_exceeded"}})) is None
