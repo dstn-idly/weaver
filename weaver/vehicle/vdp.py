@@ -694,6 +694,41 @@ def _cdn_prefix_owned_urls(soup: BeautifulSoup) -> list[str] | None:
     return urls
 
 
+def _vin_path_gallery_candidates(
+    soup: BeautifulSoup, expected_vin: str | None
+) -> list[_StructuredCandidate]:
+    """Collect photos whose CDN path names this exact VIN.
+
+    Several inventory CDNs file a car's images under its VIN
+    (``/{shard}/{VIN}/{asset}.png``). That is the strongest ownership proof a
+    page can offer — stronger than a folder prefix, and immune to the same car
+    being served from more than one shard. Without it a 166-photo Post Oak
+    Toyota VDP looked photoless, because the host was simply unknown.
+    """
+
+    vin = clean_vin(expected_vin)
+    if not vin or is_surrogate_vin(vin):
+        return []
+    pattern = re.compile(
+        r"https://[a-z0-9.-]+/[^\s\"'<>,\\]*/" + re.escape(vin) + r"/[^\s\"'<>,\\]+\.(?:jpe?g|png|webp)",
+        re.I,
+    )
+    urls: list[str] = []
+    for match in pattern.finditer(str(soup)):
+        url = match.group(0)
+        if _CDN_PLACEHOLDER_RE.search(url) or _CDN_STOCK_PATH_RE.search(url):
+            continue
+        if re.search(r"/thumbnails?/|/thumbs?/", url, re.I):
+            continue  # a rendition of an asset the full-size loop already has
+        if url not in urls:
+            urls.append(url)
+        if len(urls) >= 500:
+            break
+    if len(urls) < 2:
+        return []
+    return [_StructuredCandidate({"vin": vin, "images": urls}, "vin_path_gallery", primary_hint=True)]
+
+
 def _cdn_prefix_gallery_candidates(soup: BeautifulSoup) -> list[_StructuredCandidate]:
     """Collect the page's own dealer-CDN gallery by photo-folder prefix.
 
@@ -2755,6 +2790,9 @@ def extract_vdp(
     soup = BeautifulSoup(html or "", "html.parser")
     expected = clean_vin(expected_vin)
     candidates = _structured_candidates(html or "", soup)
+    # VIN-in-path galleries need the expected VIN, which _structured_candidates
+    # does not receive; prepend them so this strongest ownership proof wins.
+    candidates = _vin_path_gallery_candidates(soup, expected) + candidates
     selected, matched_by = _select_structured(candidates, expected_vin=expected, detail_url=detail_url)
     scope, scope_found = _select_dom_scope(soup, detail=detail, expected_vin=expected)
     expected_real = expected if expected and not is_surrogate_vin(expected) else None

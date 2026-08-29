@@ -1812,3 +1812,42 @@ def test_renditions_of_one_photo_are_one_photo() -> None:
     )) == 2
     # The per-vehicle folder must survive folding, or two cars' photos merge.
     assert "2065512" in photo_asset_key(first)
+
+
+def test_a_vin_in_the_photo_path_proves_ownership() -> None:
+    """Post Oak Toyota's VDP carries 166 images and looked photoless, because
+    its CDN host was unknown. Several inventory CDNs file a car's photos under
+    its VIN, which is stronger proof than any folder convention — and immune
+    to the same car being served from more than one shard."""
+
+    from bs4 import BeautifulSoup
+
+    from weaver.vehicle.vdp import _vin_path_gallery_candidates
+
+    vin = "1N4BL4DV4SN384471"
+    other = "5XYZT3LB3HG405174"
+    html = (
+        "<html><body>"
+        f'<script>var g="https://vehicle-images.carscommerce.inc/686c-11001492/{vin}/aaa.png,'
+        f'https://vehicle-images.carscommerce.inc/e00a-11001492/{vin}/bbb.png";</script>'
+        f'<img src="https://vehicle-images.carscommerce.inc/686c-11001492/{vin}/thumbnails/large/aaa.png">'
+        f'<img src="https://vehicle-images.carscommerce.inc/686c-11001492/{other}/not-mine.png">'
+        f'<img src="https://cdn.example/stock_images/{vin}/factory-render.png">'
+        "</body></html>"
+    )
+    soup = BeautifulSoup(html, "html.parser")
+    candidates = _vin_path_gallery_candidates(soup, vin)
+    assert candidates, "a VIN-named gallery must be recognised"
+    images = candidates[0].value["images"]
+
+    assert len(images) == 2
+    assert all(vin in url for url in images)
+    assert not any(other in url for url in images)          # another car's photos
+    assert not any("thumbnail" in url for url in images)     # a rendition, not a photo
+    assert not any("stock_images" in url for url in images)  # factory art, not this car
+    # Two CDN shards serve the same car; both are still its photos.
+    assert len({url.split("/")[3] for url in images}) == 2
+
+    # Without a real VIN there is nothing to prove ownership against.
+    assert _vin_path_gallery_candidates(soup, None) == []
+    assert _vin_path_gallery_candidates(soup, "URLKEY12345678901") == []

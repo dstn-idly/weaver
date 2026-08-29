@@ -41,6 +41,12 @@ FIELD_NOTES: tuple[str, ...] = (
     "{dealerId}/{vehicleId} folder, and the page's own og:image names it — "
     "accept only URLs sharing that exact folder, which is also what keeps a "
     "'similar vehicles' rail out of the gallery.",
+    "PHOTOS: several inventory CDNs file a car's images under its VIN "
+    "(/{shard}/{VIN}/asset.png). A VIN in the photo path is the STRONGEST "
+    "ownership proof available — stronger than any folder convention, and it "
+    "still holds when one car is served from more than one CDN shard. A "
+    "166-photo page once read as photoless purely because its host was "
+    "unfamiliar.",
     "PHOTOS: manufacturer stock renders are not photographs of this car. "
     "Treat evox/GetEvoxImage art and /stock_images/ paths as absent "
     "photography, however many of them the page shows.",
