@@ -1,0 +1,26 @@
+weaver/vehicle/qa.py
+  s_da9cd4ad208db2::t_27b1f3f7b1af5f 381-389
+weaver/vehicle/extract.py
+  s_da9cd4ad208db2::t_a5b9c3af8d8a01 531-542
+  s_da9cd4ad208db2::t_45789d06ae9e62 554-560,568-571,577-579
+tests/test_vehicle_extract.py
+  s_da9cd4ad208db2::t_26796d2d8fa6ee 265-310
+tests/test_vehicle_qa.py
+  s_da9cd4ad208db2::t_4beb4ba5ece95d 191-202
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "ba79c036617a2f643c7068c26619d205546749c2",
+  "prompts": {},
+  "sessions": {
+    "s_da9cd4ad208db2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4cd1a6ac-f843-47f4-ac8d-77cbe7e08a68",
+        "model": "claude-fable-5"
+      },
+      "human_author": "dustin thach <epikunder321123@gmail.com>"
+    }
+  }
+}
