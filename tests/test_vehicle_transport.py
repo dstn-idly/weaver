@@ -3162,3 +3162,73 @@ def test_navigation_hang_exhausts_to_typed_transport_error(monkeypatch) -> None:
         assert excinfo.value.code == "navigation_hang"
 
     asyncio.run(run())
+
+
+def test_a_cookie_gate_is_solved_by_the_static_tier_not_the_browser(monkeypatch) -> None:
+    """A 302 + Set-Cookie handshake must be answered with the cookie, not by
+    escalating the whole run to the browser.
+
+    Jim Norton Toyota gated every VDP this way. Without a jar each static probe
+    restarted the handshake, the redirect-cycle guard disabled static
+    navigation for the run, and all ~290 vehicles rendered in Chromium — about
+    20 seconds each instead of half a second.
+    """
+
+    requests: list[tuple[str, str]] = []
+
+    async def allow(url):
+        return SimpleNamespace(url=url)
+
+    class Client:
+        def __init__(self, **kwargs):
+            # The jar is shared across hops; CF Access headers still are not.
+            self.cookies = kwargs.get("cookies")
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, traceback):
+            return None
+
+        async def get(self, url, **kwargs):
+            has_cookie = bool(self.cookies and self.cookies.get("vdp_gate"))
+            requests.append((url, "with-cookie" if has_cookie else "no-cookie"))
+            if not has_cookie:
+                return SimpleNamespace(
+                    status_code=302,
+                    headers={"location": url, "set-cookie": "vdp_gate=cleared; Path=/"},
+                    content=b"",
+                    text="",
+                    cookies={"vdp_gate": "cleared"},
+                )
+            body = "<html><body>" + ("real vehicle inventory content " * 40) + "</body></html>"
+            return SimpleNamespace(status_code=200, headers={}, content=body.encode(), text=body, cookies={})
+
+    monkeypatch.setattr("weaver.vehicle.transport.validate_public_url", allow)
+    monkeypatch.setattr("weaver.vehicle.transport.httpx.AsyncClient", Client)
+
+    async def run():
+        session = PersistentDealerSession("https://dealer.example")
+
+        async def fake_rendered(url, **kwargs):
+            raise AssertionError("a cookie gate must never escalate the run to the browser")
+
+        session._fetch_rendered_once = fake_rendered
+        html = await session._fetch_once(
+            "https://dealer.example/vehicle/1", listing_readiness=None, browser_only=False
+        )
+        assert "real vehicle inventory" in html
+        # The gate was answered, so static navigation stays enabled for the run.
+        assert session._static_nav_gated is False
+
+        # The NEXT vehicle already holds the cookie: one request, no handshake.
+        before = len(requests)
+        await session._fetch_once(
+            "https://dealer.example/vehicle/2", listing_readiness=None, browser_only=False
+        )
+        assert len(requests) - before == 1
+        assert requests[-1][1] == "with-cookie"
+
+    asyncio.run(run())
+    assert requests[0][1] == "no-cookie"
+    assert requests[1][1] == "with-cookie"

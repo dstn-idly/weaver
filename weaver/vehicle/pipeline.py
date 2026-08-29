@@ -232,7 +232,37 @@ async def _discover_and_infer(
     return candidate, dict(inference_meta)
 
 
+# A dealer crawl that wedges BETWEEN navigations had nothing above it: the
+# per-navigation watchdog bounds each page load, but a run stuck elsewhere sat
+# forever holding a concurrency slot (observed 2026-08-29: Jim Norton Toyota
+# went 60 minutes without a single fetch while still reporting "running").
+VEHICLE_RUN_DEADLINE_SECONDS = max(
+    600.0,
+    min(float(os.getenv("WEAVER_VEHICLE_RUN_DEADLINE_MIN", "90") or 90) * 60.0, 6 * 3600.0),
+)
+
+
+class VehicleRunDeadlineExceeded(RuntimeError):
+    """The run exceeded its wall-clock budget and was stopped."""
+
+
 async def run_vehicle_pipeline(record: Any) -> None:
+    """Run an authorized vehicle job under a hard wall-clock deadline."""
+
+    try:
+        await asyncio.wait_for(
+            _run_vehicle_pipeline(record),
+            timeout=VEHICLE_RUN_DEADLINE_SECONDS,
+        )
+    except asyncio.TimeoutError:
+        minutes = VEHICLE_RUN_DEADLINE_SECONDS / 60.0
+        raise VehicleRunDeadlineExceeded(
+            f"vehicle run exceeded its {minutes:.0f}-minute budget and was stopped; "
+            "the dealership's last-known-good inventory is unchanged"
+        ) from None
+
+
+async def _run_vehicle_pipeline(record: Any) -> None:
     """Run an authorized vehicle job without generic robots or codegen paths."""
 
     options = record.request.options

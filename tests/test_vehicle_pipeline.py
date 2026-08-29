@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+import asyncio
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -678,3 +679,26 @@ async def test_a_passing_first_inference_never_pays_for_repair(
     record = _Record(tmp_path, "first-run-clean")
     await pipeline.run_vehicle_pipeline(record)
     assert record.summary.status == "passed"
+
+
+@pytest.mark.asyncio
+async def test_a_wedged_run_is_stopped_by_the_run_deadline(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The per-navigation watchdog cannot see a run wedged BETWEEN navigations.
+    Jim Norton Toyota sat 60 minutes without a single fetch while still
+    reporting "running", holding a concurrency slot the whole time."""
+
+    monkeypatch.setattr(pipeline, "data_root", lambda: tmp_path)
+    monkeypatch.setattr(pipeline, "VEHICLE_RUN_DEADLINE_SECONDS", 0.05)
+
+    async def never_returns(record):
+        await asyncio.Event().wait()
+
+    monkeypatch.setattr(pipeline, "_run_vehicle_pipeline", never_returns)
+
+    record = _Record(tmp_path, "wedged-run")
+    with pytest.raises(pipeline.VehicleRunDeadlineExceeded) as excinfo:
+        await pipeline.run_vehicle_pipeline(record)
+    assert "last-known-good inventory is unchanged" in str(excinfo.value)

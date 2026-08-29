@@ -1230,6 +1230,14 @@ class PersistentDealerSession:
         init=False,
         repr=False,
     )
+    # One cookie jar for this session's single origin. Dealer platforms
+    # increasingly gate the cheap static path behind a cookie handshake
+    # (302 + Set-Cookie, then 200 on the retry). Without a jar every static
+    # probe restarts that handshake, loops, and the whole crawl falls back to
+    # the browser: ~20s per vehicle instead of ~0.5s. The session is bound to
+    # one origin and _run_navigation rejects cross-origin URLs, so the jar can
+    # never carry a cookie to another dealer.
+    _cookie_jar: Any = field(default=None, init=False, repr=False)
     _hang_recovery_pending: bool = field(
         default=False,
         init=False,
@@ -1326,6 +1334,19 @@ class PersistentDealerSession:
     # and 6g on 2026-08-28). Recycling between navigations keeps the plateau
     # flat for any lot size. A challenged site pays one re-solve per recycle.
     _BROWSER_RECYCLE_EVERY = 45
+
+    def _session_cookies(self) -> Any:
+        if self._cookie_jar is None:
+            self._cookie_jar = httpx.Cookies()
+        return self._cookie_jar
+
+    def _remember_cookies(self, response: Any) -> None:
+        """Carry this origin's cookies to the next static request."""
+
+        try:
+            self._session_cookies().update(response.cookies)
+        except Exception:  # noqa: BLE001 - a cookie we cannot store is not fatal
+            pass
 
     def _navigation_hang_deadline_seconds(self) -> float:
         # Covers the goto timeout, one internal Scrapling retry, and the
@@ -2074,8 +2095,10 @@ class PersistentDealerSession:
                 follow_redirects=False,
                 trust_env=False,
                 headers=headers,
+                cookies=self._session_cookies(),
             ) as client:
                 response = await client.get(url)
+            self._remember_cookies(response)
         except httpx.HTTPError:
             return None
         status_code = _status_code(response)
@@ -2133,13 +2156,22 @@ class PersistentDealerSession:
         try:
             current = url
             visited: set[str] = set()
+            handshake_retries = 0
+            last_set_cookie = False
             for _hop in range(6):
                 key = canonical_page_url(current)
                 if key in visited:
-                    raise VehicleTransportError(
-                        "static vehicle navigation entered a redirect cycle",
-                        code="redirect_cycle",
-                    )
+                    # A redirect back to the SAME url that just handed us a
+                    # cookie is a gate handshake, not a loop: the retry now
+                    # carries the cookie and succeeds. Allowed once, so a
+                    # genuine cycle still fails fast.
+                    if last_set_cookie and handshake_retries < 1:
+                        handshake_retries += 1
+                    else:
+                        raise VehicleTransportError(
+                            "static vehicle navigation entered a redirect cycle",
+                            code="redirect_cycle",
+                        )
                 visited.add(key)
                 # Use a fresh client per manually-followed hop. This keeps
                 # owner-supplied CF Access headers scoped to the exact
@@ -2153,8 +2185,11 @@ class PersistentDealerSession:
                     follow_redirects=False,
                     trust_env=False,
                     headers=hop_headers,
+                    cookies=self._session_cookies(),
                 ) as client:
                     response = await client.get(current)
+                self._remember_cookies(response)
+                last_set_cookie = bool(_response_headers(response).get("set-cookie"))
                 status_code = _status_code(response)
                 if status_code in {429, 502, 503, 504}:
                     retry_after_cap = max(
