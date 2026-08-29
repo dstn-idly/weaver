@@ -1774,3 +1774,41 @@ def test_stock_render_only_vdp_is_a_corroborated_no_photo_exception() -> None:
     assert result.identity_proven
     assert result.photos == ()
     assert result.placeholder_photo_published
+
+
+def test_renditions_of_one_photo_are_one_photo() -> None:
+    """A CDN publishes the same image at several sizes. Counting those as
+    separate photos let a one-photo car satisfy the two-photo publishing
+    contract — 43 of Orlando Nissan's 289 live vehicles were listed with the
+    same picture twice (2026-08-29)."""
+
+    from weaver.vehicle.vdp import PhotoEvidence, _dedupe_photos, photo_asset_key
+
+    original = "https://assets.cai-media-management.com/common-vehicle-media/fee37d3d.jpg"
+    resized = "https://assets.cai-media-management.com/resize/1024x1024/common-vehicle-media/fee37d3d.jpg"
+    assert photo_asset_key(original) == photo_asset_key(resized)
+
+    deduped = _dedupe_photos(
+        [
+            PhotoEvidence(resized, "social_meta", width=1024, full_resolution_candidate=True),
+            PhotoEvidence(original, "data_full", width=None, full_resolution_candidate=True),
+        ],
+        40,
+    )
+    assert len(deduped) == 1
+    # The un-resized original is what survives, not the social thumbnail.
+    assert deduped[0].url == original
+
+    # Genuinely different photos in the same sized folder stay separate.
+    first = "https://content.homenetiol.com/2000157/2065512/0x0/aaa.jpg"
+    second = "https://content.homenetiol.com/2000157/2065512/0x0/bbb.jpg"
+    assert photo_asset_key(first) != photo_asset_key(second)
+    assert len(_dedupe_photos(
+        [
+            PhotoEvidence(first, "data_full", width=1600, full_resolution_candidate=True),
+            PhotoEvidence(second, "data_full", width=1600, full_resolution_candidate=True),
+        ],
+        40,
+    )) == 2
+    # The per-vehicle folder must survive folding, or two cars' photos merge.
+    assert "2065512" in photo_asset_key(first)

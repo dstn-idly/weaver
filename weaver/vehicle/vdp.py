@@ -2436,6 +2436,23 @@ def _dom_photos(
     return photos
 
 
+_PHOTO_RENDITION_SEGMENT_RE = re.compile(r"/(?:resize/)?\d{1,5}x\d{1,5}(?=/)", re.I)
+
+
+def photo_asset_key(url: str) -> str:
+    """Identity of the PHOTO, not of one rendition of it.
+
+    CDNs publish the same image at several sizes — /photo.jpg beside
+    /resize/1024x1024/photo.jpg — and keying on the raw URL counted those as
+    two photos. That let a car with ONE picture satisfy the two-photo
+    publishing contract: 43 of one dealer's 289 live vehicles were listed with
+    the same image twice. Folding the size segment also stops a cross-vehicle
+    duplicate from hiding behind a resize.
+    """
+
+    return _PHOTO_RENDITION_SEGMENT_RE.sub("", str(url or "")).casefold()
+
+
 def _dedupe_photos(photos: Iterable[PhotoEvidence], maximum: int) -> tuple[PhotoEvidence, ...]:
     output: list[PhotoEvidence] = []
     indexes: dict[str, int] = {}
@@ -2454,7 +2471,7 @@ def _dedupe_photos(photos: Iterable[PhotoEvidence], maximum: int) -> tuple[Photo
         "social_meta": 0,
     }
     for photo in photos:
-        key = photo.url.casefold()
+        key = photo_asset_key(photo.url)
         existing_index = indexes.get(key)
         if existing_index is not None:
             existing = output[existing_index]
@@ -2467,8 +2484,13 @@ def _dedupe_photos(photos: Iterable[PhotoEvidence], maximum: int) -> tuple[Photo
                 ),
             )
             widths = [value for value in (existing.width, photo.width) if value is not None]
+            # Between two renditions of one asset keep the un-resized URL: it
+            # is the full-size original the dealer published.
+            kept_url = existing.url
+            if _PHOTO_RENDITION_SEGMENT_RE.search(existing.url) and not _PHOTO_RENDITION_SEGMENT_RE.search(photo.url):
+                kept_url = photo.url
             output[existing_index] = PhotoEvidence(
-                url=existing.url,
+                url=kept_url,
                 source=strongest.source,
                 width=max(widths) if widths else None,
                 full_resolution_candidate=(
