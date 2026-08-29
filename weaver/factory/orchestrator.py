@@ -12,7 +12,7 @@ import asyncio
 import json
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -171,6 +171,7 @@ async def process_job(store: FactoryStore, job: FactoryJob) -> None:
         if run is None:
             run_id = await _create_run(client, job)
             job.run_id = run_id
+            job.last_crawl_at = datetime.now(timezone.utc).isoformat()
             store.persist(job)
             await store.emit(job, "run_created", {"run_id": run_id, "events_url": f"/api/runs/{run_id}/events"})
             run = await _poll_run(client, store, job, run_id)
@@ -293,16 +294,20 @@ def origin_cooldown_remaining(store: FactoryStore, job: FactoryJob, now: float) 
         return 0.0
     latest = 0.0
     for other in store.jobs.values():
-        if other.id == job.id or other.origin != job.origin:
+        if other.origin != job.origin:
             continue
-        stamp = other.updated_at or other.created_at
+        # THIS JOB'S OWN history counts. Excluding it was the whole bug: Jim
+        # Norton was one job requeued five times, so a self-requeue sailed
+        # past the cooldown that exists precisely to stop that.
+        stamp = other.last_crawl_at
+        if not stamp:
+            continue
         try:
-            finished = datetime.fromisoformat(str(stamp).replace("Z", "+00:00")).timestamp()
+            touched = datetime.fromisoformat(str(stamp).replace("Z", "+00:00")).timestamp()
         except (TypeError, ValueError):
             continue
-        # Only a run that actually touched the dealer counts.
-        if other.state in ("done", "failed") and finished > latest:
-            latest = finished
+        if touched > latest:
+            latest = touched
     if latest <= 0:
         return 0.0
     return max(0.0, ORIGIN_COOLDOWN_SECONDS - (now - latest))
@@ -319,6 +324,17 @@ async def factory_worker(store: FactoryStore) -> None:
                 pass
             continue
         cooling = origin_cooldown_remaining(store, job, time.time())
+        if cooling > 0 and job.cooldown_override:
+            # A human checked the site and asked for this run anyway. Honour it
+            # once, and say so, so the override is visible in the record.
+            job.cooldown_override = False
+            store.persist(job)
+            await store.emit(job, "origin_cooldown_override", {
+                "origin": job.origin,
+                "waived_minutes": round(cooling / 60.0),
+                "detail": "operator confirmed the dealership is serving again",
+            })
+            cooling = 0.0
         if cooling > 0:
             # Leave it queued and say so, rather than hammering the dealership
             # or silently dropping the customer's request.

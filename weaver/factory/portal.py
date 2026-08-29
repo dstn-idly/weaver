@@ -94,7 +94,7 @@ async def job_detail(job_id: str) -> JSONResponse:
 
 
 @router.post("/api/factory/jobs/{job_id}/requeue", status_code=202)
-async def requeue_job(job_id: str) -> dict[str, object]:
+async def requeue_job(job_id: str, force: bool = False) -> dict[str, object]:
     store = _require_store()
     job = store.jobs.get(job_id)
     if job is None:
@@ -105,6 +105,11 @@ async def requeue_job(job_id: str) -> dict[str, object]:
     job.stage = "queued"
     job.error = None
     job.verdict = None
+    # `force` waives the origin cooldown for this one run — for when a human
+    # has checked that the dealership is serving again. It is consumed once and
+    # recorded on the job's feed, so an override is never silent.
+    if force:
+        job.cooldown_override = True
     store.persist(job)
     store.wakeup.set()
     return job.summary()

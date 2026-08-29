@@ -38,6 +38,11 @@ class FactoryJob:
     error: str | None = None
     created_at: str = field(default_factory=_now)
     updated_at: str = field(default_factory=_now)
+    # When this job last actually reached the dealership. Requeues reset
+    # updated_at, so politeness cannot be measured from it.
+    last_crawl_at: str | None = None
+    # One deliberate operator override of the origin cooldown, consumed on use.
+    cooldown_override: bool = False
     events: list[dict[str, Any]] = field(default_factory=list)
     condition: asyncio.Condition = field(default_factory=asyncio.Condition, repr=False)
 
@@ -53,6 +58,7 @@ class FactoryJob:
             "error": self.error,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
+            "last_crawl_at": self.last_crawl_at,
             "event_count": len(self.events),
         }
 
@@ -78,6 +84,7 @@ class FactoryStore:
                     origin=str(raw["origin"]),
                     state=str(raw.get("state", "queued")),
                     stage=str(raw.get("stage", "queued")),
+                    last_crawl_at=raw.get("last_crawl_at") or None,
                     run_id=raw.get("run_id"),
                     verdict=raw.get("verdict"),
                     error=raw.get("error"),

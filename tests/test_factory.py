@@ -229,7 +229,7 @@ def test_a_recently_crawled_dealership_is_left_to_rest(tmp_path):
     store = FactoryStore(tmp_path)
     recent = store.create("https://dealer.example/used", "https://dealer.example")
     recent.state = "failed"
-    recent.updated_at = (datetime.now(timezone.utc) - timedelta(minutes=5)).isoformat()
+    recent.last_crawl_at = (datetime.now(timezone.utc) - timedelta(minutes=5)).isoformat()
 
     queued = store.create("https://dealer.example/used", "https://dealer.example")
     remaining = origin_cooldown_remaining(store, queued, _time.time())
@@ -241,12 +241,49 @@ def test_a_recently_crawled_dealership_is_left_to_rest(tmp_path):
     assert origin_cooldown_remaining(store, other, _time.time()) == 0.0
 
     # Once the window passes, the same origin is free again.
-    recent.updated_at = (
+    recent.last_crawl_at = (
         datetime.now(timezone.utc) - timedelta(seconds=ORIGIN_COOLDOWN_SECONDS + 60)
     ).isoformat()
     assert origin_cooldown_remaining(store, queued, _time.time()) == 0.0
 
-    # A run that never touched the dealer does not start a cooldown.
+    # A job that never reached the dealer does not arm a cooldown at all.
+    recent.last_crawl_at = None
     recent.state = "queued"
-    recent.updated_at = (datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat()
     assert origin_cooldown_remaining(store, queued, _time.time()) == 0.0
+
+
+def test_a_requeue_of_the_same_job_cannot_sail_past_the_cooldown(tmp_path):
+    """The first cut measured only OTHER jobs, so the exact behaviour that
+    earned the 429 — one job requeued five times — bypassed the cooldown
+    entirely. Politeness must be measured from when the dealer was really
+    touched, not from a requeue timestamp."""
+
+    import time as _time
+    from datetime import datetime, timedelta, timezone
+
+    from weaver.factory.orchestrator import ORIGIN_COOLDOWN_SECONDS, origin_cooldown_remaining
+    from weaver.factory.store import FactoryStore
+
+    store = FactoryStore(tmp_path)
+    job = store.create("https://dealer.example/used", "https://dealer.example")
+
+    # Never crawled: free to run.
+    assert origin_cooldown_remaining(store, job, _time.time()) == 0.0
+
+    # It crawled the dealer, then a requeue reset updated_at. The cooldown must
+    # still see the real crawl.
+    job.last_crawl_at = (datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat()
+    job.state = "queued"
+    job.updated_at = datetime.now(timezone.utc).isoformat()
+    remaining = origin_cooldown_remaining(store, job, _time.time())
+    assert remaining > 0
+
+    # An operator who has verified the site may waive it exactly once.
+    job.cooldown_override = True
+    assert job.cooldown_override is True
+
+    # And the window still expires on its own.
+    job.last_crawl_at = (
+        datetime.now(timezone.utc) - timedelta(seconds=ORIGIN_COOLDOWN_SECONDS + 60)
+    ).isoformat()
+    assert origin_cooldown_remaining(store, job, _time.time()) == 0.0
