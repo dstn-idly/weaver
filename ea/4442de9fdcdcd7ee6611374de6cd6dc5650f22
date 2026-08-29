@@ -1,0 +1,23 @@
+tests/test_factory.py
+  s_da9cd4ad208db2::t_7f4e5bffc2d14b 290-320
+weaver/factory/orchestrator.py
+  s_da9cd4ad208db2::t_2b4395fcbba1aa 316-331,333-340,353-376,378-397
+weaver/factory/portal.py
+  s_da9cd4ad208db2::t_343ab073cbf448 74-75
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "ea4442de9fdcdcd7ee6611374de6cd6dc5650f22",
+  "prompts": {},
+  "sessions": {
+    "s_da9cd4ad208db2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4cd1a6ac-f843-47f4-ac8d-77cbe7e08a68",
+        "model": "claude-opus-5"
+      },
+      "human_author": "dustin thach <epikunder321123@gmail.com>"
+    }
+  }
+}
