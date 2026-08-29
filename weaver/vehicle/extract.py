@@ -536,15 +536,22 @@ def extract_listing_page(
                     # Zero is never a price and must not claim authority.
                     continue
                 record[field_name] = jsonld_facts[field_name]
-        if not _positive_price(record.get("price")):
-            # Zero is a sentinel, never a price. When the card itself says the
-            # dealer is withholding it ("Call For Price"), that is a published
-            # state carried forward as a bounded exception — the dealer's VDP
-            # structured data may still hold a number, but publishing a price
-            # the dealer deliberately hides is their compliance risk, not ours.
+        # Price precedence, strongest first. A card that says the dealer is
+        # withholding the price HAS no price, so the exception outranks every
+        # scraped value: a price selector aimed at a priceless card returns
+        # the first number it finds — the model year — and that silent garbage
+        # is far worse than an honest absence. Publishing a price the dealer
+        # deliberately hides is their compliance risk, so it is never inferred
+        # from the VDP either.
+        if _price_withheld(card):
             record.pop("price", None)
-            if _price_withheld(card):
-                record["price_exception"] = "no_price_published"
+            record["price_exception"] = "no_price_published"
+        elif _looks_like_year_not_price(record.get("price"), record.get("year")):
+            # Same reader failure without the corroborating label: refuse the
+            # value rather than publish a $2,023 car. QA fails the run for it.
+            record.pop("price", None)
+        elif not _positive_price(record.get("price")):
+            record.pop("price", None)
         records.append(record)
         details.append(detail_url)
     return ListingPageResult(
@@ -561,6 +568,18 @@ def _positive_price(value: Any) -> bool:
         return float(value) > 0
     except (TypeError, ValueError):
         return False
+
+
+def _looks_like_year_not_price(price: Any, year: Any) -> bool:
+    """A price that exactly equals the row's own model year is the classic
+    first-number-in-the-card reader failure, not a $2,023 car."""
+
+    try:
+        price_value = float(price)
+        year_value = float(year)
+    except (TypeError, ValueError):
+        return False
+    return price_value == year_value and 1900 <= year_value <= 2100
 
 
 _PRICE_WITHHELD_RE = re.compile(

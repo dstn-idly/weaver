@@ -340,3 +340,18 @@ def test_call_for_price_card_marks_a_withheld_price_exception() -> None:
     assert _price_withheld(variants.select_one("div.c")) is True
     # A generic call-to-action is NOT a withheld-price statement.
     assert _price_withheld(variants.select_one("div.d")) is False
+
+
+def test_withheld_price_outranks_a_year_shaped_selector_value() -> None:
+    """The 17 Orlando "Call For Price" cards scrape their model YEAR as the
+    price (first number in the card). The exception must win over that value,
+    and an uncorroborated year-as-price must be refused rather than published."""
+
+    from weaver.vehicle.extract import _looks_like_year_not_price
+
+    assert _looks_like_year_not_price(2023, 2023) is True
+    assert _looks_like_year_not_price("2014", 2014) is True
+    assert _looks_like_year_not_price(2988, 2013) is False
+    assert _looks_like_year_not_price(32000, 2023) is False
+    assert _looks_like_year_not_price(None, 2023) is False
+    assert _looks_like_year_not_price(2023, None) is False
