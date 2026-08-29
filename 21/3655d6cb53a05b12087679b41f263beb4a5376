@@ -1,0 +1,25 @@
+tests/test_vehicle_pipeline.py
+  s_da9cd4ad208db2::t_9d50c53ed277c7 4,682-704
+tests/test_vehicle_transport.py
+  s_da9cd4ad208db2::t_ed98fa232d866a 3165-3234
+weaver/vehicle/pipeline.py
+  s_da9cd4ad208db2::t_19696c5a46b47a 235-248,250-265
+weaver/vehicle/transport.py
+  s_da9cd4ad208db2::t_49578cf1a050e5 1233-1240,1338-1350,2098,2101,2159-2160,2164-2174,2188,2191-2192
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "213655d6cb53a05b12087679b41f263beb4a5376",
+  "prompts": {},
+  "sessions": {
+    "s_da9cd4ad208db2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4cd1a6ac-f843-47f4-ac8d-77cbe7e08a68",
+        "model": "claude-opus-5"
+      },
+      "human_author": "dustin thach <epikunder321123@gmail.com>"
+    }
+  }
+}
