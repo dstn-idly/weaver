@@ -1,0 +1,60 @@
+{
+ "created_at": "2026-08-30T07:29:15+00:00",
+ "notes": "DealerCenter/DWS WordPress sibling of orangeautosalesmiami: same dws- widget family, imagescf.dealercenter.net numeric-pair renditions, dcdws.blob.core.windows.net assets, and data-pin-media/data-background-image photo publication. Stock-number card attribute carries identity because the VDP route holds no VIN.",
+ "origin": "https://www.orlandoautolounge.com",
+ "platform_fingerprint": {
+  "class_families": [
+   "family:carfax-",
+   "family:carmojo-",
+   "family:dropdown-",
+   "family:dws-",
+   "family:here-",
+   "family:invalid-",
+   "family:modal-",
+   "family:pull-",
+   "family:select-",
+   "family:slick-",
+   "family:spinner-",
+   "family:vipgjd-"
+  ],
+  "gallery_mechanisms": [
+   "gallery:background-image",
+   "gallery:data-background-image",
+   "gallery:data-base-img-url",
+   "gallery:data-pin-media",
+   "gallery:srcset"
+  ],
+  "json_ld_types": [
+   "jsonld:AutoDealer",
+   "jsonld:Brand",
+   "jsonld:BreadcrumbList",
+   "jsonld:Car",
+   "jsonld:ContactPoint",
+   "jsonld:EngineSpecification",
+   "jsonld:ImageObject",
+   "jsonld:ListItem",
+   "jsonld:Offer",
+   "jsonld:Organization"
+  ],
+  "pagination": [],
+  "photo_cdn_hosts": [
+   "cdn:dcdws.blob.core.windows.net",
+   "cdn:imagescf.dealercenter.net",
+   "cdn:www.orlandoautolounge.com"
+  ],
+  "photo_path_grammars": [
+   "grammar:dealercenter-numeric-pair"
+  ],
+  "platform_tokens": [
+   "lib:lozad",
+   "platform:dealercenter",
+   "platform:wordpress",
+   "widget:dws",
+   "widget:slick"
+  ]
+ },
+ "provenance": "fixture:factory failure bundle fj178801664920f455 + captured SRP/VDP pages (no verified spec yet)",
+ "schema": "autoposting.vehicle-spec-library-record",
+ "spec": null,
+ "verdict": "fingerprint_only"
+}

@@ -1,0 +1,174 @@
+{
+ "created_at": "2026-08-30T07:29:15+00:00",
+ "notes": "Dealer.com (DDC) build: ws-inv-* widgets, vehicle-card grid, pictures.dealer.com CDN with ?impolicy=downsize_bkpt query renditions, ROW-OFFSET pagination (?start=0/24/48) beside rel=next. The gallery widget's state key varies per build (vehicle-gallery vs ws-vehicle-media/media1) \u2014 never pin one literal. A rendered SPA snapshot can hold 3 hydrated cards on a page that says 181.",
+ "origin": "https://www.sugarloafcdjr.com",
+ "platform_fingerprint": {
+  "class_families": [
+   "family:ddc-",
+   "family:embed-",
+   "family:facet-",
+   "family:next-",
+   "family:panel-",
+   "family:prev-",
+   "family:price-",
+   "family:skeleton-",
+   "family:slick-",
+   "family:slide-",
+   "family:spec-",
+   "family:vehicle-"
+  ],
+  "gallery_mechanisms": [
+   "gallery:background-image",
+   "gallery:data-background-image",
+   "gallery:data-src-lazy"
+  ],
+  "json_ld_types": [
+   "jsonld:AutoDealer",
+   "jsonld:AutomotiveBusiness",
+   "jsonld:Brand",
+   "jsonld:Car",
+   "jsonld:CollectionPage",
+   "jsonld:ContactPoint",
+   "jsonld:GeoCoordinates",
+   "jsonld:Offer",
+   "jsonld:Organization",
+   "jsonld:PostalAddress"
+  ],
+  "pagination": [
+   "pagination:offset-query",
+   "pagination:rel-next"
+  ],
+  "photo_cdn_hosts": [
+   "cdn:pictures.dealer.com"
+  ],
+  "photo_path_grammars": [
+   "grammar:impolicy-query"
+  ],
+  "platform_tokens": [
+   "platform:dealer.com",
+   "widget:slick",
+   "widget:vehicle-card",
+   "widget:ws-inv",
+   "widget:ws-media",
+   "widget:ws-vehicle"
+  ]
+ },
+ "provenance": "weaver-run:1c853fa7847944d1 via factory:fj1788016649e29715 (crawl partial on this box)",
+ "schema": "autoposting.vehicle-spec-library-record",
+ "spec": {
+  "detail": {
+   "fields": {
+    "color_ext": {
+     "selector": ":scope",
+     "transform": "text"
+    },
+    "color_int": {
+     "selector": ":scope",
+     "transform": "text"
+    },
+    "condition": {
+     "selector": ":scope",
+     "transform": "condition"
+    },
+    "description": {
+     "selector": ":scope",
+     "transform": "text"
+    },
+    "distance_unit": {
+     "selector": ":scope",
+     "transform": "unit"
+    },
+    "drivetrain": {
+     "selector": ":scope",
+     "transform": "text"
+    },
+    "engine": {
+     "selector": ":scope",
+     "transform": "text"
+    },
+    "features": {
+     "multiple": true,
+     "selector": ":scope",
+     "transform": "text"
+    },
+    "fuel": {
+     "selector": ":scope",
+     "transform": "text"
+    },
+    "make": {
+     "selector": ":scope",
+     "transform": "text"
+    },
+    "mileage": {
+     "selector": ":scope",
+     "transform": "integer"
+    },
+    "model": {
+     "selector": ":scope",
+     "transform": "text"
+    },
+    "name": {
+     "selector": ":scope",
+     "transform": "text"
+    },
+    "photos": {
+     "multiple": true,
+     "selector": ":scope",
+     "transform": "image"
+    },
+    "price": {
+     "selector": ":scope",
+     "transform": "money"
+    },
+    "stock_number": {
+     "selector": ":scope",
+     "transform": "text"
+    },
+    "transmission": {
+     "selector": ":scope",
+     "transform": "text"
+    },
+    "trim": {
+     "selector": ":scope",
+     "transform": "text"
+    },
+    "vin": {
+     "selector": ":scope",
+     "transform": "vin"
+    },
+    "year": {
+     "selector": ":scope",
+     "transform": "year"
+    }
+   },
+   "gallery_mode": "fixed_auto",
+   "max_photos": 80,
+   "root_selector": "body"
+  },
+  "listing": {
+   "card_selector": ".vehicle-card-grid > .vehicle-card-detailed",
+   "detail_link_selector": "a[href]",
+   "fields": {
+    "engine": {
+     "selector": ".engine",
+     "transform": "text"
+    },
+    "name": {
+     "selector": ".vehicle-card-title a",
+     "transform": "text"
+    },
+    "vin": {
+     "selector": ".vin",
+     "transform": "vin"
+    }
+   }
+  },
+  "origin": "https://www.sugarloafcdjr.com",
+  "schema": "autoposting.vehicle-extraction",
+  "start_urls": [
+   "https://www.sugarloafcdjr.com/used-inventory/index.htm"
+  ],
+  "v": 2
+ },
+ "verdict": "needs_repair"
+}

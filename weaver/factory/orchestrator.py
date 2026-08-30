@@ -312,6 +312,11 @@ async def process_job(store: FactoryStore, job: FactoryJob) -> None:
         verdict = await luna_qa_review(qa=qa, samples=records[:3], simulation=simulation, emit=luna_emit)
         (store.artifact_path(job, "luna-verdict.json")).write_text(json.dumps(verdict, indent=1), encoding="utf-8")
 
+        # crawl_ok is also the spec-library capture condition: the vehicle
+        # pipeline writes a retrieval exemplar record (weaver.vehicle.library)
+        # the moment a run finalizes "passed", so a needs_repair verdict whose
+        # SPEC crawled cleanly still teaches the library — translation and
+        # Luna judge the extension config, not the spec's platform knowledge.
         crawl_ok = run.get("status") == "passed"
         job.verdict = (
             "ship"

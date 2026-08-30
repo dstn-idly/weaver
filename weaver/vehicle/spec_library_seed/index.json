@@ -1,0 +1,112 @@
+{
+ "records": [
+  {
+   "created_at": "2026-08-30T07:29:15+00:00",
+   "file": "iautodealerservices.com.json",
+   "origin": "https://iautodealerservices.com",
+   "platform_tokens": [
+    "platform:waynereaves"
+   ],
+   "verdict": "needs_repair"
+  },
+  {
+   "created_at": "2026-08-30T07:29:15+00:00",
+   "file": "orlandonissan.com.json",
+   "origin": "https://orlandonissan.com",
+   "platform_tokens": [
+    "platform:homenet",
+    "platform:teamvelocity",
+    "widget:srp-vehicle-box"
+   ],
+   "verdict": "verified"
+  },
+  {
+   "created_at": "2026-08-30T07:29:15+00:00",
+   "file": "www.edmarktoyota.com.json",
+   "origin": "https://www.edmarktoyota.com",
+   "platform_tokens": [
+    "platform:carscommerce",
+    "platform:dealerinspire",
+    "platform:wordpress"
+   ],
+   "verdict": "needs_repair"
+  },
+  {
+   "created_at": "2026-08-30T07:29:15+00:00",
+   "file": "www.orangeautosalesmiami.com.json",
+   "origin": "https://www.orangeautosalesmiami.com",
+   "platform_tokens": [
+    "gallery:unitegallery",
+    "lib:lozad",
+    "platform:dealercenter",
+    "platform:wordpress",
+    "widget:dws",
+    "widget:slick"
+   ],
+   "verdict": "fingerprint_only"
+  },
+  {
+   "created_at": "2026-08-30T07:29:15+00:00",
+   "file": "www.orlandoautolounge.com.json",
+   "origin": "https://www.orlandoautolounge.com",
+   "platform_tokens": [
+    "lib:lozad",
+    "platform:dealercenter",
+    "platform:wordpress",
+    "widget:dws",
+    "widget:slick"
+   ],
+   "verdict": "fingerprint_only"
+  },
+  {
+   "created_at": "2026-08-30T07:29:15+00:00",
+   "file": "www.postoaktoyota.com.json",
+   "origin": "https://www.postoaktoyota.com",
+   "platform_tokens": [
+    "platform:carscommerce",
+    "platform:dealerinspire",
+    "platform:wordpress"
+   ],
+   "verdict": "needs_repair"
+  },
+  {
+   "created_at": "2026-08-30T07:29:15+00:00",
+   "file": "www.serramonteford.com.json",
+   "origin": "https://www.serramonteford.com",
+   "platform_tokens": [
+    "platform:dealer.com",
+    "widget:slick",
+    "widget:vehicle-card",
+    "widget:ws-inv",
+    "widget:ws-vehicle"
+   ],
+   "verdict": "needs_repair"
+  },
+  {
+   "created_at": "2026-08-30T07:29:15+00:00",
+   "file": "www.sugarloafcdjr.com.json",
+   "origin": "https://www.sugarloafcdjr.com",
+   "platform_tokens": [
+    "platform:dealer.com",
+    "widget:slick",
+    "widget:vehicle-card",
+    "widget:ws-inv",
+    "widget:ws-media",
+    "widget:ws-vehicle"
+   ],
+   "verdict": "needs_repair"
+  },
+  {
+   "created_at": "2026-08-30T07:29:15+00:00",
+   "file": "www.universal-nissan.com.json",
+   "origin": "https://www.universal-nissan.com",
+   "platform_tokens": [
+    "platform:carscommerce",
+    "platform:dealerinspire",
+    "platform:wordpress"
+   ],
+   "verdict": "needs_repair"
+  }
+ ],
+ "schema": "autoposting.vehicle-spec-library-index"
+}

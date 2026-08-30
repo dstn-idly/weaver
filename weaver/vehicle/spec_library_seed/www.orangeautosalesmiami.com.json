@@ -1,0 +1,57 @@
+{
+ "created_at": "2026-08-30T07:29:15+00:00",
+ "notes": "DealerCenter/DWS WordPress build. Cards draw photos as role=img divs with data-background-image; the stock number lives in data-vehicle-stock-no and matches the VDP URL's last segment (/inventory/{make}/{model}/{stock}/). VDP gallery is .dws-vdp-media-container img (UniteGallery on this build) with data-pin-media full-size URLs; on imagescf.dealercenter.net the leading /{w}/{h}/ numeric pair is a rendition and /320/240/ is the related-cars rail size.",
+ "origin": "https://www.orangeautosalesmiami.com",
+ "platform_fingerprint": {
+  "class_families": [
+   "family:checkbox-",
+   "family:dropdown-",
+   "family:dws-",
+   "family:invalid-",
+   "family:layout-",
+   "family:modal-",
+   "family:navbar-",
+   "family:slick-",
+   "family:sold-"
+  ],
+  "gallery_mechanisms": [
+   "gallery:background-image",
+   "gallery:data-background-image",
+   "gallery:data-pin-media",
+   "gallery:srcset"
+  ],
+  "json_ld_types": [
+   "jsonld:AutoDealer",
+   "jsonld:BreadcrumbList",
+   "jsonld:Car",
+   "jsonld:ImageObject",
+   "jsonld:ListItem",
+   "jsonld:Offer",
+   "jsonld:Organization",
+   "jsonld:PostalAddress",
+   "jsonld:ReadAction",
+   "jsonld:UnitPriceSpecification"
+  ],
+  "pagination": [],
+  "photo_cdn_hosts": [
+   "cdn:dcdws.blob.core.windows.net",
+   "cdn:imagescf.dealercenter.net",
+   "cdn:www.orangeautosalesmiami.com"
+  ],
+  "photo_path_grammars": [
+   "grammar:dealercenter-numeric-pair"
+  ],
+  "platform_tokens": [
+   "gallery:unitegallery",
+   "lib:lozad",
+   "platform:dealercenter",
+   "platform:wordpress",
+   "widget:dws",
+   "widget:slick"
+  ]
+ },
+ "provenance": "fixture:factory failure bundle fj17880166491ac248 + captured SRP/VDP pages (no verified spec yet)",
+ "schema": "autoposting.vehicle-spec-library-record",
+ "spec": null,
+ "verdict": "fingerprint_only"
+}

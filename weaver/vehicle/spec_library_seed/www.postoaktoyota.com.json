@@ -1,0 +1,114 @@
+{
+ "created_at": "2026-08-30T07:29:15+00:00",
+ "notes": "Cars Commerce / Dealer Inspire build. A VIN inside the photo path (vin_path_gallery) is the strongest photo-ownership proof on this CDN family; every new source label must be registered in the full-resolution allowlist and dedupe strength map together.",
+ "origin": "https://www.postoaktoyota.com",
+ "platform_fingerprint": {
+  "class_families": [
+   "family:bar-",
+   "family:details-",
+   "family:large-",
+   "family:package-",
+   "family:show-",
+   "family:sub-",
+   "family:swiper-",
+   "family:vdp-",
+   "family:vehicle-",
+   "family:view-",
+   "family:walker-",
+   "family:widget-"
+  ],
+  "gallery_mechanisms": [
+   "gallery:background-image",
+   "gallery:data-src-lazy"
+  ],
+  "json_ld_types": [
+   "jsonld:AutoDealer",
+   "jsonld:AutoRepair",
+   "jsonld:Brand",
+   "jsonld:Car",
+   "jsonld:EntryPoint",
+   "jsonld:Offer",
+   "jsonld:OpeningHoursSpecification",
+   "jsonld:Organization",
+   "jsonld:PostalAddress",
+   "jsonld:Product"
+  ],
+  "pagination": [],
+  "photo_cdn_hosts": [
+   "cdn:di-shared-assets.dealerinspire.com",
+   "cdn:di-uploads-development.dealerinspire.com",
+   "cdn:di-uploads-pod10.dealerinspire.com",
+   "cdn:vehicle-images.carscommerce.inc",
+   "cdn:www.postoaktoyota.com"
+  ],
+  "photo_path_grammars": [],
+  "platform_tokens": [
+   "platform:carscommerce",
+   "platform:dealerinspire",
+   "platform:wordpress"
+  ]
+ },
+ "provenance": "weaver-run:84697391268f46bc via factory:fj178803592778025c (crawl partial on this box)",
+ "schema": "autoposting.vehicle-spec-library-record",
+ "spec": {
+  "detail": {
+   "fields": {},
+   "gallery_mode": "fixed_auto",
+   "max_photos": 80
+  },
+  "listing": {
+   "card_selector": "li.vehicle-item",
+   "detail_link_selector": "a[href]",
+   "fields": {
+    "condition": {
+     "selector": ".vehicle-details",
+     "transform": "condition"
+    },
+    "distance_unit": {
+     "selector": ".vehicle-details",
+     "transform": "unit"
+    },
+    "make": {
+     "selector": "[itemprop=name]",
+     "transform": "text"
+    },
+    "mileage": {
+     "selector": ".vehicle-details",
+     "transform": "integer"
+    },
+    "model": {
+     "selector": "[itemprop=name]",
+     "transform": "text"
+    },
+    "name": {
+     "selector": "[itemprop=name]",
+     "transform": "text"
+    },
+    "price": {
+     "attribute": "content",
+     "selector": "span[itemprop=price]",
+     "transform": "money"
+    },
+    "trim": {
+     "selector": "[itemprop=name]",
+     "transform": "text"
+    },
+    "vin": {
+     "selector": ".vehicle-content",
+     "transform": "vin"
+    },
+    "year": {
+     "selector": "[itemprop=name]",
+     "transform": "year"
+    }
+   }
+  },
+  "origin": "https://www.postoaktoyota.com",
+  "schema": "autoposting.vehicle-extraction",
+  "start_urls": [
+   "https://www.postoaktoyota.com/llm/inventory/"
+  ],
+  "v": 2
+ },
+ "verdict": "needs_repair"
+}

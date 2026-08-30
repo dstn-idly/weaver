@@ -630,6 +630,34 @@ async def _run_vehicle_pipeline(record: Any) -> None:
             active_dir=active_dir if run_status == "passed" else None,
             reuse_stats=reuse_stats,
         )
+        if run_status == "passed":
+            # Capture-on-success for the retrieval-augmented spec library.
+            # "passed" here is QA-passed with a complete snapshot — the same
+            # condition the factory orchestrator reads as crawl_ok when its
+            # verdict lands, so ship/review verdicts AND needs_repair verdicts
+            # whose SPEC still crawled cleanly are all captured. Fingerprints
+            # and the verified spec only, never page bytes; best-effort only —
+            # the library must never fail a passed run.
+            try:
+                from .library import capture_verified_spec
+
+                captured = capture_verified_spec(
+                    spec=spec,
+                    listing_pages=fixtures.listing_pages,
+                    detail_pages=fixtures.detail_pages,
+                    provenance=f"weaver-run:{record.summary.id}",
+                    # The pipeline's own data_root seam, so tests that pin it
+                    # to a tmp dir keep the library there too.
+                    directory=data_root() / "spec_library",
+                )
+                if captured is not None:
+                    await record.log(
+                        f"Spec library captured this verified spec ({captured.name})",
+                        "info",
+                        source_id,
+                    )
+            except Exception:  # noqa: BLE001 - hints never fail a run
+                pass
         record.summary.status = run_status
         record.summary.completed_at = datetime.now(timezone.utc)
         record.summary.row_count = len(replay.records)

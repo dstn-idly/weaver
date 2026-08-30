@@ -1,0 +1,176 @@
+{
+ "created_at": "2026-08-30T07:29:15+00:00",
+ "notes": "Dealer.com (DDC) sibling of sugarloafcdjr: same ws-inv widget family, pictures.dealer.com grammar, offset pagination. Dealer.com bot walls here needed the headless-browser fetch tier.",
+ "origin": "https://www.serramonteford.com",
+ "platform_fingerprint": {
+  "class_families": [
+   "family:ddc-",
+   "family:embed-",
+   "family:facet-",
+   "family:inv-",
+   "family:line-",
+   "family:normalized-",
+   "family:panel-",
+   "family:price-",
+   "family:skeleton-",
+   "family:slick-",
+   "family:spec-",
+   "family:vehicle-"
+  ],
+  "gallery_mechanisms": [
+   "gallery:background-image",
+   "gallery:data-background-image",
+   "gallery:data-src-lazy"
+  ],
+  "json_ld_types": [
+   "jsonld:AutoDealer",
+   "jsonld:AutomotiveBusiness",
+   "jsonld:Brand",
+   "jsonld:Car",
+   "jsonld:CollectionPage",
+   "jsonld:ContactPoint",
+   "jsonld:GeoCoordinates",
+   "jsonld:Offer",
+   "jsonld:Organization",
+   "jsonld:PostalAddress"
+  ],
+  "pagination": [
+   "pagination:offset-query",
+   "pagination:rel-next"
+  ],
+  "photo_cdn_hosts": [
+   "cdn:fl.b.evn.pictures",
+   "cdn:i.imgur.com",
+   "cdn:images.dealer.com",
+   "cdn:pictures.dealer.com",
+   "cdn:static.dealer.com"
+  ],
+  "photo_path_grammars": [
+   "grammar:impolicy-query"
+  ],
+  "platform_tokens": [
+   "platform:dealer.com",
+   "widget:slick",
+   "widget:vehicle-card",
+   "widget:ws-inv",
+   "widget:ws-vehicle"
+  ]
+ },
+ "provenance": "weaver-run:c7315ca5a0764228 via factory:fj1788016649639812 (crawl partial on this box)",
+ "schema": "autoposting.vehicle-spec-library-record",
+ "spec": {
+  "detail": {
+   "fields": {
+    "color_ext": {
+     "selector": ":scope",
+     "transform": "text"
+    },
+    "color_int": {
+     "selector": ":scope",
+     "transform": "text"
+    },
+    "condition": {
+     "selector": ":scope",
+     "transform": "condition"
+    },
+    "description": {
+     "selector": ":scope",
+     "transform": "text"
+    },
+    "drivetrain": {
+     "selector": ":scope",
+     "transform": "text"
+    },
+    "engine": {
+     "selector": ":scope",
+     "transform": "text"
+    },
+    "fuel": {
+     "selector": ":scope",
+     "transform": "text"
+    },
+    "make": {
+     "selector": ":scope",
+     "transform": "text"
+    },
+    "model": {
+     "selector": ":scope",
+     "transform": "text"
+    },
+    "name": {
+     "selector": ":scope",
+     "transform": "text"
+    },
+    "photo": {
+     "selector": ":scope",
+     "transform": "image"
+    },
+    "price": {
+     "selector": ":scope",
+     "transform": "money"
+    },
+    "stock_number": {
+     "selector": ":scope",
+     "transform": "text"
+    },
+    "transmission": {
+     "selector": ":scope",
+     "transform": "text"
+    },
+    "vin": {
+     "selector": ":scope",
+     "transform": "vin"
+    },
+    "year": {
+     "selector": ":scope",
+     "transform": "year"
+    }
+   },
+   "gallery_mode": "fixed_auto",
+   "max_photos": 80,
+   "root_selector": "body"
+  },
+  "listing": {
+   "card_selector": "ul.vehicle-card-grid.list-unstyled.transition-duration-sm > li.vehicle-card.vehicle-card-detailed.box",
+   "detail_link_selector": "a[href]",
+   "fields": {
+    "color_ext": {
+     "selector": ".exteriorColor",
+     "transform": "text"
+    },
+    "color_int": {
+     "selector": ".interiorColor",
+     "transform": "text"
+    },
+    "engine": {
+     "selector": ".engine",
+     "transform": "text"
+    },
+    "photo": {
+     "attribute": "src",
+     "selector": "img[title]",
+     "transform": "image"
+    },
+    "stock_number": {
+     "selector": ".stockNumber",
+     "transform": "text"
+    },
+    "transmission": {
+     "selector": ".transmission",
+     "transform": "text"
+    },
+    "vin": {
+     "selector": ".vin",
+     "transform": "vin"
+    }
+   }
+  },
+  "origin": "https://www.serramonteford.com",
+  "schema": "autoposting.vehicle-extraction",
+  "start_urls": [
+   "https://www.serramonteford.com/new-inventory/index.htm"
+  ],
+  "v": 2
+ },
+ "verdict": "needs_repair"
+}

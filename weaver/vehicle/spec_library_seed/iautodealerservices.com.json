@@ -1,0 +1,146 @@
+{
+ "created_at": "2026-08-30T07:29:15+00:00",
+ "notes": "Wayne Reaves build: photo renditions use the /service/picture/{w}/{h}/{40-hex-asset} grammar plus a valueless ?thumb marker \u2014 fold both or one picture counts twice. Cards may publish a VIN in text with no <img> at all.",
+ "origin": "https://iautodealerservices.com",
+ "platform_fingerprint": {
+  "class_families": [
+   "family:apply-",
+   "family:carstory-",
+   "family:contact-",
+   "family:detail-",
+   "family:inv-",
+   "family:ion-",
+   "family:price-",
+   "family:primary-",
+   "family:pure-",
+   "family:third-",
+   "family:title-",
+   "family:view-"
+  ],
+  "gallery_mechanisms": [
+   "gallery:background-image",
+   "gallery:data-src-lazy",
+   "gallery:srcset"
+  ],
+  "json_ld_types": [],
+  "pagination": [],
+  "photo_cdn_hosts": [],
+  "photo_path_grammars": [
+   "grammar:/service/picture/"
+  ],
+  "platform_tokens": [
+   "platform:waynereaves"
+  ]
+ },
+ "provenance": "weaver-run:59c23507c40b4183 via factory:fj1788016649b319b5 (crawl partial on this box)",
+ "schema": "autoposting.vehicle-spec-library-record",
+ "spec": {
+  "detail": {
+   "fields": {
+    "body_type": {
+     "selector": ".bodyStyle",
+     "transform": "text"
+    },
+    "color_ext": {
+     "selector": ".extColor",
+     "transform": "text"
+    },
+    "color_int": {
+     "selector": ".intColor",
+     "transform": "text"
+    },
+    "description": {
+     "selector": ".description",
+     "transform": "text"
+    },
+    "engine": {
+     "selector": ".engine",
+     "transform": "text"
+    },
+    "fuel": {
+     "selector": ".fuel",
+     "transform": "text"
+    },
+    "make": {
+     "selector": ".make",
+     "transform": "text"
+    },
+    "mileage": {
+     "selector": ".mileage",
+     "transform": "integer"
+    },
+    "model": {
+     "selector": ".model",
+     "transform": "text"
+    },
+    "price": {
+     "selector": ".Price-price",
+     "transform": "money"
+    },
+    "trim": {
+     "selector": ".trim",
+     "transform": "text"
+    },
+    "vin": {
+     "selector": ".vin",
+     "transform": "vin"
+    },
+    "year": {
+     "selector": ".year",
+     "transform": "year"
+    }
+   },
+   "gallery_mode": "fixed_auto",
+   "gallery_selector": "div.pure-g.img-wrapper",
+   "max_photos": 80,
+   "root_selector": "div.inv-details-two"
+  },
+  "listing": {
+   "card_selector": "div.pure-g.full-width-inv",
+   "detail_link_selector": "a[href]",
+   "fields": {
+    "color_ext": {
+     "selector": ".colorext span",
+     "transform": "text"
+    },
+    "color_int": {
+     "selector": ".colorint span",
+     "transform": "text"
+    },
+    "engine": {
+     "selector": ".engine span",
+     "transform": "text"
+    },
+    "fuel": {
+     "selector": ".fuel span",
+     "transform": "text"
+    },
+    "mileage": {
+     "selector": ".mileage span",
+     "transform": "integer"
+    },
+    "price": {
+     "attribute": "data-cg-price",
+     "selector": "[data-cg-price]",
+     "transform": "money"
+    },
+    "transmission": {
+     "selector": ".transmission span",
+     "transform": "text"
+    },
+    "vin": {
+     "attribute": "data-cg-vin",
+     "selector": "[data-cg-vin]",
+     "transform": "vin"
+    }
+   }
+  },
+  "origin": "https://iautodealerservices.com",
+  "schema": "autoposting.vehicle-extraction",
+  "start_urls": [
+   "https://iautodealerservices.com/inventory"
+  ],
+  "v": 2
+ },
+ "verdict": "needs_repair"
+}

@@ -1,0 +1,116 @@
+{
+ "created_at": "2026-08-30T07:29:15+00:00",
+ "notes": "Team Velocity storefront with the HomeNet photo CDN (content.homenetiol.com). SRP cards are a.srp-vehicle-box anchors carrying #copy_vin/#copy_stock; pagination is a[rel=next]. First end-to-end factory win (287 vehicles).",
+ "origin": "https://orlandonissan.com",
+ "platform_fingerprint": {
+  "class_families": [
+   "family:cbo-",
+   "family:color-",
+   "family:details-",
+   "family:grey-",
+   "family:oem-",
+   "family:payment-",
+   "family:primary-",
+   "family:primaryicon-",
+   "family:rounded-",
+   "family:srp-",
+   "family:vehicle-",
+   "family:vehiclebox-"
+  ],
+  "gallery_mechanisms": [
+   "gallery:background-image"
+  ],
+  "json_ld_types": [
+   "jsonld:AutoDealer",
+   "jsonld:ContactPoint",
+   "jsonld:EngineSpecification",
+   "jsonld:GeoCoordinates",
+   "jsonld:ImageObject",
+   "jsonld:Offer",
+   "jsonld:Organization",
+   "jsonld:PostalAddress",
+   "jsonld:QuantitativeValue",
+   "jsonld:Thing"
+  ],
+  "pagination": [
+   "pagination:rel-next"
+  ],
+  "photo_cdn_hosts": [
+   "cdn:content.homenetiol.com",
+   "cdn:iprecheck.s3.amazonaws.com",
+   "cdn:orlandonissan.com",
+   "cdn:widget.buyercall.com"
+  ],
+  "photo_path_grammars": [
+   "grammar:homenet-media",
+   "grammar:resize-WxH-segment"
+  ],
+  "platform_tokens": [
+   "platform:homenet",
+   "platform:teamvelocity",
+   "widget:srp-vehicle-box"
+  ]
+ },
+ "provenance": "weaver-run:946a1753a3904f52 (passed+complete, promoted to vehicle-active); factory:fj1787940739ff6efa verdict=review",
+ "schema": "autoposting.vehicle-spec-library-record",
+ "spec": {
+  "detail": {
+   "fields": {
+    "distance_unit": {
+     "selector": ".mileage-value",
+     "transform": "unit"
+    },
+    "mileage": {
+     "selector": ".mileage-value",
+     "transform": "integer"
+    },
+    "stock_number": {
+     "selector": ".stock-number-field",
+     "transform": "text"
+    },
+    "vin": {
+     "selector": ".page-vin",
+     "transform": "vin"
+    }
+   },
+   "gallery_mode": "fixed_auto",
+   "max_photos": 80,
+   "root_selector": "div#mazda_oem_inventoryvdp_page"
+  },
+  "listing": {
+   "card_selector": "a.srp-vehicle-box",
+   "detail_link_selector": ":scope",
+   "fields": {
+    "name": {
+     "selector": ".vehiclebox-title",
+     "transform": "text"
+    },
+    "photo": {
+     "attribute": "src",
+     "selector": "img[title]",
+     "transform": "image"
+    },
+    "price": {
+     "selector": ".vehicle-content",
+     "transform": "money"
+    },
+    "stock_number": {
+     "selector": "#copy_stock",
+     "transform": "text"
+    },
+    "vin": {
+     "selector": "#copy_vin",
+     "transform": "vin"
+    }
+   },
+   "next_page_selector": "a[rel=next]"
+  },
+  "origin": "https://orlandonissan.com",
+  "schema": "autoposting.vehicle-extraction",
+  "start_urls": [
+   "https://orlandonissan.com/inventory/used"
+  ],
+  "v": 2
+ },
+ "verdict": "verified"
+}

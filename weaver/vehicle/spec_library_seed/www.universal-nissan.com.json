@@ -1,0 +1,104 @@
+{
+ "created_at": "2026-08-30T07:29:15+00:00",
+ "notes": "Cars Commerce / Dealer Inspire WordPress build. The crawlable inventory is a server-rendered machine route announced in <head> as link rel=alternate, not a clickable anchor. Photos live on vehicle-images.carscommerce.inc; the platform origin serves Cloudflare block pages with HTTP 200.",
+ "origin": "https://www.universal-nissan.com",
+ "platform_fingerprint": {
+  "class_families": [
+   "family:bar-",
+   "family:details-",
+   "family:reviews-",
+   "family:salesperson-",
+   "family:selection-",
+   "family:show-",
+   "family:star-",
+   "family:stars-",
+   "family:swiper-",
+   "family:vdp-",
+   "family:vehicle-",
+   "family:view-"
+  ],
+  "gallery_mechanisms": [
+   "gallery:background-image",
+   "gallery:data-src-lazy"
+  ],
+  "json_ld_types": [
+   "jsonld:AutoDealer",
+   "jsonld:AutoPartsStore",
+   "jsonld:AutoRepair",
+   "jsonld:Brand",
+   "jsonld:Car",
+   "jsonld:EntryPoint",
+   "jsonld:ImageObject",
+   "jsonld:Offer",
+   "jsonld:OpeningHoursSpecification",
+   "jsonld:Organization"
+  ],
+  "pagination": [],
+  "photo_cdn_hosts": [
+   "cdn:cdn-user.dealerrater.com",
+   "cdn:di-shared-assets.dealerinspire.com",
+   "cdn:di-uploads-development.dealerinspire.com",
+   "cdn:di-uploads-pod47.dealerinspire.com",
+   "cdn:vehicle-images.carscommerce.inc",
+   "cdn:www.nissanusa.com",
+   "cdn:www.universal-nissan.com"
+  ],
+  "photo_path_grammars": [],
+  "platform_tokens": [
+   "platform:carscommerce",
+   "platform:dealerinspire",
+   "platform:wordpress"
+  ]
+ },
+ "provenance": "weaver-run:5a428c6c51554660 via factory:fj1788016649aa57eb (crawl partial on this box)",
+ "schema": "autoposting.vehicle-spec-library-record",
+ "spec": {
+  "detail": {
+   "fields": {},
+   "gallery_mode": "fixed_auto",
+   "max_photos": 80
+  },
+  "listing": {
+   "card_selector": "li.vehicle-item",
+   "detail_link_selector": "a[href]",
+   "fields": {
+    "condition": {
+     "selector": ".vehicle-details",
+     "transform": "condition"
+    },
+    "distance_unit": {
+     "selector": ".vehicle-details",
+     "transform": "unit"
+    },
+    "mileage": {
+     "selector": ".vehicle-details",
+     "transform": "integer"
+    },
+    "name": {
+     "selector": "[itemprop=name]",
+     "transform": "text"
+    },
+    "price": {
+     "attribute": "content",
+     "selector": "[itemprop=price]",
+     "transform": "money"
+    },
+    "vin": {
+     "selector": ".vehicle-content",
+     "transform": "vin"
+    },
+    "year": {
+     "selector": "[itemprop=name]",
+     "transform": "year"
+    }
+   }
+  },
+  "origin": "https://www.universal-nissan.com",
+  "schema": "autoposting.vehicle-extraction",
+  "start_urls": [
+   "https://www.universal-nissan.com/llm/inventory/"
+  ],
+  "v": 2
+ },
+ "verdict": "needs_repair"
+}
