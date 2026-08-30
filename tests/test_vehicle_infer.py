@@ -1524,3 +1524,29 @@ def test_a_dead_contract_failure_carries_the_card_catalog_it_judged() -> None:
     assert all("locally_matched_cards" in row for row in diagnostics["card_catalog"])
     assert diagnostics["attempts"] == []
     assert diagnostics["listing_refetched"] is False
+
+
+def test_repair_notes_ride_into_instructions_as_fenced_untrusted_hints():
+    from weaver.vehicle.infer import _repair_notes_prompt
+
+    text = _repair_notes_prompt(
+        "  field_coverage:mileage:0.00<1.00.   Mileage is visibly present\n"
+        "in listing-card text but was not extracted. "
+    )
+    assert "untrusted hint-only context" in text
+    assert "proven against THIS document" in text
+    assert "mileage" in text
+    assert "\n" not in text.replace(text[:1], text[:1])  # whitespace collapsed
+    # Empty notes add nothing to the prompt.
+    assert _repair_notes_prompt("") == ""
+    assert _repair_notes_prompt("   ") == ""
+    # The injection is bounded even against an oversized diagnosis.
+    assert len(_repair_notes_prompt("x" * 10_000)) < 2_400
+
+
+def test_run_options_accept_and_normalize_repair_notes():
+    from weaver.models import RunOptions
+
+    options = RunOptions(repair_notes="  two   words \n here ")
+    assert options.repair_notes == "two words here"
+    assert RunOptions().repair_notes == ""

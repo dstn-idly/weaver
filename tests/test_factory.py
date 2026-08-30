@@ -485,7 +485,7 @@ def test_process_job_simulates_on_the_specs_proven_route(tmp_path, monkeypatch):
 
     simulated_on = []
 
-    async def fake_create_run(client, job):
+    async def fake_create_run(client, job, *, repair_notes=""):
         return "runX"
 
     async def fake_poll_run(client, store, job, run_id):
@@ -576,13 +576,15 @@ def test_a_429_refused_origin_rests_for_hours_not_minutes(tmp_path, monkeypatch)
     remaining = orchestrator.origin_cooldown_remaining(store, job, now.timestamp())
     assert 1700.0 < remaining <= 1800.0
 
-    # A 429 refusal rests for the pressure window.
-    job.error = "verification crawl failed: dealer returned HTTP 429 after 3 bounded attempts"
+    # A 429 refusal rests for the pressure window — recorded on the dedicated
+    # refusal field, which a requeue's error-clearing does not touch.
+    job.last_crawl_refusal = "verification crawl failed: dealer returned HTTP 429 after 3 bounded attempts"
+    job.error = None  # exactly what a requeue does
     remaining = orchestrator.origin_cooldown_remaining(store, job, now.timestamp())
     assert 43000.0 < remaining <= 43200.0
 
     # "Too Many Requests" prose counts the same as the bare status code.
-    job.error = "Client error: too many requests from this address"
+    job.last_crawl_refusal = "Client error: too many requests from this address"
     remaining = orchestrator.origin_cooldown_remaining(store, job, now.timestamp())
     assert remaining > 43000.0
 
@@ -590,6 +592,155 @@ def test_a_429_refused_origin_rests_for_hours_not_minutes(tmp_path, monkeypatch)
     # clean crawl returns the origin to ordinary manners.
     newer = store.create("https://dealer.example/used", "https://dealer.example")
     newer.last_crawl_at = (now + timedelta(seconds=5)).isoformat()
-    newer.error = None
+    newer.last_crawl_refusal = None
     remaining = orchestrator.origin_cooldown_remaining(store, job, now.timestamp() + 5)
     assert remaining <= 1800.0
+
+
+def test_triage_types_the_verdicts_actual_blockers():
+    """The deterministic QA codes carry the diagnosis; triage turns them into
+    typed causes ordered by how decisively each explains a bad crawl."""
+
+    from weaver.factory.triage import build_repair_plan, classify_causes
+
+    causes = classify_causes(
+        [
+            "incomplete_snapshot:natural_end",
+            "expected_total_mismatch:32/175",
+            "field_coverage:mileage:0.00<1.00",
+            "multi_photo_vehicle_coverage:0.00<1.00",
+            "cross_vehicle_photo_duplicates:14",
+        ],
+        {"vin_agreement": "8/10"},
+    )
+    assert causes[0] == "incomplete_coverage"
+    assert "missing_field:mileage" in causes
+    assert "photo_coverage" in causes
+    assert "photo_ownership" in causes
+    assert "sim_disagreement" in causes
+
+    # photo/photos field coverage folds into photo_coverage, not missing_field.
+    assert classify_causes(["field_coverage:photos:0.87<1.00"], {}) == ["photo_coverage"]
+
+    plan = build_repair_plan(
+        qa_issues=["expected_total_mismatch:32/175", "incomplete_snapshot:natural_end"],
+        luna_verdict={
+            "summary": "Do not ship. Coverage is severely incomplete.",
+            "concerns": ["Coverage is severely incomplete: 32/175 vehicles."],
+        },
+        simulation={"vin_agreement": "0/0"},
+    )
+    assert plan["primary_cause"] == "incomplete_coverage"
+    assert "32" in plan["notes"] and "175" in plan["notes"]
+    assert "pagination" in plan["notes"]  # mismatch adds the deeper-walk hint
+    assert len(plan["notes"]) <= 1800
+
+    # Nothing typed to act on -> no plan (a judgement call is not a bug list).
+    assert (
+        build_repair_plan(qa_issues=[], luna_verdict={"summary": "x"}, simulation={})
+        is None
+    )
+
+
+def test_a_repair_run_carries_the_diagnosis_and_two_same_walls_stop_the_loop(
+    tmp_path, monkeypatch
+):
+    """The whole point of the repair loop: attempt 1 fails -> the plan is
+    written; the requeue crawls FRESH (never reuses the condemned crawl) with
+    the diagnosis injected; the same primary cause failing twice more sets
+    blocked_reason instead of burning a third crawl."""
+
+    import weaver.factory.orchestrator as orchestrator
+
+    created_runs = []
+
+    async def fake_create_run(client, job, *, repair_notes=""):
+        created_runs.append(repair_notes)
+        return f"run{len(created_runs)}"
+
+    async def fake_poll_run(client, store, job, run_id):
+        return {"status": "partial", "row_count": 32}
+
+    async def fake_artifact(client, run_id, name):
+        if name == "manifest.json":
+            return {"qa": {"issues": ["expected_total_mismatch:32/175", "incomplete_snapshot:natural_end"]}}
+        if name == "records.jsonl":
+            return []
+        if name == "spec.json":
+            return {"origin": "https://dealer.example", "start_urls": ["https://dealer.example/used/"]}
+        raise AssertionError(name)
+
+    def fake_translate(spec):
+        return ({"v": 1, "origin": "https://dealer.example", "card": "li.car", "fields": {}}, [])
+
+    async def fake_simulate(config, start_url, *, known_vins, emit):
+        return {"passed": True, "entry_url": start_url, "vin_agreement": "0/0",
+                "pages": [{"url": start_url, "ok": True, "vehicles": 4, "sample": []}]}
+
+    async def fake_luna(*, qa, samples, simulation, emit):
+        return {"verdict": "needs_repair", "summary": "coverage incomplete",
+                "concerns": ["Coverage is severely incomplete."]}
+
+    monkeypatch.setattr(orchestrator, "_create_run", fake_create_run)
+    monkeypatch.setattr(orchestrator, "_poll_run", fake_poll_run)
+    monkeypatch.setattr(orchestrator, "_artifact", fake_artifact)
+    monkeypatch.setattr(orchestrator, "translate_spec_to_extension_config", fake_translate)
+    monkeypatch.setattr(orchestrator, "reconcile_config_fields", lambda c, s, r: (c, [], {}))
+    monkeypatch.setattr(orchestrator, "simulate_listing_config", fake_simulate)
+    monkeypatch.setattr(orchestrator, "luna_qa_review", fake_luna)
+
+    async def run():
+        store = FactoryStore(tmp_path)
+        job = store.create("https://dealer.example", "https://dealer.example")
+
+        # Attempt 1: no plan yet -> plain run, verdict writes the plan.
+        await orchestrator.process_job(store, job)
+        assert created_runs == [""]
+        assert job.verdict == "needs_repair"
+        assert job.repair_attempts == 0
+        plan_path = store.artifact_path(job, "repair-plan.json")
+        assert json.loads(plan_path.read_text())["primary_cause"] == "incomplete_coverage"
+        assert job.blocked_reason is None
+
+        # Attempt 2: requeue -> fresh crawl WITH the diagnosis injected, and
+        # the previously condemned run id must not be reused.
+        job.state, job.stage, job.error, job.verdict = "queued", "queued", None, None
+        await orchestrator.process_job(store, job)
+        assert len(created_runs) == 2
+        assert "32" in created_runs[1] and "pagination" in created_runs[1]
+        assert job.repair_attempts == 1
+        assert job.blocked_reason is None
+
+        # Attempt 3: same wall again -> repair_attempts reaches 2; the verdict
+        # marks the job blocked for a human instead of looping forever.
+        job.state, job.stage, job.error, job.verdict = "queued", "queued", None, None
+        await orchestrator.process_job(store, job)
+        assert job.repair_attempts == 2
+        assert job.blocked_reason is not None
+        assert "incomplete_coverage" in job.blocked_reason
+        assert any(e["type"] == "needs_human" for e in job.events)
+
+        # A later success clears the whole repair state.
+        async def luna_ship(*, qa, samples, simulation, emit):
+            return {"verdict": "ship", "summary": "clean"}
+
+        async def poll_passed(client, store_, job_, run_id):
+            return {"status": "passed", "row_count": 175}
+
+        monkeypatch.setattr(orchestrator, "luna_qa_review", luna_ship)
+        monkeypatch.setattr(orchestrator, "_poll_run", poll_passed)
+
+        async def artifact_clean(client, run_id, name):
+            if name == "manifest.json":
+                return {"qa": {"issues": []}}
+            return await fake_artifact(client, run_id, name)
+
+        monkeypatch.setattr(orchestrator, "_artifact", artifact_clean)
+        job.state, job.stage, job.error, job.verdict = "queued", "queued", None, None
+        await orchestrator.process_job(store, job)
+        assert job.verdict == "ship"
+        assert job.repair_attempts == 0
+        assert job.blocked_reason is None
+        assert not plan_path.exists()
+
+    asyncio.run(run())

@@ -263,6 +263,7 @@ async def _discover_and_infer(
             api_key=os.getenv("OPENAI_API_KEY"),
             max_attempts=3,
             refetch_listing=_refetch_listing,
+            repair_notes=getattr(record.request.options, "repair_notes", "") or "",
         )
     except SpecInferenceError as exc:
         # The listing and representative-VDP snapshots inference judged live

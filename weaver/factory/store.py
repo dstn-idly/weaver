@@ -48,6 +48,16 @@ class FactoryJob:
     # The full evidence lives on the job's "referral" event; this small tag is
     # what the portal's job header can show without reading the feed.
     referral: dict[str, Any] | None = None
+    # How many runs have already carried a triage repair plan into inference.
+    # The same primary cause surviving two informed attempts stops the loop
+    # (blocked_reason) instead of burning crawls on a wall forever.
+    repair_attempts: int = 0
+    blocked_reason: str | None = None
+    # The dealer's last explicit refusal (HTTP 429) of a crawl. Lives apart
+    # from `error` because a requeue clears error for display, and the
+    # pressure cooldown must keep remembering the refusal until a crawl
+    # actually completes again.
+    last_crawl_refusal: str | None = None
     events: list[dict[str, Any]] = field(default_factory=list)
     condition: asyncio.Condition = field(default_factory=asyncio.Condition, repr=False)
 
@@ -65,6 +75,9 @@ class FactoryJob:
             "updated_at": self.updated_at,
             "last_crawl_at": self.last_crawl_at,
             "referral": self.referral,
+            "repair_attempts": self.repair_attempts,
+            "blocked_reason": self.blocked_reason,
+            "last_crawl_refusal": self.last_crawl_refusal,
             "event_count": len(self.events),
         }
 
@@ -92,6 +105,9 @@ class FactoryStore:
                     stage=str(raw.get("stage", "queued")),
                     last_crawl_at=raw.get("last_crawl_at") or None,
                     referral=raw.get("referral") if isinstance(raw.get("referral"), dict) else None,
+                    repair_attempts=int(raw.get("repair_attempts") or 0),
+                    blocked_reason=raw.get("blocked_reason") or None,
+                    last_crawl_refusal=raw.get("last_crawl_refusal") or None,
                     run_id=raw.get("run_id"),
                     verdict=raw.get("verdict"),
                     error=raw.get("error"),

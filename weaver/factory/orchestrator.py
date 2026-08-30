@@ -23,6 +23,7 @@ from .attestation import mint_owner_attestation
 from .luna import luna_qa_review
 from .simulate import simulate_listing_config
 from .store import FactoryJob, FactoryStore
+from .triage import build_repair_plan
 from .translate import (
     TranslateError,
     reconcile_config_fields,
@@ -45,7 +46,9 @@ async def _api(client: httpx.AsyncClient, method: str, path: str, **kwargs: Any)
     return response
 
 
-async def _create_run(client: httpx.AsyncClient, job: FactoryJob) -> str:
+async def _create_run(
+    client: httpx.AsyncClient, job: FactoryJob, *, repair_notes: str = ""
+) -> str:
     attestation = mint_owner_attestation(job.origin, org=f"factory:{job.id}")
     body = {
         "urls": [job.url],
@@ -69,6 +72,8 @@ async def _create_run(client: httpx.AsyncClient, job: FactoryJob) -> str:
             },
         },
     }
+    if repair_notes:
+        body["options"]["repair_notes"] = repair_notes
     headers = dict(_auth_headers())
     headers["x-weaver-authorization-attestation"] = attestation
     # A job reloaded at container start can be picked up before uvicorn is
@@ -197,6 +202,23 @@ async def _copy_failure_bundle(
         )
 
 
+def _load_repair_plan(store: FactoryStore, job: FactoryJob) -> dict[str, Any] | None:
+    try:
+        raw = json.loads(
+            store.artifact_path(job, "repair-plan.json").read_text(encoding="utf-8")
+        )
+    except (OSError, ValueError):
+        return None
+    return raw if isinstance(raw, dict) else None
+
+
+def _clear_repair_plan(store: FactoryStore, job: FactoryJob) -> None:
+    try:
+        store.artifact_path(job, "repair-plan.json").unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
 def simulation_start_url(spec: dict[str, Any], fallback: str) -> str:
     """The listing route the client engine must be simulated on.
 
@@ -228,7 +250,11 @@ async def process_job(store: FactoryStore, job: FactoryJob) -> None:
     async with httpx.AsyncClient(timeout=60.0, trust_env=False) as client:
         run = None
         run_id = job.run_id or ""
-        if run_id:
+        repair_plan = _load_repair_plan(store, job)
+        # A repair run exists to try something the last crawl did not prove;
+        # replaying the very crawl the verdict condemned would be the four-days
+        # -of-nothing loop again. Only an unrepaired job may reuse a pass.
+        if run_id and repair_plan is None:
             # A requeue after a needs_repair verdict re-judges against the
             # job's prior PASSED crawl instead of re-crawling the dealer for
             # half an hour: translate → simulate → Luna replay in minutes.
@@ -247,9 +273,19 @@ async def process_job(store: FactoryStore, job: FactoryJob) -> None:
                      "detail": "prior passed crawl reused; re-verifying without re-crawling"},
                 )
         if run is None:
-            run_id = await _create_run(client, job)
+            notes = str((repair_plan or {}).get("notes") or "")
+            run_id = await _create_run(client, job, repair_notes=notes)
             job.run_id = run_id
             job.last_crawl_at = datetime.now(timezone.utc).isoformat()
+            if notes:
+                job.repair_attempts += 1
+                await store.emit(
+                    job,
+                    "repair_attempt",
+                    {"attempt": job.repair_attempts,
+                     "primary_cause": (repair_plan or {}).get("primary_cause"),
+                     "detail": "spec inference receives the prior verdict's diagnosis"},
+                )
             store.persist(job)
             await store.emit(job, "run_created", {"run_id": run_id, "events_url": f"/api/runs/{run_id}/events"})
             run = await _poll_run(client, store, job, run_id)
@@ -277,6 +313,9 @@ async def process_job(store: FactoryStore, job: FactoryJob) -> None:
             except Exception:  # noqa: BLE001 - diagnostics copy never masks the failure
                 pass
             raise RuntimeError(f"verification crawl failed: {(run.get('errors') or ['unknown'])[0]}")
+        # The dealer served this crawl to completion: any remembered refusal
+        # is history, and the origin returns to ordinary manners.
+        job.last_crawl_refusal = None
 
         job.stage = "translate"
         store.persist(job)
@@ -357,6 +396,45 @@ async def process_job(store: FactoryStore, job: FactoryJob) -> None:
             if not crawl_ok or not simulation.get("passed") or verdict.get("verdict") == "needs_repair"
             else "review"
         )
+        if job.verdict in {"ship", "review"}:
+            # The repair loop closed: whatever the plan was aiming at is no
+            # longer what stands between this dealership and shipping.
+            job.repair_attempts = 0
+            job.blocked_reason = None
+            _clear_repair_plan(store, job)
+        elif job.verdict == "needs_repair":
+            plan = build_repair_plan(
+                qa_issues=list(qa.get("issues") or []),
+                luna_verdict=verdict,
+                simulation=simulation,
+            )
+            if plan is not None:
+                same_wall = (
+                    repair_plan is not None
+                    and repair_plan.get("primary_cause") == plan.get("primary_cause")
+                )
+                (store.artifact_path(job, "repair-plan.json")).write_text(
+                    json.dumps(plan, indent=1), encoding="utf-8"
+                )
+                await store.emit(
+                    job,
+                    "repair_plan",
+                    {"causes": plan["causes"], "primary_cause": plan["primary_cause"],
+                     "detail": "the next requeue crawls fresh with this diagnosis injected"},
+                )
+                if same_wall and job.repair_attempts >= 2:
+                    # Two informed attempts hit the same wall. Burning more
+                    # crawls is not a strategy; a person now knows exactly why.
+                    job.blocked_reason = (
+                        f"{plan['primary_cause']}: {plan['summary'] or 'see repair-plan.json'}"
+                    )[:400]
+                    await store.emit(
+                        job,
+                        "needs_human",
+                        {"primary_cause": plan["primary_cause"],
+                         "attempts": job.repair_attempts,
+                         "detail": job.blocked_reason},
+                    )
         job.state = "done"
         job.stage = "done"
         store.persist(job)
@@ -421,7 +499,10 @@ def origin_cooldown_remaining(store: FactoryStore, job: FactoryJob, now: float) 
             continue
         if touched > latest:
             latest = touched
-            latest_error = str(other.error or "")
+            # The dedicated refusal field, not `error`: requeue clears error
+            # for display, and the refusal must keep counting until a crawl
+            # completes again.
+            latest_error = str(other.last_crawl_refusal or "")
     if latest <= 0:
         return 0.0
     span = (
@@ -463,6 +544,10 @@ async def factory_worker(store: FactoryStore) -> None:
             job.state = "failed"
             job.stage = "failed"
             job.error = str(error)[:400]
+            if _RATE_LIMIT_ERROR_RE.search(job.error):
+                # Requeue clears `error` for display; the refusal itself must
+                # outlive that so the pressure cooldown keeps counting.
+                job.last_crawl_refusal = job.error
             store.persist(job)
             try:
                 await store.emit(job, "failed", {"error": job.error})

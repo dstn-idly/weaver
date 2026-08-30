@@ -427,11 +427,15 @@ async function select(id) {
       <div class="muted">${job.url}</div>
       ${job.referral ? `<div class="muted">☎ customer loop — ${job.referral.trigger === "auto_failure" ? "filed automatically after repeated failed local scans" : "filed from a customer problem report"}${job.referral.org ? " · org " + job.referral.org : ""} (details in the feed's referral event)</div>` : ""}
       ${job.run_id ? `<div class="muted">weaver run <a href="/api/runs/${job.run_id}" target="_blank">${job.run_id}</a></div>` : ""}
+      ${job.repair_attempts ? `<div class="muted">🔧 ${job.repair_attempts} diagnosis-informed repair attempt${job.repair_attempts > 1 ? "s" : ""} (plan in repair-plan.json)</div>` : ""}
+      ${job.blocked_reason ? `<div id="blockedReason" style="color:var(--amber)"></div>` : ""}
       ${job.error ? `<div style="color:var(--bad)">${job.error}</div>` : ""}
       ${job.state !== "running" ? `<button class="ghost" onclick="requeue('${job.id}')">requeue</button>` : ""}
     </div>
     <div class="muted" style="margin:.3rem 0">LIVE FEED — the agent's decisions as they happen</div>
     <div id="log"></div>`;
+  const blocked = document.getElementById("blockedReason");
+  if (blocked) blocked.textContent = "⛔ needs a human: " + job.blocked_reason;
   for (const event of job.events || []) logLine(event);
   if (job.state === "queued" || job.state === "running") stream(id, (job.events||[]).length);
   refresh();

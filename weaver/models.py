@@ -121,9 +121,13 @@ class RunOptions(BaseModel):
     requested_fields: list[RequestedField] = Field(default_factory=list, max_length=32)
     preset: VehiclePreset = "generic"
     vehicle_spec: dict[str, Any] | None = Field(default=None, max_length=24_000)
+    # A prior run's QA diagnosis, distilled by the factory's triage. Injected
+    # into spec inference as untrusted hints only — it never chooses URLs,
+    # transport behavior, or unproven selectors.
+    repair_notes: str = Field(default="", max_length=2_000)
     authorization: VehicleAuthorization | None = None
 
-    @field_validator("target_intent")
+    @field_validator("target_intent", "repair_notes")
     @classmethod
     def normalize_target_intent(cls, value: str) -> str:
         return " ".join(value.split())
