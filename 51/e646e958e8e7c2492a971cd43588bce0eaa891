@@ -1,0 +1,21 @@
+quickscrape/quickscrape.py
+  s_4245107d2f7a12::t_34af11cde92222 148
+  s_4245107d2f7a12::t_81b6a8d695c246 172-176
+  s_4245107d2f7a12::t_700c29c39e6021 134-147,149-171,177-188,190-200,202
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "51e646e958e8e7c2492a971cd43588bce0eaa891",
+  "prompts": {},
+  "sessions": {
+    "s_4245107d2f7a12": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "42b354fa-7aab-46be-b24a-1dfaf2c78f13",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "dustin thach <epikunder321123@gmail.com>"
+    }
+  }
+}
