@@ -4460,3 +4460,54 @@ def test_a_heat_starved_listing_page_recycles_the_browser_and_refetches_cold(
         assert small.recycles == 1  # one test of the theory, then disarmed
 
     asyncio.run(run())
+
+
+def test_the_rendered_fetch_returns_the_live_dom_not_the_network_bytes(monkeypatch) -> None:
+    """Scroll hydration mutates the LIVE page; the response body is the
+    server's original document. Malloy Ford held 24 hydrated cards in the
+    browser while extraction read the 5-card network bytes. The rendered
+    fetch serializes the DOM after the page action and prefers it; a page
+    that cannot serialize falls back to the body."""
+
+    async def allow(url):
+        return SimpleNamespace(url=url)
+
+    monkeypatch.setattr("weaver.vehicle.transport.validate_public_url", allow)
+
+    network_html = "<html><body>" + ("stale network document " * 30) + "</body></html>"
+    hydrated_html = "<html><body>" + ("hydrated live inventory " * 30) + "</body></html>"
+
+    class HydratingPage:
+        async def evaluate(self, script, *args):
+            if "outerHTML" in script:
+                return "<!DOCTYPE html>" + hydrated_html
+            if "scrollTo" in script:
+                return None
+            return {"cards": 24, "placeholders": 0}
+
+    class Browser:
+        def __init__(self, page):
+            self.page = page
+
+        async def fetch(self, url, **kwargs):
+            action = kwargs.get("page_action")
+            if callable(action):
+                await action(self.page)
+            return SimpleNamespace(url=url, status=200, headers={}, body=network_html.encode())
+
+    async def run():
+        session = PersistentDealerSession("https://dealer.example")
+        session._session = Browser(HydratingPage())
+        html = await session.fetch_rendered("https://dealer.example/used")
+        assert "hydrated live inventory" in html
+        assert "stale network document" not in html
+
+        # A page that cannot serialize its DOM falls back to the body.
+        class MutePage:
+            pass
+
+        session._session = Browser(MutePage())
+        html = await session.fetch_rendered("https://dealer.example/used")
+        assert "stale network document" in html
+
+    asyncio.run(run())

@@ -1935,6 +1935,32 @@ class PersistentDealerSession:
             # a lazy SRP must be scrolled full here too, or the candidate
             # catalog only ever sees the two server-rendered spotlight cards.
             fetch_options = {"page_action": _scroll_to_hydrate}
+        # THE DOM IS THE DELIVERABLE. The fetch's response body is the
+        # network document — the server's original bytes — and every page
+        # action above mutates the LIVE page (scroll hydration, readiness
+        # waits) without touching those bytes. Malloy Ford's lazy SRP held 24
+        # hydrated cards in the browser while extraction read the 5-card
+        # network document, sinking four fix attempts in a row. The action is
+        # wrapped so the live DOM is serialized after it finishes, and that
+        # serialization wins over the response body whenever it exists.
+        captured_dom: dict[str, str] = {}
+        inner_action = fetch_options.get("page_action")
+
+        async def action_with_dom_capture(page: object) -> None:
+            if callable(inner_action):
+                await inner_action(page)
+            evaluator = getattr(page, "evaluate", None)
+            if callable(evaluator):
+                try:
+                    dom = await evaluator(
+                        "() => '<!DOCTYPE html>' + document.documentElement.outerHTML"
+                    )
+                    if isinstance(dom, str) and len(dom) > 200:
+                        captured_dom["html"] = dom
+                except Exception:  # noqa: BLE001 - fall back to the response body
+                    pass
+
+        fetch_options["page_action"] = action_with_dom_capture
         if self._hang_recovery_pending:
             # The previous navigation hung waiting for the page's load event
             # (a stalled subresource never finishing, a known dealer-site
@@ -1963,7 +1989,7 @@ class PersistentDealerSession:
                 "browser navigation redirected outside the authorized dealer origin",
                 code="cross_origin_redirect",
             )
-        html = _body(response)
+        html = captured_dom.get("html") or _body(response)
         if _challenge_detected(html):
             raise VehicleTransportError(
                 "persistent browser returned a challenge page",
