@@ -1,0 +1,21 @@
+docker-compose.yml
+  s_4245107d2f7a12::t_f634f2443e185a 78-110
+quickscrape/quickscrape.py
+  s_4245107d2f7a12::t_11034eb2cb4cf1 1-271
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "890dd200e831dc826c2ce0a76b6d57cc0502835d",
+  "prompts": {},
+  "sessions": {
+    "s_4245107d2f7a12": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "42b354fa-7aab-46be-b24a-1dfaf2c78f13",
+        "model": "claude-fable-5"
+      },
+      "human_author": "dustin thach <epikunder321123@gmail.com>"
+    }
+  }
+}
