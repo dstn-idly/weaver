@@ -1,0 +1,71 @@
+tests/test_vehicle_library.py
+  s_da9cd4ad208db2::t_24798963d53704 1-536
+weaver/vehicle/library.py
+  s_da9cd4ad208db2::t_8f6f9e9e542b39 808
+  s_da9cd4ad208db2::t_a21debcadb095a 1-89,98,104-132,134-219,236-575,582-774,776-807,809-923
+  s_da9cd4ad208db2::t_f9b9d8eb5b9032 775
+  s_da9cd4ad208db2::t_7ebf0bef4a9659 90,99-103
+  s_da9cd4ad208db2::t_f71ee48d5aa77a 133
+  s_da9cd4ad208db2::t_eb61ba24d6fdc1 220-235
+  s_da9cd4ad208db2::t_395b77704dd9cb 576-581
+  s_da9cd4ad208db2::t_570216b6d1fd49 91-97
+weaver/vehicle/pipeline.py
+  s_da9cd4ad208db2::t_730e1248457bec 649-651
+  s_da9cd4ad208db2::t_27d18ee825c000 633-648,652-660
+weaver/factory/orchestrator.py
+  s_da9cd4ad208db2::t_f16e426a21dfba 315-319
+weaver/vehicle/infer.py
+  s_da9cd4ad208db2::t_c41b74d9a809a9 15-22
+  s_da9cd4ad208db2::t_6faf456f901dc6 57
+  s_da9cd4ad208db2::t_bb705d117613dc 1392,2308,2384-2402
+  s_da9cd4ad208db2::t_3e9a60e7c483df 2421
+  s_da9cd4ad208db2::t_a6cba53542e054 1377-1391,1393-1402,2295-2307,2309-2315
+tests/fixtures/library/orange_listing.html
+  s_da9cd4ad208db2::t_e51341efdf7050 1-854
+tests/fixtures/library/orange_vdp.html
+  s_da9cd4ad208db2::t_8af5eefc581a56 1-219
+tests/fixtures/library/sugarloaf_listing.html
+  s_da9cd4ad208db2::t_74487c1d3db20b 1-13
+tests/fixtures/library/sugarloaf_vdp.html
+  s_da9cd4ad208db2::t_a9ac6ee31a07c0 1-364
+tests/test_vehicle_vdp.py
+  s_da9cd4ad208db2::t_ad5a07093d2f3e 2817-2904
+weaver/vehicle/spec_library_seed/iautodealerservices.com.json
+  s_da9cd4ad208db2::t_0cb1d9d69cac25 1-146
+weaver/vehicle/spec_library_seed/index.json
+  s_da9cd4ad208db2::t_f5e665621dcdbe 1-112
+weaver/vehicle/spec_library_seed/orlandonissan.com.json
+  s_da9cd4ad208db2::t_6fb3d038d757e3 1-116
+weaver/vehicle/spec_library_seed/www.edmarktoyota.com.json
+  s_da9cd4ad208db2::t_2372f1d5d41f59 1-101
+weaver/vehicle/spec_library_seed/www.orangeautosalesmiami.com.json
+  s_da9cd4ad208db2::t_87fabc4878d3e6 1-57
+weaver/vehicle/spec_library_seed/www.orlandoautolounge.com.json
+  s_da9cd4ad208db2::t_cb747d19312cfa 1-60
+weaver/vehicle/spec_library_seed/www.postoaktoyota.com.json
+  s_da9cd4ad208db2::t_ce1fb29322d3cd 1-114
+weaver/vehicle/spec_library_seed/www.serramonteford.com.json
+  s_da9cd4ad208db2::t_3f9fe21fb9ae0b 1-176
+weaver/vehicle/spec_library_seed/www.sugarloafcdjr.com.json
+  s_da9cd4ad208db2::t_56a279395b7b12 1-174
+weaver/vehicle/spec_library_seed/www.universal-nissan.com.json
+  s_da9cd4ad208db2::t_5526173cd9ce15 1-104
+weaver/vehicle/vdp.py
+  s_da9cd4ad208db2::t_8154801de74860 39-42,2739-2749,2754
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "4ba92636c4b7fc30536546463dab3348aa5a8c15",
+  "prompts": {},
+  "sessions": {
+    "s_da9cd4ad208db2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4cd1a6ac-f843-47f4-ac8d-77cbe7e08a68",
+        "model": "claude-fable-5"
+      },
+      "human_author": "dustin thach <epikunder321123@gmail.com>"
+    }
+  }
+}
