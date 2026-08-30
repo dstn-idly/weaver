@@ -1,0 +1,30 @@
+weaver/vehicle/transport.py
+  s_da9cd4ad208db2::t_d0b1adad97968b 1917-1921
+  s_da9cd4ad208db2::t_4907f6996130d4 1860-1862
+  s_da9cd4ad208db2::t_679bd6c387204b 2575-2628
+weaver/vehicle/infer.py
+  s_da9cd4ad208db2::t_fc41ada807b9d1 40
+  s_da9cd4ad208db2::t_b7adbbba44c272 965-991
+  s_da9cd4ad208db2::t_32db6d0b72bbe6 2320
+  s_da9cd4ad208db2::t_a3e1c160e8798c 2277-2311
+tests/test_vehicle_infer.py
+  s_da9cd4ad208db2::t_cd4269343f87cd 1562-1574
+tests/test_vehicle_transport.py
+  s_da9cd4ad208db2::t_dc5ee448e6537a 47,75,497,525,560,718,739,1284,2018,2044,2076,2112,2234,2356,2393,2525,2567,2638,2685,3289,3335,3711,3955,4223-4269
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "93693485b5f64f9125a2747ca78a3a59e9d2d160",
+  "prompts": {},
+  "sessions": {
+    "s_da9cd4ad208db2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4cd1a6ac-f843-47f4-ac8d-77cbe7e08a68",
+        "model": "claude-fable-5"
+      },
+      "human_author": "dustin thach <epikunder321123@gmail.com>"
+    }
+  }
+}
