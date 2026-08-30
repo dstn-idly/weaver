@@ -16,6 +16,7 @@ from email.utils import parsedate_to_datetime
 import inspect
 import json
 import os
+import random
 from pathlib import Path
 import re
 import time
@@ -1277,7 +1278,16 @@ class PersistentDealerSession:
     browser_max_public_search_hosts: int = 2
     browser_dependency_timeout_ms: int = 15_000
     browser_readiness_timeout_ms: int = 15_000
-    navigation_min_interval_seconds: float = 1.0
+    # Jim Norton served this box's static AND browser clients a 200 the same
+    # hour it 429'd a crawl (2026-08-30): dealer WAFs forgive the fingerprint
+    # and punish the cadence. One metronomic request per second for the length
+    # of a crawl is what no human visitor ever looks like.
+    navigation_min_interval_seconds: float = field(
+        default_factory=lambda: max(
+            0.0,
+            min(float(os.getenv("WEAVER_NAV_MIN_INTERVAL_SEC", "1.0") or 1.0), 30.0),
+        )
+    )
     navigation_max_retries: int = 2
     navigation_backoff_base_seconds: float = 2.0
     navigation_backoff_cap_seconds: float = 8.0
@@ -1670,6 +1680,10 @@ class PersistentDealerSession:
             0.0,
             min(float(self.navigation_min_interval_seconds), 30.0),
         )
+        if interval > 0:
+            # Human pacing is never metronomic; a fixed interval is itself a
+            # bot signature to a WAF counting request timing.
+            interval *= 1.0 + random.uniform(0.0, 0.4)
         now = self._clock()
         if self._last_navigation_started_at is not None:
             remaining = interval - (now - self._last_navigation_started_at)
@@ -1700,6 +1714,18 @@ class PersistentDealerSession:
             # fails the probe and falls straight back to the warm browser.
             try:
                 static = await self._static_fetch(url)
+            except _TransientDealerHTTPError as error:
+                if error.status_code != 429:
+                    raise
+                # A 429 aimed at the static client is the WAF refusing THIS
+                # fingerprint, not the address: the same box browsing in the
+                # persistent Chromium is served happily (Jim Norton,
+                # 2026-08-30). Stop static-probing for the rest of the run —
+                # every probe both risks another refusal and doubles the
+                # request count — and let the browser speak for us. A 429 the
+                # BROWSER earns still fails the navigation honestly.
+                self._static_nav_gated = True
+                static = None
             except VehicleTransportError as error:
                 if error.code not in {"redirect_cycle", "redirect_limit"}:
                     raise
@@ -2238,7 +2264,15 @@ class PersistentDealerSession:
         except httpx.HTTPError:
             return None
         status_code = _status_code(response)
-        if status_code in {429, 502, 503, 504}:
+        if status_code == 429:
+            # The WAF refused the static validator's fingerprint. Returning
+            # None hands the page to the sticky browser instead of failing
+            # the navigation for a client the site never has to like; the
+            # latch stops every later static probe from re-earning the same
+            # refusal. Genuine 5xx blips below still get the Retry-After lane.
+            self._static_nav_gated = True
+            return None
+        if status_code in {502, 503, 504}:
             retry_after_cap = max(
                 0.0,
                 min(float(self.navigation_retry_after_cap_seconds), 120.0),

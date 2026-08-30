@@ -921,9 +921,12 @@ def test_navigation_pacing_serializes_same_origin_fetches_without_real_sleep(
             session.fetch("https://dealer.example/used?page=1"),
             session.fetch("https://dealer.example/used?page=2"),
         )
-        assert browser.starts == [0.0, 1.0]
+        # The interval is jittered on purpose (a fixed beat is a bot
+        # signature); serialization and the single paced wait are the law.
+        assert browser.starts[0] == 0.0
+        assert 1.0 <= browser.starts[1] <= 1.4
         assert browser.max_active == 1
-        assert fake_time.sleeps == [1.0]
+        assert fake_time.sleeps == [browser.starts[1]]
 
     asyncio.run(run())
 
@@ -3968,3 +3971,152 @@ def test_discovery_failure_carries_the_last_candidate_vdp_snapshot() -> None:
         assert error.failure_document_url in {first, second}
 
     asyncio.run(run())
+
+
+def test_a_static_429_degrades_to_the_browser_instead_of_failing_the_run(
+    monkeypatch,
+) -> None:
+    """Jim Norton served this box's browser a 200 the same hour it 429'd the
+    crawl: the WAF refuses the static client's fingerprint, not the address.
+    A 429 on the static probe must hand the page to the browser and stop
+    static-probing for the run — never fail a navigation the browser could
+    have completed."""
+
+    static_requests = []
+    rendered = []
+
+    async def allow(url):
+        return SimpleNamespace(url=url)
+
+    class Client:
+        def __init__(self, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, traceback):
+            return None
+
+        async def get(self, url, **kwargs):
+            static_requests.append(url)
+            return SimpleNamespace(
+                status_code=429,
+                headers={"retry-after": "60"},
+                content=b"rate limited",
+                text="rate limited",
+            )
+
+    monkeypatch.setattr("weaver.vehicle.transport.validate_public_url", allow)
+    monkeypatch.setattr("weaver.vehicle.transport.httpx.AsyncClient", Client)
+
+    async def run():
+        session = PersistentDealerSession("https://dealer.example")
+
+        async def fake_rendered(url, **kwargs):
+            rendered.append(url)
+            return "<html><body>rendered inventory</body></html>"
+
+        session._fetch_rendered_once = fake_rendered
+        html = await session._fetch_once(
+            "https://dealer.example/used-vehicles/",
+            listing_readiness=None,
+            browser_only=False,
+        )
+        assert "rendered inventory" in html
+        assert session._static_nav_gated is True
+        probes_after_first = len(static_requests)
+
+        await session._fetch_once(
+            "https://dealer.example/used-vehicles/?page=2",
+            listing_readiness=None,
+            browser_only=False,
+        )
+        assert len(static_requests) == probes_after_first
+        assert rendered == [
+            "https://dealer.example/used-vehicles/",
+            "https://dealer.example/used-vehicles/?page=2",
+        ]
+
+    asyncio.run(run())
+
+
+def test_a_conditional_revalidation_429_hydrates_through_the_browser(
+    monkeypatch,
+) -> None:
+    """The ETag revalidation client wears the same static fingerprint; its 429
+    means 'not this client', not 'not this page'. The validator returns None
+    (browser hydration) and latches the static gate instead of raising into
+    the retry ladder."""
+
+    async def allow(url):
+        return SimpleNamespace(url=url)
+
+    class Client:
+        def __init__(self, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, traceback):
+            return None
+
+        async def get(self, url, **kwargs):
+            return SimpleNamespace(
+                status_code=429,
+                headers={},
+                content=b"",
+                text="",
+            )
+
+    monkeypatch.setattr("weaver.vehicle.transport.validate_public_url", allow)
+    monkeypatch.setattr("weaver.vehicle.transport.httpx.AsyncClient", Client)
+
+    async def run():
+        session = PersistentDealerSession("https://dealer.example")
+        result = await session._conditional_static_fetch(
+            "https://dealer.example/vdp/one", '"etag-1"'
+        )
+        assert result is None
+        assert session._static_nav_gated is True
+
+    asyncio.run(run())
+
+
+def test_navigation_pacing_is_env_tunable_and_never_metronomic(monkeypatch) -> None:
+    """WEAVER_NAV_MIN_INTERVAL_SEC stretches the crawl cadence for pressured
+    platforms, and jitter keeps the interval from being a bot signature."""
+
+    monkeypatch.setenv("WEAVER_NAV_MIN_INTERVAL_SEC", "5")
+    session = PersistentDealerSession("https://dealer.example")
+    assert session.navigation_min_interval_seconds == 5.0
+
+    sleeps = []
+    clock = {"now": 0.0}
+
+    async def fake_sleep(seconds):
+        sleeps.append(seconds)
+        clock["now"] += seconds
+
+    session._sleep = fake_sleep
+    session._clock = lambda: clock["now"]
+
+    async def run():
+        await session._pace_navigation()  # first navigation: no wait
+        await session._pace_navigation()  # second: jittered interval wait
+
+    asyncio.run(run())
+    assert len(sleeps) == 1
+    assert 5.0 <= sleeps[0] <= 7.0  # base .. base * 1.4
+
+    intervals = set()
+    for _ in range(12):
+        sleeps.clear()
+        asyncio.run(session._pace_navigation())
+        if sleeps:
+            intervals.add(round(sleeps[0], 6))
+    assert len(intervals) > 1  # never the same beat twice in a dozen bars
+
+    monkeypatch.delenv("WEAVER_NAV_MIN_INTERVAL_SEC")
+    assert PersistentDealerSession("https://dealer.example").navigation_min_interval_seconds == 1.0
