@@ -41,6 +41,10 @@ class RunRecord:
     generation: int = 1
     rebuild_ids: list[str] = field(default_factory=list)
     runtime_failures: list[dict[str, Any]] = field(default_factory=list)
+    # Run-relative paths of the bounded failure bundle (e.g.
+    # "failure/listing.html") persisted when a vehicle run dies, so a later
+    # diagnosis can find the evidence without guessing paths.
+    failure_artifacts: list[str] = field(default_factory=list)
     callback_token: str = field(default_factory=lambda: secrets.token_urlsafe(24))
     callback_token_hash: str = ""
     # Ephemeral per-run credentials are never written by persist_summary().
@@ -82,6 +86,7 @@ class RunRecord:
                     "generation": self.generation,
                     "rebuild_ids": self.rebuild_ids,
                     "runtime_failures": self.runtime_failures,
+                    "failure_artifacts": self.failure_artifacts,
                     "callback_token_hash": self.callback_token_hash,
                 },
                 indent=2,
@@ -148,6 +153,7 @@ class RunStore:
                 generation=max(1, int(state.get("generation", 1))),
                 rebuild_ids=list(state.get("rebuild_ids") or []),
                 runtime_failures=list(state.get("runtime_failures") or []),
+                failure_artifacts=list(state.get("failure_artifacts") or []),
                 callback_token="",
                 callback_token_hash=token_hash,
             )

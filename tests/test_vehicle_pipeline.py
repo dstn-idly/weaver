@@ -728,3 +728,267 @@ def test_a_dealers_www_spec_does_not_escape_its_apex_intake_origin() -> None:
     assert not _same_authorized_origin(
         "http://universal-nissan.com", "https://universal-nissan.com"
     )
+
+
+# ---------------------------------------------------------------------------
+# Failure-trace persistence: when a run dies, the pages and selector evidence
+# the failure was judged against must survive the raise. Three diagnoses this
+# campaign needed exactly the bytes these tests pin.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_an_inference_failure_persists_listing_detail_and_diagnostics(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A SpecInferenceError must leave behind the listing and representative
+    VDP it judged, plus the card catalog and every attempt's proposal and
+    failure string — not just a truncated error message."""
+
+    monkeypatch.setattr(pipeline, "data_root", lambda: tmp_path)
+    _FakeDealerSession.instances.clear()
+    monkeypatch.setattr(pipeline, "PersistentDealerSession", _FakeDealerSession)
+
+    listing_url = f"{ORIGIN}/current-inventory"
+    listing_html = "<html>pre-hydration listing snapshot</html>"
+    detail_url = f"{ORIGIN}/vehicle/{VIN}"
+    detail_html = "<main>lazy-gallery VDP snapshot</main>"
+
+    async def fake_discovery(start_url, session, *, max_candidates):
+        return (listing_url, listing_html, detail_url, detail_html, [start_url])
+
+    import weaver.vehicle.infer as infer_module
+    from weaver.vehicle.infer import SpecInferenceError
+
+    def failing_infer(*args: Any, **kwargs: Any) -> Any:
+        error = SpecInferenceError(
+            "no locally valid spec after bounded attempts: SpecInferenceError: "
+            "candidate rejected more than 80% of selected cards"
+        )
+        error.diagnostics = {
+            "schema": "weaver.vehicle-inference-diagnostics",
+            "card_catalog": [
+                {
+                    "selector": ".widget-card",
+                    "detail_link_selector": "a[href]",
+                    "locally_matched_cards": 4,
+                }
+            ],
+            "gallery_candidates": [".gallery"],
+            "attempts": [
+                {
+                    "attempt": 1,
+                    "proposal": {
+                        "card_selector": ".widget-card",
+                        "detail_link_selector": "a[href]",
+                        "gallery_selector": ".gallery",
+                    },
+                    "failure": (
+                        "SpecInferenceError: candidate rejected more than 80% "
+                        "of selected cards"
+                    ),
+                }
+            ],
+        }
+        raise error
+
+    monkeypatch.setattr(pipeline, "discover_vehicle_evidence", fake_discovery)
+    monkeypatch.setattr(infer_module, "infer_vehicle_spec", failing_infer)
+
+    record = _Record(tmp_path, "inference-failure-bundle")
+    await pipeline.run_vehicle_pipeline(record)
+
+    assert record.summary.status == "failed"
+    bundle = record.run_dir / "failure"
+    assert (bundle / "listing.html").read_text(encoding="utf-8") == listing_html
+    assert (bundle / "detail.html").read_text(encoding="utf-8") == detail_html
+    inference = json.loads((bundle / "inference.json").read_text(encoding="utf-8"))
+    assert inference["listing_url"] == listing_url
+    assert inference["detail_url"] == detail_url
+    diagnostics = inference["diagnostics"]
+    assert diagnostics["card_catalog"][0]["selector"] == ".widget-card"
+    assert diagnostics["card_catalog"][0]["locally_matched_cards"] == 4
+    attempt = diagnostics["attempts"][0]
+    assert attempt["proposal"]["card_selector"] == ".widget-card"
+    assert attempt["proposal"]["gallery_selector"] == ".gallery"
+    assert "80%" in attempt["failure"]
+    # Discoverable without guessing paths, from the record and the run API.
+    assert set(record.failure_artifacts) == {
+        "failure/listing.html",
+        "failure/detail.html",
+        "failure/inference.json",
+        "failure/transport.json",
+    }
+    assert record.summary.artifacts["failure_listing"].endswith(
+        "/artifacts/failure/listing.html"
+    )
+    assert record.summary.artifacts["failure_inference"].endswith(
+        "/artifacts/failure/inference.json"
+    )
+    assert any(event == "failure_artifacts" for event, _p, _s in record.events)
+
+
+@pytest.mark.asyncio
+async def test_a_crawl_failure_persists_the_document_the_error_carried(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A transport failure that still holds the page it judged must persist
+    those exact bytes plus the active spec JSON, so a readiness or discovery
+    diagnosis never needs a fresh live fetch of a stranger's site."""
+
+    monkeypatch.setattr(pipeline, "data_root", lambda: tmp_path)
+    _FakeDealerSession.instances.clear()
+    monkeypatch.setattr(pipeline, "PersistentDealerSession", _FakeDealerSession)
+    active_spec = parse_spec(_spec_dict())
+    _write_active(tmp_path, active_spec)
+
+    from weaver.vehicle.transport import VehicleTransportError
+
+    candidate_vdp_html = "<main>pre-hydration lazy-gallery shell</main>"
+    candidate_vdp_url = f"{ORIGIN}/vehicle/{VIN}"
+
+    async def failing_capture(spec, session, *, limits, **kwargs):
+        raise RuntimeError("stale active start URL failed")
+
+    async def failing_discovery(start_url, session, *, max_candidates):
+        raise VehicleTransportError(
+            "inventory candidates did not resolve to a single identity-proven VDP",
+            code="vehicle_detail_not_found",
+            document=candidate_vdp_html,
+            document_url=candidate_vdp_url,
+            document_kind="detail",
+        )
+
+    monkeypatch.setattr(pipeline, "capture_dealer_fixtures", failing_capture)
+    monkeypatch.setattr(pipeline, "discover_vehicle_evidence", failing_discovery)
+
+    record = _Record(tmp_path, "crawl-failure-bundle")
+    await pipeline.run_vehicle_pipeline(record)
+
+    assert record.summary.status == "failed"
+    bundle = record.run_dir / "failure"
+    assert (bundle / "detail.html").read_text(encoding="utf-8") == candidate_vdp_html
+    assert not (bundle / "listing.html").exists()
+    assert not (bundle / "inference.json").exists()
+    transport = json.loads((bundle / "transport.json").read_text(encoding="utf-8"))
+    assert transport["code"] == "vehicle_detail_not_found"
+    assert transport["document_url"] == candidate_vdp_url
+    assert transport["document_kind"] == "detail"
+    assert transport["active_spec"] == active_spec.as_dict()
+    assert set(record.failure_artifacts) == {
+        "failure/detail.html",
+        "failure/transport.json",
+    }
+    assert record.summary.artifacts["failure_transport"].endswith(
+        "/artifacts/failure/transport.json"
+    )
+
+
+def test_failure_bundle_caps_bound_every_document_and_the_total(
+    tmp_path: Path,
+) -> None:
+    """Over-cap HTML is truncated with a visible marker and the whole bundle
+    never exceeds its total budget."""
+
+    from weaver.vehicle import failure as failure_module
+
+    big = "<html>" + "x" * (3 * 1_048_576) + "</html>"
+    error = RuntimeError("boom")
+    error.failure_evidence = {
+        "listing_url": f"{ORIGIN}/used",
+        "listing_html": big,
+        "detail_url": f"{ORIGIN}/vehicle/{VIN}",
+        "detail_html": big,
+    }
+    error.diagnostics = {"attempts": []}
+
+    files = failure_module.write_failure_bundle(tmp_path, error, spec_payload=None)
+
+    listing = (tmp_path / "failure" / "listing.html").read_bytes()
+    detail = (tmp_path / "failure" / "detail.html").read_bytes()
+    assert len(listing) <= failure_module.MAX_FAILURE_HTML_BYTES
+    assert len(detail) <= failure_module.MAX_FAILURE_HTML_BYTES
+    assert b"truncated by failure-bundle byte cap" in listing
+    assert b"truncated by failure-bundle byte cap" in detail
+    inference = json.loads((tmp_path / "failure" / "inference.json").read_bytes())
+    assert inference["listing_html_truncated"] is True
+    assert inference["detail_html_truncated"] is True
+    total = sum(
+        (tmp_path / relative).stat().st_size for relative in files
+    )
+    assert total <= failure_module.MAX_FAILURE_BUNDLE_BYTES
+
+    # The document truncator itself is exact: under-cap is identity, over-cap
+    # is bounded and marked.
+    small = failure_module.truncate_document("<html>ok</html>")
+    assert small == "<html>ok</html>"
+    bounded = failure_module.truncate_document("y" * 4_096, cap=1_024)
+    assert len(bounded.encode("utf-8")) <= 1_024
+    assert bounded.endswith(failure_module._TRUNCATION_MARKER)
+
+
+@pytest.mark.asyncio
+async def test_a_successful_run_persists_no_failure_bundle(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(pipeline, "data_root", lambda: tmp_path)
+    active_spec = parse_spec(_spec_dict(start_url=f"{ORIGIN}/stale-used"))
+    candidate_spec = parse_spec(
+        _spec_dict(
+            start_url=f"{ORIGIN}/current-inventory",
+            card_selector=".current-vehicle-card",
+        )
+    )
+    _write_active(tmp_path, active_spec)
+    _install_pipeline_fakes(
+        monkeypatch,
+        active_spec=active_spec,
+        candidate_spec=candidate_spec,
+        candidate_passes=True,
+    )
+    record = _Record(tmp_path, "no-failure-bundle-on-success")
+
+    await pipeline.run_vehicle_pipeline(record)
+
+    assert record.summary.status == "passed"
+    assert not (record.run_dir / "failure").exists()
+    assert not any(key.startswith("failure_") for key in record.summary.artifacts)
+    assert not any(event == "failure_artifacts" for event, _p, _s in record.events)
+
+
+def test_failure_artifacts_survive_the_record_round_trip(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """record.json carries the failure_artifacts listing across a reload, so a
+    diagnosis long after the process restarted can still find the bundle."""
+
+    from weaver import jobs
+
+    monkeypatch.setenv("WEAVER_DATA_DIR", str(tmp_path))
+    store = jobs.RunStore()
+    request = RunRequest(
+        urls=[REQUEST_URL],
+        options=RunOptions(
+            preset="automotive.vehicle-v2",
+            authorization=VehicleAuthorization(
+                owner_authorized=True,
+                attested_by="dealer-admin",
+                authorization_reference="ticket-123",
+                authorized_origin=ORIGIN,
+            ),
+        ),
+    )
+    record = store.create(request)
+    record.failure_artifacts = ["failure/listing.html", "failure/transport.json"]
+    record.persist_summary()
+
+    reloaded = jobs.RunStore().get(record.summary.id)
+    assert reloaded is not None
+    assert reloaded.failure_artifacts == [
+        "failure/listing.html",
+        "failure/transport.json",
+    ]

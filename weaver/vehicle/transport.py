@@ -25,6 +25,7 @@ import httpx
 from bs4 import BeautifulSoup, Tag
 
 from .extract import card_stock_keys, extract_listing_page
+from .failure import truncate_document
 from .artifacts import (
     VehicleArtifactIntegrityError,
     VerifiedDetailCacheEntry,
@@ -56,12 +57,39 @@ from ..security import (
 
 
 class VehicleTransportError(RuntimeError):
-    """Bounded transport failure with an actionable owner-facing code."""
+    """Bounded transport failure with an actionable owner-facing code.
 
-    def __init__(self, message: str, *, code: str = "vehicle_transport_failed", owner_action_required: bool = False) -> None:
+    ``document``/``document_url``/``document_kind`` are optional failure-time
+    diagnostics: the exact dealer page the error concerns, when the raising
+    code still holds it (a readiness timeout's rendered listing, discovery's
+    last pre-hydration VDP snapshot). The attachment is capped at construction
+    and never changes the error's code or message; the pipeline persists it
+    into the run's failure bundle. Page bytes only — never headers, cookies,
+    env values, or credentials.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        code: str = "vehicle_transport_failed",
+        owner_action_required: bool = False,
+        document: str | None = None,
+        document_url: str | None = None,
+        document_kind: str | None = None,
+    ) -> None:
         super().__init__(message)
         self.code = code
         self.owner_action_required = owner_action_required
+        self.failure_document = (
+            truncate_document(document)
+            if isinstance(document, str) and document
+            else None
+        )
+        self.failure_document_url = document_url if isinstance(document_url, str) else None
+        self.failure_document_kind = (
+            document_kind if document_kind in {"listing", "detail"} else None
+        )
 
 
 class _TransientDealerHTTPError(VehicleTransportError):
@@ -1942,6 +1970,12 @@ class PersistentDealerSession:
                 f"vehicle card within the readiness bound ({fingerprint})",
                 code="browser_readiness_timeout",
                 owner_action_required=True,
+                # The fingerprint names the document; the document itself is
+                # what a diagnosis actually reads. Carry it out of this frame
+                # instead of discarding it at the raise.
+                document=html,
+                document_url=final_url,
+                document_kind="listing",
             )
         return html
 
@@ -2659,6 +2693,9 @@ async def discover_vehicle_evidence(
     origin = f"{parsed_start.scheme.lower()}://{parsed_start.netloc.lower()}"
     first_html = await session.fetch(start_url)
     soup = BeautifulSoup(first_html, "html.parser")
+    # The last representative-VDP candidate ``verified_detail`` examined, kept
+    # so a "no identity-proven VDP" failure can carry the very bytes it judged.
+    last_candidate_vdp: dict[str, str] = {}
 
     async def verified_detail(
         detail_urls: list[str],
@@ -2728,6 +2765,12 @@ async def discover_vehicle_evidence(
                 if hydrated.identity_proven:
                     detail_html = rendered_html
                     result = hydrated
+            # Keep the exact candidate snapshot that is about to be judged.
+            # When no candidate proves identity, THIS document (often a
+            # pre-hydration lazy-gallery shell) is the evidence a diagnosis
+            # needs, and it used to vanish at the raise below.
+            last_candidate_vdp["url"] = detail_url
+            last_candidate_vdp["html"] = detail_html
             primary_vin = clean_vin(result.record.get("vin"))
             if (
                 result.identity_proven
@@ -2786,6 +2829,9 @@ async def discover_vehicle_evidence(
         raise VehicleTransportError(
             "inventory candidates did not resolve to a single identity-proven VDP",
             code="vehicle_detail_not_found",
+            document=last_candidate_vdp.get("html") or first_html,
+            document_url=last_candidate_vdp.get("url") or start_url,
+            document_kind="detail" if last_candidate_vdp else "listing",
         )
 
     candidate_urls = inventory_candidate_links(
@@ -2850,12 +2896,21 @@ async def discover_vehicle_evidence(
             best_url, best_html, best_score = url, html, score
             best_detail_links = details
     if not best_detail_links:
-        raise VehicleTransportError("inventory page did not expose a representative same-origin VDP", code="vehicle_detail_not_found")
+        raise VehicleTransportError(
+            "inventory page did not expose a representative same-origin VDP",
+            code="vehicle_detail_not_found",
+            document=best_html,
+            document_url=best_url,
+            document_kind="listing",
+        )
     selected_detail = await verified_detail(best_detail_links)
     if not selected_detail:
         raise VehicleTransportError(
             "inventory candidates did not resolve to a single identity-proven VDP",
             code="vehicle_detail_not_found",
+            document=last_candidate_vdp.get("html") or best_html,
+            document_url=last_candidate_vdp.get("url") or best_url,
+            document_kind="detail" if last_candidate_vdp else "listing",
         )
     detail_url, detail_html = selected_detail
     return best_url, best_html, detail_url, detail_html, ordered

@@ -373,3 +373,64 @@ def test_the_portal_says_a_queued_job_is_resting_not_stuck(tmp_path):
     assert annotated[free.id]["cooldown_minutes"] == 0
     # A finished job is not waiting on anything, so it never claims to be.
     assert annotated[recent.id]["cooldown_minutes"] == 0
+
+
+def test_a_failed_crawl_copies_the_runs_failure_bundle_beside_the_job(
+    tmp_path, monkeypatch
+):
+    """A failed run's failure bundle lands in the factory job dir, exactly
+    where weaver-spec.json and simulation.json land on the success path, so a
+    diagnosis starts from the job instead of docker-image archaeology."""
+
+    import weaver.factory.orchestrator as orchestrator
+
+    payloads = {
+        "/api/runs/run1/artifacts/failure/listing.html": b"<html>judged listing</html>",
+        "/api/runs/run1/artifacts/failure/transport.json": (
+            b'{"code": "browser_readiness_timeout"}'
+        ),
+    }
+
+    class FakeResponse:
+        def __init__(self, content):
+            self.content = content
+
+    async def fake_api(client, method, path, **kwargs):
+        if path not in payloads:
+            raise RuntimeError(f"artifact not published: {path}")
+        return FakeResponse(payloads[path])
+
+    monkeypatch.setattr(orchestrator, "_api", fake_api)
+
+    async def run():
+        store = FactoryStore(tmp_path)
+        job = store.create("https://dealer.example/used", "https://dealer.example")
+        failed_run = {
+            "status": "failed",
+            "artifacts": {
+                "failure_listing": "/api/runs/run1/artifacts/failure/listing.html",
+                "failure_transport": "/api/runs/run1/artifacts/failure/transport.json",
+            },
+        }
+        await orchestrator._copy_failure_bundle(None, store, job, "run1", failed_run)
+
+        assert (
+            store.artifact_path(job, "weaver-failure-listing.html").read_bytes()
+            == payloads["/api/runs/run1/artifacts/failure/listing.html"]
+        )
+        assert (
+            store.artifact_path(job, "weaver-failure-transport.json").read_bytes()
+            == payloads["/api/runs/run1/artifacts/failure/transport.json"]
+        )
+        # Files the run never published are skipped without failing the copy.
+        assert not store.artifact_path(job, "weaver-failure-detail.html").exists()
+        assert any(event["type"] == "failure_artifacts" for event in job.events)
+
+        # A failed run that advertises no failure bundle fetches nothing.
+        bare = store.create("https://dealer.example/used", "https://dealer.example")
+        await orchestrator._copy_failure_bundle(
+            None, store, bare, "run2", {"status": "failed", "artifacts": {}}
+        )
+        assert not any(event["type"] == "failure_artifacts" for event in bare.events)
+
+    asyncio.run(run())

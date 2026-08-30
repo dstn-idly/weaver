@@ -3880,3 +3880,91 @@ def test_readiness_judges_extraction_with_the_pages_own_origin(monkeypatch) -> N
         assert "vehicle-item" in html
 
     asyncio.run(run())
+
+
+def test_readiness_timeout_carries_the_rendered_document_it_judged(monkeypatch) -> None:
+    """The readiness fingerprint names the document; the document itself is
+    what a diagnosis reads. The raise must carry the exact bytes, capped."""
+
+    async def allow(url):
+        return SimpleNamespace(url=url)
+
+    monkeypatch.setattr("weaver.vehicle.transport.validate_public_url", allow)
+    listing_url = "https://dealer.example/used"
+    template_html = (
+        '<div class="card" data-vin="{{vin}}">'
+        '<a class="vdp" href="{{vdpUrl}}">{{year}} {{make}}</a></div>'
+        + "<p>inventory application shell</p>" * 30
+    )
+
+    class TimingPage:
+        async def wait_for_function(self, expression, *, arg, timeout):
+            raise TimeoutError("bounded readiness elapsed")
+
+    class Browser:
+        def __init__(self):
+            self.page = TimingPage()
+
+        async def fetch(self, url, **kwargs):
+            try:
+                await kwargs["page_action"](self.page)
+            except TimeoutError:
+                pass
+            return SimpleNamespace(url=url, body=template_html.encode())
+
+    async def run():
+        session = PersistentDealerSession(
+            "https://dealer.example",
+            static_first=False,
+        )
+        session._session = Browser()
+        with pytest.raises(VehicleTransportError) as exc_info:
+            await session.fetch_listing(listing_url, parse_spec(SPEC).listing)
+        error = exc_info.value
+        assert error.code == "browser_readiness_timeout"
+        assert error.failure_document == template_html
+        assert error.failure_document_url == listing_url
+        assert error.failure_document_kind == "listing"
+
+    asyncio.run(run())
+
+
+def test_discovery_failure_carries_the_last_candidate_vdp_snapshot() -> None:
+    """When no candidate proves identity, the last judged VDP snapshot (often
+    a pre-hydration lazy-gallery shell) rides on the error instead of
+    vanishing at the raise — the orlandoautolounge diagnosis in one file."""
+
+    first = "https://dealer.example/vdp/1HGBH41JXMN109186"
+    second = "https://dealer.example/vdp/2HGBH41JXMN109187"
+    pages = {
+        "https://dealer.example/used": (
+            f'<article class="vehicle-card"><a href="{first}">Honda Civic</a></article>'
+            f'<article class="vehicle-card"><a href="{second}">Honda Accord</a></article>'
+        ),
+        first: "<html><body><p>pre-hydration shell one</p></body></html>",
+        second: "<html><body><p>pre-hydration shell two</p></body></html>",
+    }
+
+    class ShellTransport:
+        def __init__(self):
+            self.calls = []
+
+        async def fetch(self, url):
+            self.calls.append(url)
+            return pages[url]
+
+    async def run():
+        transport = ShellTransport()
+        with pytest.raises(VehicleTransportError) as exc_info:
+            await discover_vehicle_evidence(
+                "https://dealer.example/used",
+                session=transport,
+            )
+        error = exc_info.value
+        assert error.code == "vehicle_detail_not_found"
+        assert error.failure_document_kind == "detail"
+        assert error.failure_document == pages[transport.calls[-1]]
+        assert error.failure_document_url == transport.calls[-1]
+        assert error.failure_document_url in {first, second}
+
+    asyncio.run(run())

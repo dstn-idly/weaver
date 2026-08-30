@@ -167,7 +167,16 @@ _SAFE_ATTRIBUTE_NAME_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_:.-]{0,39}$")
 
 
 class SpecInferenceError(RuntimeError):
-    """No locally valid closed vehicle spec could be inferred."""
+    """No locally valid closed vehicle spec could be inferred.
+
+    ``diagnostics`` is an optional failure-time attachment (selector catalogs
+    and per-attempt proposal summaries) that the pipeline persists into the
+    run's failure bundle. It is metadata only: it never changes the error's
+    type, code, or message, and it is built exclusively from application
+    selector catalogs and already-redacted failure strings.
+    """
+
+    diagnostics: dict[str, Any] | None = None
 
 
 class _ResponseLike(Protocol):
@@ -2071,6 +2080,55 @@ def _attempt_prompt(
     return encoded
 
 
+def _proposal_selector_summary(proposal: Any) -> dict[str, Any] | None:
+    """Selector-only view of one model proposal for failure diagnostics.
+
+    Diagnosing "why did every attempt fail" needs the card/detail/gallery
+    selectors each attempt actually proposed next to the validation failure it
+    earned. Only bounded selector strings and field names are kept — never DOM
+    bytes, URLs beyond what selectors are, or transport data.
+    """
+
+    if not isinstance(proposal, Mapping):
+        return None
+    listing = proposal.get("listing")
+    detail = proposal.get("detail")
+    listing = listing if isinstance(listing, Mapping) else {}
+    detail = detail if isinstance(detail, Mapping) else {}
+
+    def _sel(value: Any) -> str | None:
+        return None if value is None else str(value)[:200]
+
+    def _fields(raw: Any) -> list[dict[str, Any]]:
+        rows: list[dict[str, Any]] = []
+        if isinstance(raw, list):
+            for field in raw[:30]:
+                if isinstance(field, Mapping):
+                    rows.append(
+                        {
+                            "name": _sel(field.get("name")),
+                            "selector": _sel(field.get("selector")),
+                            "attribute": _sel(field.get("attribute")),
+                        }
+                    )
+        return rows
+
+    return {
+        "card_selector": _sel(listing.get("card_selector")),
+        "detail_link_selector": _sel(listing.get("detail_link_selector")),
+        "next_page_selector": _sel(listing.get("next_page_selector")),
+        "total_selector": _sel(listing.get("total_selector")),
+        "listing_fields": _fields(listing.get("fields")),
+        "detail_root_selector": _sel(detail.get("root_selector")),
+        "gallery_selector": _sel(detail.get("gallery_selector")),
+        "gallery_item_selector": _sel(detail.get("gallery_item_selector")),
+        "detail_fields": _fields(detail.get("fields")),
+    }
+
+
+_MAX_DIAGNOSTIC_CATALOG_ROWS = 40
+
+
 def infer_vehicle_spec(
     listing_html: str,
     listing_url: str,
@@ -2108,6 +2166,14 @@ def infer_vehicle_spec(
             raise SpecInferenceError("all start URLs must use the controlled listing origin")
     if detail_url is not None and _origin_for(detail_url, where="detail URL") != origin:
         raise SpecInferenceError("detail URL must use the controlled listing origin")
+
+    # Failure-time diagnostics, attached to the raised SpecInferenceError so
+    # the pipeline can persist what inference actually judged. Selector
+    # catalogs and redacted failure strings only — never DOM bytes or secrets.
+    diagnostics: dict[str, Any] = {
+        "schema": "weaver.vehicle-inference-diagnostics",
+        "attempts": [],
+    }
 
     host = urlsplit(origin).hostname or ""
     card_selectors = _application_card_selector_candidates(
@@ -2173,14 +2239,27 @@ def infer_vehicle_spec(
                     detail_url=detail_url,
                 )
         if not producible:
-            raise SpecInferenceError(
+            # This is the pre-hydration failure whose evidence has vanished at
+            # the raise before (orlandoautolounge): keep the catalog the page
+            # DID offer so the diagnosis can see what was selectable.
+            error = SpecInferenceError(
                 "the verified vehicle page is not producible from the listing "
                 "snapshot's card catalog; the listing likely rendered "
                 "mid-hydration — refetch and retry rather than spending model attempts"
             )
+            diagnostics["card_catalog"] = [
+                dict(row) for row in card_catalog[:_MAX_DIAGNOSTIC_CATALOG_ROWS]
+            ]
+            diagnostics["listing_refetched"] = listing_refetched
+            error.diagnostics = diagnostics
+            raise error
         # Rows that cannot produce the representative cannot pass validation;
         # offering them to the model only manufactures guaranteed failures.
         card_catalog = producible
+    diagnostics["card_catalog"] = [
+        dict(row) for row in card_catalog[:_MAX_DIAGNOSTIC_CATALOG_ROWS]
+    ]
+    diagnostics["listing_refetched"] = listing_refetched
     detail_link_selectors = tuple(
         dict.fromkeys(str(row["detail_link_selector"]) for row in card_catalog)
     )
@@ -2204,6 +2283,9 @@ def infer_vehicle_spec(
         detail_root_selectors = (None,)
         gallery_selectors = ()
         gallery_item_selectors = (None,)
+    diagnostics["detail_root_candidates"] = list(detail_root_selectors)
+    diagnostics["gallery_candidates"] = list(gallery_selectors)
+    diagnostics["gallery_item_candidates"] = list(gallery_item_selectors)
 
     (
         listing_field_selectors,
@@ -2294,6 +2376,7 @@ def infer_vehicle_spec(
     failures: list[str] = []
     try:
         for attempt in range(1, max_attempts + 1):
+            proposal: Mapping[str, Any] | None = None
             body = {
                 "model": (
                     model
@@ -2384,13 +2467,22 @@ def infer_vehicle_spec(
             except (httpx.HTTPError, SpecInferenceError, TypeError, ValueError) as exc:
                 safe = _redact(str(exc))[:500]
                 failures.append(f"{type(exc).__name__}: {safe}")
+                diagnostics["attempts"].append(
+                    {
+                        "attempt": attempt,
+                        "proposal": _proposal_selector_summary(proposal),
+                        "failure": failures[-1],
+                    }
+                )
     finally:
         if owned_client and isinstance(client, httpx.Client):
             client.close()
 
-    raise SpecInferenceError(
+    error = SpecInferenceError(
         "no locally valid spec after bounded attempts: " + " | ".join(failures)
     )
+    error.diagnostics = diagnostics
+    raise error
 
 
 __all__ = [

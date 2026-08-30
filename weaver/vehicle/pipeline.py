@@ -17,6 +17,7 @@ from .artifacts import (
     _active_key,
     load_verified_active_detail_cache,
 )
+from .failure import attach_inference_evidence, write_failure_bundle
 from ..jobs import data_root
 from ..models import FieldSpec as WeaverFieldSpec, ScrapeSpec as WeaverScrapeSpec, SourceResult, VerificationReport
 from .models import parse_spec, spec_sha256
@@ -219,7 +220,7 @@ async def _discover_and_infer(
 ) -> tuple[Any, dict[str, Any]]:
     """Rediscover current evidence and infer one locally replay-gated spec."""
 
-    from .infer import infer_vehicle_spec
+    from .infer import SpecInferenceError, infer_vehicle_spec
 
     listing_url, listing_html, detail_url, detail_html, candidates = (
         await discover_vehicle_evidence(
@@ -251,17 +252,30 @@ async def _discover_and_infer(
             fetch_rendered(listing_url), loop
         ).result(timeout=300)
 
-    inferred, inference_meta = await asyncio.to_thread(
-        infer_vehicle_spec,
-        listing_html,
-        listing_url,
-        detail_html=detail_html,
-        detail_url=detail_url,
-        start_urls=[listing_url],
-        api_key=os.getenv("OPENAI_API_KEY"),
-        max_attempts=3,
-        refetch_listing=_refetch_listing,
-    )
+    try:
+        inferred, inference_meta = await asyncio.to_thread(
+            infer_vehicle_spec,
+            listing_html,
+            listing_url,
+            detail_html=detail_html,
+            detail_url=detail_url,
+            start_urls=[listing_url],
+            api_key=os.getenv("OPENAI_API_KEY"),
+            max_attempts=3,
+            refetch_listing=_refetch_listing,
+        )
+    except SpecInferenceError as exc:
+        # The listing and representative-VDP snapshots inference judged live
+        # only in this frame. Attach them (capped) so the failure handler can
+        # persist a diagnosable bundle instead of discarding the evidence.
+        attach_inference_evidence(
+            exc,
+            listing_url=listing_url,
+            listing_html=listing_html,
+            detail_url=detail_url,
+            detail_html=detail_html,
+        )
+        raise
     candidate = parse_spec(inferred)
     if not _same_authorized_origin(candidate.origin, requested_origin):
         raise ValueError("inferred vehicle spec escaped the authorized origin")
@@ -316,6 +330,9 @@ async def _run_vehicle_pipeline(record: Any) -> None:
     # the finally block below on every terminal path.
     run_access_id = getattr(record, "vehicle_cf_access_client_id", None)
     run_access_secret = getattr(record, "vehicle_cf_access_client_secret", None)
+    # Bound before the try so the failure handler can always name the spec the
+    # run was executing (or None when it died before one existed).
+    spec: Any = None
     try:
         requested_origin = _origin_from_url(record.request.urls[0])
         active_spec = _load_active_spec(requested_origin) if not options.vehicle_spec else None
@@ -638,11 +655,34 @@ async def _run_vehicle_pipeline(record: Any) -> None:
         record.summary.status = "failed"
         record.summary.completed_at = datetime.now(timezone.utc)
         record.summary.errors.append(str(exc))
+        # Persist the bounded failure bundle BEFORE anything else: the pages
+        # and selector evidence this failure was judged against exist only on
+        # the exception object right now, and three diagnoses this campaign
+        # died on exactly these discarded bytes. Best-effort only — the
+        # diagnostics write must never mask the real failure.
+        failure_files: list[str] = []
+        try:
+            failure_files = write_failure_bundle(
+                record.run_dir,
+                exc,
+                spec_payload=spec.as_dict() if spec is not None else None,
+            )
+        except Exception:  # noqa: BLE001 - diagnostics never fail a run further
+            failure_files = []
+        if failure_files:
+            record.failure_artifacts = list(failure_files)
+            for relative in failure_files:
+                name = f"failure_{relative.rsplit('/', 1)[-1].split('.', 1)[0]}"
+                record.summary.artifacts[name] = (
+                    f"/api/runs/{record.summary.id}/artifacts/{relative}"
+                )
         record.persist_summary()
         error_payload = {"url": record.request.urls[0], "message": str(exc), "error_type": type(exc).__name__}
         if getattr(exc, "owner_action_required", False):
             error_payload.update({"error_code": getattr(exc, "code", "owner_action_required"), "owner_action_required": True})
         await record.emit("error", error_payload, source_id)
+        if failure_files:
+            await record.emit("failure_artifacts", {"files": failure_files}, source_id)
         await record.emit("done", record.summary.model_dump(mode="json"))
     finally:
         # Never retain customer service-token material in the process-local

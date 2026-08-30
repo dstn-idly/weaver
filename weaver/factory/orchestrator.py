@@ -142,6 +142,60 @@ async def _artifact(client: httpx.AsyncClient, run_id: str, name: str) -> Any:
     return response.json()
 
 
+# The complete failure-bundle roster a failed weaver run can publish. A closed
+# set: the copy below never fetches a name the pipeline does not write.
+FAILURE_BUNDLE_FILES = (
+    "listing.html",
+    "detail.html",
+    "inference.json",
+    "transport.json",
+)
+
+
+async def _copy_failure_bundle(
+    client: httpx.AsyncClient,
+    store: FactoryStore,
+    job: FactoryJob,
+    run_id: str,
+    run: dict[str, Any],
+) -> None:
+    """Mirror a failed run's failure bundle into the factory job dir.
+
+    The weaver run dir is the container's own data volume; the factory job dir
+    is what an operator actually opens after a failed verdict. Copying the
+    bounded bundle here means a diagnosis starts from the job, exactly like
+    weaver-spec.json and simulation.json do on the success path. Best-effort:
+    a missing or unreadable bundle never masks the crawl failure itself.
+    """
+
+    artifacts = run.get("artifacts") if isinstance(run, dict) else None
+    if not isinstance(artifacts, dict) or not any(
+        str(key).startswith("failure_") for key in artifacts
+    ):
+        return
+    copied: list[str] = []
+    for filename in FAILURE_BUNDLE_FILES:
+        try:
+            response = await _api(
+                client, "GET", f"/api/runs/{run_id}/artifacts/failure/{filename}"
+            )
+        except Exception:  # noqa: BLE001 - each file is independently optional
+            continue
+        local = f"weaver-failure-{filename}"
+        store.artifact_path(job, local).write_bytes(response.content)
+        copied.append(local)
+    if copied:
+        await store.emit(
+            job,
+            "failure_artifacts",
+            {
+                "run_id": run_id,
+                "files": copied,
+                "detail": "the run's failure evidence bundle was copied beside the job",
+            },
+        )
+
+
 async def process_job(store: FactoryStore, job: FactoryJob) -> None:
     job.state = "running"
     job.stage = "crawl"
@@ -194,6 +248,10 @@ async def process_job(store: FactoryStore, job: FactoryJob) -> None:
             },
         )
         if run.get("status") == "failed":
+            try:
+                await _copy_failure_bundle(client, store, job, run_id, run)
+            except Exception:  # noqa: BLE001 - diagnostics copy never masks the failure
+                pass
             raise RuntimeError(f"verification crawl failed: {(run.get('errors') or ['unknown'])[0]}")
 
         job.stage = "translate"

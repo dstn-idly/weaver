@@ -1462,3 +1462,65 @@ def test_detail_candidates_nominate_background_image_gallery_containers() -> Non
     assert not any("lonely-banner" in selector for selector in galleries)
     # Labelled related regions stay out of the nomination set.
     assert not any("similar-rail" in selector for selector in galleries)
+
+
+def test_bounded_attempt_exhaustion_attaches_selector_diagnostics(
+    listing_html: str,
+    proposal: dict[str, Any],
+) -> None:
+    """When every attempt fails, the raised error must carry the application
+    card catalog (selectors + counts) and each attempt's proposed selectors
+    beside its failure string — the exact questions past diagnoses asked."""
+
+    valid = _listing_only(proposal)
+    invalid = deepcopy(valid)
+    invalid["listing"]["card_selector"] = ".not-in-evidence"
+    client = _FakeClient(_response(invalid), _response(invalid), _response(invalid))
+
+    with pytest.raises(SpecInferenceError) as excinfo:
+        infer_vehicle_spec(
+            listing_html,
+            LISTING_URL,
+            api_key="test-key",
+            session=client,
+        )
+
+    # The public failure contract is unchanged...
+    assert "no locally valid spec after bounded attempts" in str(excinfo.value)
+    # ...and the diagnostics ride on the exception object.
+    diagnostics = excinfo.value.diagnostics
+    assert diagnostics is not None
+    assert diagnostics["card_catalog"], "application card catalog missing"
+    assert all(
+        "selector" in row and "locally_matched_cards" in row
+        for row in diagnostics["card_catalog"]
+    )
+    assert len(diagnostics["attempts"]) == 3
+    for index, attempt in enumerate(diagnostics["attempts"], start=1):
+        assert attempt["attempt"] == index
+        assert attempt["proposal"]["card_selector"] == ".not-in-evidence"
+        assert "outside the application catalog" in attempt["failure"]
+
+
+def test_a_dead_contract_failure_carries_the_card_catalog_it_judged() -> None:
+    """The mid-hydration stop (no attempt is ever paid for) must still say
+    what WAS selectable: that catalog is the diagnosis."""
+
+    client = _FakeClient()  # any model call is an AssertionError
+    with pytest.raises(SpecInferenceError, match="not producible from the listing") as excinfo:
+        infer_vehicle_spec(
+            _widget_only_listing(),
+            LISTING_URL,
+            detail_html=f'<main data-vin="{VIN}"></main>',
+            detail_url=DETAIL_URL,
+            start_urls=[LISTING_URL],
+            api_key="test-key",
+            session=client,
+        )
+    assert client.calls == []
+    diagnostics = excinfo.value.diagnostics
+    assert diagnostics is not None
+    assert diagnostics["card_catalog"], "the selectable catalog was discarded"
+    assert all("locally_matched_cards" in row for row in diagnostics["card_catalog"])
+    assert diagnostics["attempts"] == []
+    assert diagnostics["listing_refetched"] is False
