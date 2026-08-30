@@ -131,27 +131,75 @@ def parse_vdp(html: str, origin: str) -> dict:
                 break
     if vin:
         out["vin"] = vin
-    photos: list[str] = []
-    seen = set()
-    for img in soup.find_all(["img", "source"]):
-        src = str(img.get("src") or img.get("data-src") or img.get("srcset") or "").split(" ")[0]
-        if not src.startswith("https://"):
-            continue
-        host = urlsplit(src).hostname or ""
-        if not host.endswith(PHOTO_HOSTS):
-            continue
-        if vin and vin not in src:
-            # On pictures.dealer.com the VIN is in every real gallery URL;
-            # anything else is another car, a promo tile, or stock art.
-            continue
-        if src not in seen:
-            seen.add(src)
-            photos.append(src)
-        if len(photos) >= 40:
-            break
-    if photos:
-        out["photos"] = photos
+    out["photos"] = _gallery_from_vdp(html, soup)
     return out
+
+
+def _photo_asset_key(url: str) -> str:
+    """One asset across its size variants collapses to one photo.
+
+    Dealer.com serves the same image as /…/<hash>.jpg and /…/<hash>x.jpg with
+    ?impolicy=downsize query variants; the hash basename is the stable identity.
+    """
+
+    path = urlsplit(url).path
+    base = path.rsplit("/", 1)[-1]
+    base = re.sub(r"\.(?:jpe?g|png|webp)$", "", base, flags=re.I)
+    base = re.sub(r"^thumb_", "", base)  # a photo and its thumbnail are one asset
+    return re.sub(r"x$", "", base)
+
+
+def _gallery_from_vdp(html: str, soup: BeautifulSoup) -> list[str]:
+    """Owned unit photos only: the dealer's own media (/m/), never /f/ stock.
+
+    On Dealer.com pictures.dealer.com/m/<dealer-slug>/… is the store's own
+    photography of THIS vehicle's page; pictures.dealer.com/f/<oem>/… is
+    manufacturer stock art (a rendered trim image, not the unit) and is
+    excluded. The JSON-LD `image` is the page's declared primary and leads.
+    """
+
+    ordered: list[str] = []
+    seen_assets: set[str] = set()
+
+    def admit(url: str) -> None:
+        if not isinstance(url, str) or not url.startswith("https://"):
+            return
+        parts = urlsplit(url)
+        if (parts.hostname or "") not in PHOTO_HOSTS:
+            return
+        if not parts.path.startswith("/m/"):
+            return  # /f/ = OEM stock art, and anything else is not dealer media
+        if not re.search(r"\.jpe?g$", parts.path, re.I):
+            # Dealer.com unit photography is JPEG; the PNGs under /m/ are badges
+            # and overlays that repeat on every car — cross-vehicle chrome, not
+            # this VIN's gallery.
+            return
+        key = _photo_asset_key(url)
+        if not key or key in seen_assets:
+            return
+        seen_assets.add(key)
+        # Serve the canonical asset URL without the downsize query so the
+        # consumer gets the full-resolution original.
+        ordered.append(url.split("?")[0])
+
+    for script in soup.find_all("script", type="application/ld+json"):
+        try:
+            data = json.loads(script.string or "")
+        except (TypeError, ValueError):
+            continue
+        for node in data if isinstance(data, list) else [data]:
+            if not isinstance(node, dict):
+                continue
+            image = node.get("image")
+            for candidate in image if isinstance(image, list) else [image]:
+                admit(candidate)
+    for match in re.findall(
+        r'https://pictures\.dealer\.com/m/[^\s"\'<>]+?\.(?:jpe?g|png|webp)', html, re.I
+    ):
+        admit(match)
+        if len(ordered) >= 40:
+            break
+    return ordered[:40]
 
 
 # Runs INSIDE the dealer's own page: same-origin fetches from a real browser
