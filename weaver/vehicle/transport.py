@@ -1601,6 +1601,21 @@ class PersistentDealerSession:
                         delay = min(cap, base * (2**attempt))
                     if delay > 0:
                         await self._sleep(delay)
+                except Exception as exc:  # noqa: BLE001 - crash lane only
+                    if not _browser_crashed(exc):
+                        raise
+                    if attempt >= retry_count:
+                        raise VehicleTransportError(
+                            "the persistent browser crashed and did not recover within the bounded transport ladder",
+                            code="browser_crashed",
+                        ) from exc
+                    # A renderer crash poisons the whole browser; recycling and
+                    # retrying the SAME navigation lets a fresh Chromium pick
+                    # up the walk instead of one heavy page killing a
+                    # half-hour run (Orlando page 3, twice, 2026-08-30).
+                    await self._force_browser_recycle()
+                    await self._sleep(min(10.0, 3.0 * (attempt + 1)))
+                    continue
         raise RuntimeError("bounded conditional dealer navigation loop exhausted")
 
     async def _run_navigation(
@@ -1673,6 +1688,21 @@ class PersistentDealerSession:
                         delay = min(cap, base * (2**attempt))
                     if delay > 0:
                         await self._sleep(delay)
+                except Exception as exc:  # noqa: BLE001 - crash lane only
+                    if not _browser_crashed(exc):
+                        raise
+                    if attempt >= retry_count:
+                        raise VehicleTransportError(
+                            "the persistent browser crashed and did not recover within the bounded transport ladder",
+                            code="browser_crashed",
+                        ) from exc
+                    # A renderer crash poisons the whole browser; recycling and
+                    # retrying the SAME navigation lets a fresh Chromium pick
+                    # up the walk instead of one heavy page killing a
+                    # half-hour run (Orlando page 3, twice, 2026-08-30).
+                    await self._force_browser_recycle()
+                    await self._sleep(min(10.0, 3.0 * (attempt + 1)))
+                    continue
         raise RuntimeError("bounded dealer navigation loop exhausted")
 
     async def _pace_navigation(self) -> None:
@@ -2532,6 +2562,21 @@ def _challenge_or_empty(html: str) -> bool:
         or _cloudflare_block_detected(html)
         or _blank_rendered_shell(html)
     )
+
+
+_BROWSER_CRASH_MARKERS = (
+    "page crashed",
+    "context or browser has been closed",
+    "browser has been closed",
+    "target crashed",
+)
+
+
+def _browser_crashed(error: Exception) -> bool:
+    """A Playwright renderer/context death, recognizable only by its prose."""
+
+    text = str(error).lower()
+    return any(marker in text for marker in _BROWSER_CRASH_MARKERS)
 
 
 class _NavigationHang(Exception):

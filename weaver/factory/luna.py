@@ -107,7 +107,7 @@ async def luna_qa_review(
         "model": model,
         "instructions": INSTRUCTIONS,
         "input": user_input,
-        "max_output_tokens": 1_200,
+        "max_output_tokens": 2_400,
         "text": {
             "format": {
                 "type": "json_schema",

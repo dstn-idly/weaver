@@ -4152,3 +4152,71 @@ def test_capture_narrates_every_page_and_vdp_it_fetches() -> None:
     assert listing["page"] == 1 and "cards" in listing and "vdp_urls_so_far" in listing
     detail = next(p for k, p in told if k == "crawl_detail_page")
     assert detail["index"] == 1 and "photos" in detail and "vin" in detail
+
+
+def test_a_renderer_crash_recycles_the_browser_and_retries_the_navigation(
+    monkeypatch,
+) -> None:
+    """One heavy page crashing Chromium must not kill a half-hour run: the
+    ladder recycles the browser and retries the same navigation, and only a
+    crash that survives the ladder fails — with its own code."""
+
+    async def allow(url):
+        return SimpleNamespace(url=url)
+
+    monkeypatch.setattr("weaver.vehicle.transport.validate_public_url", allow)
+    fake_time = FakeTime()
+    html = "<html><body>" + ("vehicle inventory content " * 30) + "</body></html>"
+
+    class CrashingOnceBrowser:
+        def __init__(self):
+            self.calls = 0
+
+        async def fetch(self, url, **kwargs):
+            self.calls += 1
+            if self.calls == 1:
+                raise Exception("Page.goto: Page crashed")
+            return SimpleNamespace(url=url, status=200, headers={}, body=html.encode())
+
+    async def run():
+        browser = CrashingOnceBrowser()
+        session = PersistentDealerSession(
+            "https://dealer.example",
+            static_first=False,
+            navigation_max_retries=1,
+            _clock=fake_time.monotonic,
+            _wall_clock=fake_time.wall,
+            _sleep=fake_time.sleep,
+        )
+        session._session = browser
+        recycles = []
+
+        async def fake_recycle():
+            recycles.append(1)
+
+        session._force_browser_recycle = fake_recycle
+        result = await session.fetch("https://dealer.example/used?page=3")
+        assert "vehicle inventory" in result
+        assert browser.calls == 2
+        assert recycles == [1]
+
+        # A crash that never recovers fails with its own code, bounded.
+        class AlwaysCrashing:
+            async def fetch(self, url, **kwargs):
+                raise Exception("BrowserContext.new_page: Target page, context or browser has been closed")
+
+        session._session = AlwaysCrashing()
+        with pytest.raises(VehicleTransportError) as caught:
+            await session.fetch("https://dealer.example/used?page=4")
+        assert caught.value.code == "browser_crashed"
+
+        # A non-crash exception is never eaten by the crash lane.
+        class Unrelated:
+            async def fetch(self, url, **kwargs):
+                raise RuntimeError("some other defect")
+
+        session._session = Unrelated()
+        with pytest.raises(RuntimeError, match="some other defect"):
+            await session.fetch("https://dealer.example/used?page=5")
+
+    asyncio.run(run())
