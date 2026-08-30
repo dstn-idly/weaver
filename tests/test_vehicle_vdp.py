@@ -2814,3 +2814,91 @@ def test_unite_gallery_build_proves_its_pin_declared_gallery() -> None:
         expected_vin=vin,
     )
     assert len(refused.photos) <= 1  # falls back to JSON-LD only, never a partial gallery
+
+
+def test_a_spec_sheet_blob_in_make_cannot_unprove_a_gallery() -> None:
+    """DWS renders its whole spec sheet as one container and the model's only
+    offerable make/model selector selects that container — so record["make"]
+    became a 224-char blob and the label-agreement leg demanded every photo
+    label contain the entire spec sheet. A provable 11-photo gallery read as
+    unproven, and the error blamed the gallery. An implausible value is
+    treated as absent; the structured NAME's tokens decide instead."""
+
+    vin = "2C3CDZL98NH100211"
+    url = "https://dealer.example/inventory/dodge/challenger/o-100211/"
+    title = "2022 DODGE CHALLENGER COUPE V8 SRT HELLCAT"
+    blob = (
+        "Year 2022 Make DODGE Model CHALLENGER Trim SRT HELLCAT REDEYE WIDEBODY "
+        "COUPE 2D Drivetrain RWD Transmission AUTOMATIC Engine V8 SUPERCHARGED "
+        f"Fuel GASOLINE VIN {vin} Stock No. O-100211"
+    )
+
+    def thumb(asset: str) -> str:
+        return (
+            f'<img alt="{title}" class="ug-thumb-image" '
+            f'src="https://imagescf.dealercenter.net/279/208/{asset}.jpg" '
+            f'data-pin-media="https://imagescf.dealercenter.net/1116/836/{asset}.jpg">'
+        )
+
+    assets = [f"202607-{i:032x}" for i in range(3)]
+    ld = json.dumps({
+        "@type": "Car", "vehicleIdentificationNumber": vin,
+        "name": "2022 DODGE CHALLENGER", "modelDate": 2022,
+    })
+    html = (
+        f'<html><head><link rel="canonical" href="{url}"></head><body>'
+        f'<script type="application/ld+json">{ld}</script>'
+        '<main class="dws-vehicle-type-auto container">'
+        f'<div class="dws-vehicle-fields">{blob}</div>'
+        '<div class="dws-vdp-media-container" id="DWS_VDP_Media_5">'
+        + "".join(thumb(a) for a in assets)
+        + "</div></main></body></html>"
+    )
+    fields = {name: FieldRule(selector=".dws-vehicle-fields") for name in ("make", "model")}
+    result = extract_vdp(
+        html,
+        detail_url=url,
+        origin="https://dealer.example",
+        detail=DetailSpec(root_selector="main.dws-vehicle-type-auto",
+                          gallery_selector="div#DWS_VDP_Media_5",
+                          gallery_item_selector="img", fields=fields, max_photos=80),
+        expected_vin=vin,
+    )
+    assert result.identity_proven
+    assert len(result.photos) == 3
+    assert all(p.source == "pin_media" and p.width == 1116 for p in result.photos)
+
+
+def test_a_lazyload_notavailable_placeholder_cannot_veto_a_gallery() -> None:
+    """One transient slick lazy-load failure swapped a thumb's src for
+    DealerCenter's vehicle-image-notavailable-320x240.jpg; that single
+    non-photo asset failed the whole per-asset ownership proof and a
+    32-photo gallery extracted as the JSON-LD's five images."""
+
+    from weaver.vehicle.vdp import _acceptable_image
+
+    placeholder = "https://dealer.example/dealercenter/img/vehicle-image-notavailable-320x240.jpg"
+    assert not _acceptable_image(placeholder, page_url="https://dealer.example/vdp/x")
+
+    vin = "1C6SRFFT4NN123456"
+    url = "https://dealer.example/used/Ram/2026-Ram-1500-9f2ab1c4.htm"
+    state = json.dumps({"vehicle": {"vin": vin}, "media": {"imagesToDisplay": [
+        {"uri": "https://pictures.dealer.com/s/store/0123/a-front.jpg"},
+        {"uri": "https://pictures.dealer.com/s/store/0123/b-side.jpg"},
+    ]}})
+    html = (
+        f'<html><head><link rel="canonical" href="{url}"></head><body>'
+        f'<main data-vin="{vin}"><h1>2026 Ram 1500</h1>'
+        f'<img class="slick-lazyload-error" src="{placeholder}"></main>'
+        f"<script>DDC.WS.state['ws-vehicle-media']['media1'] = {state};</script></body></html>"
+    )
+    result = extract_vdp(
+        html,
+        detail_url=url,
+        origin="https://dealer.example",
+        detail=DetailSpec(root_selector=None, fields={}),
+        expected_vin=None,
+    )
+    assert result.identity_proven
+    assert len(result.photos) == 2
+    assert not any("notavailable" in p.url for p in result.photos)

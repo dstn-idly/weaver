@@ -36,6 +36,10 @@ _GALLERY_RE = re.compile(
 _THUMB_GALLERY_RE = re.compile(r"(?:thumb|thumbnail)", re.I)
 _BAD_IMAGE_RE = re.compile(
     r"(?:^|[/_.-])(?:logo|icon|sprite|spinner|loading|placeholder|no[-_ ]?image|"
+    # DealerCenter's slick lazy-load failure swaps a thumb's src for
+    # vehicle-image-notavailable-320x240.jpg; one such transient artifact
+    # inside the gallery vetoed a 32-photo per-asset ownership proof.
+    r"not[-_ ]?available|"
     r"images?[-_ ]?coming|coming[-_ ]?soon|photo[-_ ]?unavailable|default[-_ ]?vehicle|"
     r"transparent|pixel|tracking|avatar|badge|banner|overlay|watermark|"
     r"thumb(?:nail)?)(?:[/_.?-]|$)",
@@ -2732,10 +2736,22 @@ def _configured_gallery_identity_proven(
     grammars = {_flat_cdn_gallery_grammar(url) for url in owned_urls}
     if len(grammars) != 1 or None in grammars:
         return False
+    # A field-extracted value is only usable as a label token when it IS a
+    # token. DWS renders its whole spec sheet as one container, the model's
+    # only offerable make/model selector selects that container, and a
+    # 224-character blob landed in record["make"] — so this leg demanded
+    # every photo label contain the entire spec sheet and a provable gallery
+    # read as unproven. An implausible value is treated as absent, which
+    # hands the decision to the existing structured-NAME fallback below.
+    def _plausible_token(value: Any) -> bool:
+        key = _key(value)
+        return bool(key) and len(key) <= 32 and len(str(value).split()) <= 3
+
     required_tokens = [
         _key(vehicle_record.get(name))
         for name in ("year", "make", "model")
         if vehicle_record.get(name) not in (None, "")
+        and _plausible_token(vehicle_record.get(name))
     ]
     if len(required_tokens) < 3:
         # DealerCenter's Car JSON-LD publishes neither brand nor model — only
