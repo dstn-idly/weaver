@@ -4273,6 +4273,16 @@ def test_scroll_hydration_settles_when_the_card_population_stops_growing() -> No
         await _scroll_to_hydrate(restless)
         assert restless.scrolls == 14
 
+        # A quiet count with a WALL of skeletons still waiting means the
+        # throttled widget owes data: stability may not conclude until the
+        # shells are down to the page's few permanent bottom sentinels.
+        throttled = Page(
+            [{"cards": 5, "placeholders": 22}] * 9
+            + [{"cards": 24, "placeholders": 5}] * 4
+        )
+        await _scroll_to_hydrate(throttled)
+        assert throttled.scrolls == 12  # waited through the throttle, then settled
+
         # An evaluator that explodes never fails the fetch.
         class Broken:
             async def evaluate(self, script, *args):

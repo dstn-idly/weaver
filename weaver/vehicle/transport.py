@@ -2661,7 +2661,13 @@ async def _scroll_to_hydrate(page: object, card_selector: str | None = None) -> 
         cards = int(state.get("cards") or 0)
         if cards == last_cards:
             stable_rounds += 1
-            if stable_rounds >= 3:
+            # A quiet count only means DONE when the skeletons are down to
+            # the page's few permanent bottom sentinels. Dealer.com throttles
+            # the widget's data feed for a session that just walked twenty
+            # SRP pages: hydration that lands in one second on a cold load
+            # takes many seconds mid-crawl, and a wall of waiting shells
+            # means the page still owes data — keep the bound running.
+            if stable_rounds >= 3 and int(state.get("placeholders") or 0) <= 5:
                 return
         else:
             stable_rounds = 0
