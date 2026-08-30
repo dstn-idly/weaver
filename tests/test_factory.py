@@ -552,3 +552,44 @@ def test_process_job_simulates_on_the_specs_proven_route(tmp_path, monkeypatch):
         )
 
     asyncio.run(run())
+
+
+def test_a_429_refused_origin_rests_for_hours_not_minutes(tmp_path, monkeypatch):
+    """Jim Norton said 429 across two days because a uniform 30-minute rest is
+    a hammer to a rate limiter that thinks in hours. A dealer whose most
+    recent crawl was refused with 429 rests on the pressure cooldown."""
+
+    from datetime import datetime, timedelta, timezone
+
+    import weaver.factory.orchestrator as orchestrator
+
+    monkeypatch.setattr(orchestrator, "ORIGIN_COOLDOWN_SECONDS", 1800.0)
+    monkeypatch.setattr(orchestrator, "PRESSURE_COOLDOWN_SECONDS", 43200.0)
+
+    store = FactoryStore(tmp_path)
+    now = datetime.now(timezone.utc)
+    job = store.create("https://dealer.example/used", "https://dealer.example")
+    job.last_crawl_at = now.isoformat()
+
+    # An ordinary failure rests the ordinary length.
+    job.error = "verification crawl failed: something else"
+    remaining = orchestrator.origin_cooldown_remaining(store, job, now.timestamp())
+    assert 1700.0 < remaining <= 1800.0
+
+    # A 429 refusal rests for the pressure window.
+    job.error = "verification crawl failed: dealer returned HTTP 429 after 3 bounded attempts"
+    remaining = orchestrator.origin_cooldown_remaining(store, job, now.timestamp())
+    assert 43000.0 < remaining <= 43200.0
+
+    # "Too Many Requests" prose counts the same as the bare status code.
+    job.error = "Client error: too many requests from this address"
+    remaining = orchestrator.origin_cooldown_remaining(store, job, now.timestamp())
+    assert remaining > 43000.0
+
+    # The pressure window keys off the LATEST crawl on the origin: a newer
+    # clean crawl returns the origin to ordinary manners.
+    newer = store.create("https://dealer.example/used", "https://dealer.example")
+    newer.last_crawl_at = (now + timedelta(seconds=5)).isoformat()
+    newer.error = None
+    remaining = orchestrator.origin_cooldown_remaining(store, job, now.timestamp() + 5)
+    assert remaining <= 1800.0

@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 import time
 from datetime import datetime, timezone
 from typing import Any
@@ -384,6 +385,19 @@ ORIGIN_COOLDOWN_SECONDS = max(
     min(float(os.getenv("FACTORY_ORIGIN_COOLDOWN_MIN", "30") or 30) * 60.0, 24 * 3600.0),
 )
 
+# A dealer that answered HTTP 429 said "stop" in words. Jim Norton kept saying
+# it across two days because the uniform half-hour rest reads as a hammer to a
+# rate limiter that thinks in hours; the same pressure shows up on Dealer.com
+# lots as silently degraded pages rather than a status code. When the most
+# recent crawl of an origin was refused with a 429, the origin rests for half
+# a day, not half an hour.
+PRESSURE_COOLDOWN_SECONDS = max(
+    ORIGIN_COOLDOWN_SECONDS,
+    min(float(os.getenv("FACTORY_PRESSURE_COOLDOWN_MIN", "720") or 720) * 60.0, 24 * 3600.0),
+)
+
+_RATE_LIMIT_ERROR_RE = re.compile(r"\b429\b|too many requests", re.IGNORECASE)
+
 
 def origin_cooldown_remaining(store: FactoryStore, job: FactoryJob, now: float) -> float:
     """Seconds this origin must rest before another crawl may start."""
@@ -391,6 +405,7 @@ def origin_cooldown_remaining(store: FactoryStore, job: FactoryJob, now: float) 
     if ORIGIN_COOLDOWN_SECONDS <= 0:
         return 0.0
     latest = 0.0
+    latest_error = ""
     for other in store.jobs.values():
         if other.origin != job.origin:
             continue
@@ -406,9 +421,15 @@ def origin_cooldown_remaining(store: FactoryStore, job: FactoryJob, now: float) 
             continue
         if touched > latest:
             latest = touched
+            latest_error = str(other.error or "")
     if latest <= 0:
         return 0.0
-    return max(0.0, ORIGIN_COOLDOWN_SECONDS - (now - latest))
+    span = (
+        PRESSURE_COOLDOWN_SECONDS
+        if _RATE_LIMIT_ERROR_RE.search(latest_error)
+        else ORIGIN_COOLDOWN_SECONDS
+    )
+    return max(0.0, span - (now - latest))
 
 
 # Different dealerships can be crawled at the same time; the SAME dealership
