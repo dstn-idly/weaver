@@ -1,0 +1,57 @@
+weaver/vehicle/infer.py
+  s_da9cd4ad208db2::t_a97dba19a52bde 2170-2177
+  s_da9cd4ad208db2::t_71f9c2edb4f3c1 2470-2476,2481,2484-2485
+  s_da9cd4ad208db2::t_b3bfac3b4340de 170-179
+  s_da9cd4ad208db2::t_895a0b523fd6be 2083-2131
+  s_da9cd4ad208db2::t_cc1e3f8146a7a9 2379
+  s_da9cd4ad208db2::t_124158d159db0e 2242-2245,2250-2255
+  s_da9cd4ad208db2::t_eb571c4d0674a8 2286-2288
+  s_da9cd4ad208db2::t_a9386c26db71c7 2259-2262
+weaver/jobs.py
+  s_da9cd4ad208db2::t_46f58eb817bd4c 156
+  s_da9cd4ad208db2::t_2ab4cbfb3533a9 89
+  s_da9cd4ad208db2::t_c9eedce2ded21c 44-47
+weaver/vehicle/pipeline.py
+  s_da9cd4ad208db2::t_2105456f06e303 658-678,684-685
+  s_da9cd4ad208db2::t_6070479d7904e5 20
+  s_da9cd4ad208db2::t_82f2dec57b22a2 333-335
+  s_da9cd4ad208db2::t_1fec608822917c 223
+  s_da9cd4ad208db2::t_f880482f367dd0 255-278
+weaver/vehicle/transport.py
+  s_da9cd4ad208db2::t_20a89dc743fa67 2899-2905,2911-2913
+  s_da9cd4ad208db2::t_07a28810079efa 28
+  s_da9cd4ad208db2::t_2ae9e45669f507 2832-2834
+  s_da9cd4ad208db2::t_ca40ca115ff4d0 1973-1978
+  s_da9cd4ad208db2::t_9c2ad27d8223ba 60-69,71-80,84-92
+  s_da9cd4ad208db2::t_75607361d3c63a 2696-2698
+  s_da9cd4ad208db2::t_55d2487bbb5729 2768-2773
+weaver/factory/orchestrator.py
+  s_da9cd4ad208db2::t_41b38773a99c17 145-198
+  s_da9cd4ad208db2::t_c11b418b28950c 251-254
+weaver/vehicle/failure.py
+  s_da9cd4ad208db2::t_28e190d21e820a 1-208
+tests/test_factory.py
+  s_da9cd4ad208db2::t_ee803c54aaf5c2 376-436
+tests/test_vehicle_infer.py
+  s_da9cd4ad208db2::t_3a2079cc8e95ef 1465-1526
+tests/test_vehicle_pipeline.py
+  s_da9cd4ad208db2::t_c473b2d34d9f3a 731-994
+tests/test_vehicle_transport.py
+  s_da9cd4ad208db2::t_b7f37b5ab33874 3883-3970
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "2959b3442b835b1388226c5331ce34d49e26d9c8",
+  "prompts": {},
+  "sessions": {
+    "s_da9cd4ad208db2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4cd1a6ac-f843-47f4-ac8d-77cbe7e08a68",
+        "model": "claude-fable-5"
+      },
+      "human_author": "dustin thach <epikunder321123@gmail.com>"
+    }
+  }
+}
