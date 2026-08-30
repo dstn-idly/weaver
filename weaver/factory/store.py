@@ -43,6 +43,11 @@ class FactoryJob:
     last_crawl_at: str | None = None
     # One deliberate operator override of the origin cooldown, consumed on use.
     cooldown_override: bool = False
+    # Why this job exists when it was not pasted into the intake box: the
+    # customer→factory referral that filed it ({"trigger": ..., "org": ...}).
+    # The full evidence lives on the job's "referral" event; this small tag is
+    # what the portal's job header can show without reading the feed.
+    referral: dict[str, Any] | None = None
     events: list[dict[str, Any]] = field(default_factory=list)
     condition: asyncio.Condition = field(default_factory=asyncio.Condition, repr=False)
 
@@ -59,6 +64,7 @@ class FactoryJob:
             "created_at": self.created_at,
             "updated_at": self.updated_at,
             "last_crawl_at": self.last_crawl_at,
+            "referral": self.referral,
             "event_count": len(self.events),
         }
 
@@ -85,6 +91,7 @@ class FactoryStore:
                     state=str(raw.get("state", "queued")),
                     stage=str(raw.get("stage", "queued")),
                     last_crawl_at=raw.get("last_crawl_at") or None,
+                    referral=raw.get("referral") if isinstance(raw.get("referral"), dict) else None,
                     run_id=raw.get("run_id"),
                     verdict=raw.get("verdict"),
                     error=raw.get("error"),

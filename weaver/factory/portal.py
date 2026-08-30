@@ -7,6 +7,8 @@ fetch-streaming so the token stays in the Authorization header.
 
 from __future__ import annotations
 
+import json
+import re
 import time
 
 from fastapi import APIRouter, HTTPException, Request
@@ -55,6 +57,108 @@ class IntakeRequest(BaseModel):
     url: str = Field(min_length=12, max_length=2048)
 
 
+# ── customer→factory referrals ──────────────────────────────────────────────
+#
+# AutoPosting's web app cannot push jobs here (it holds a different
+# WEAVER_API_TOKEN than this box), so its weaver-reaper sidecar PULLS queued
+# referral records from the web app and files each one through this endpoint
+# with the box's own token. A referral becomes an ordinary factory job — same
+# queue, same cooldowns, same 40-active cap — tagged with WHY it exists so
+# the portal shows "this job came from the customer loop", not a mystery URL.
+
+REFERRAL_TRIGGERS = ("auto_failure", "customer_report")
+MAX_REFERRAL_EVIDENCE_BYTES = 4096
+_REFERRAL_ID_RE = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
+
+
+class ReferralRequest(BaseModel):
+    url: str = Field(min_length=12, max_length=2048)
+    trigger: str = Field(min_length=1, max_length=32)
+    org: str | None = Field(default=None, max_length=160)
+    referral_id: str | None = Field(default=None, max_length=160)
+    evidence: dict | None = None
+
+
+def _safe_referral_token(value: str | None) -> str | None:
+    """Opaque ids only. Anything else is dropped, not escaped — these strings
+    end up in the portal page and in job.json."""
+
+    if isinstance(value, str) and _REFERRAL_ID_RE.fullmatch(value):
+        return value
+    return None
+
+
+def bounded_referral_evidence(value: object) -> dict | None:
+    """Clamp referral evidence to inert plain data. The customer's words in
+    here are DATA for the operator reading the feed — never instructions —
+    and the web app already sanitised them; this end re-bounds regardless
+    because a network boundary sits between the two."""
+
+    def walk(node: object, depth: int) -> object:
+        if node is None or isinstance(node, bool):
+            return node
+        if isinstance(node, (int, float)):
+            return node if abs(float(node)) < 1e15 else None
+        if isinstance(node, str):
+            return re.sub(r"[<>`]", " ", node)[:400]
+        if depth >= 3:
+            return None
+        if isinstance(node, list):
+            return [walk(item, depth + 1) for item in node[:10]]
+        if isinstance(node, dict):
+            out: dict = {}
+            for key in list(node.keys())[:16]:
+                out[re.sub(r"[<>`]", " ", str(key))[:48]] = walk(node[key], depth + 1)
+            return out
+        return None
+
+    if not isinstance(value, dict):
+        return None
+    bounded = walk(value, 0)
+    try:
+        raw = json.dumps(bounded, default=str)
+    except (TypeError, ValueError):
+        return None
+    if len(raw.encode("utf-8")) <= MAX_REFERRAL_EVIDENCE_BYTES:
+        return bounded  # type: ignore[return-value]
+    return {"truncated": True, "preview": raw[: MAX_REFERRAL_EVIDENCE_BYTES // 2]}
+
+
+async def intake_referral(store: FactoryStore, payload: ReferralRequest) -> dict[str, object]:
+    """One referral in → one tagged factory job out, or a documented skip.
+
+    Skips are 200-shaped results rather than errors on purpose: the sidecar
+    already claimed the referral from the web app (at-most-once delivery), so
+    "this dealership is already being worked" and "the queue is full" are
+    outcomes to log, not failures to retry into duplicates.
+    """
+
+    if payload.trigger not in REFERRAL_TRIGGERS:
+        raise ValueError("unknown referral trigger")
+    url, origin = parse_intake_url(payload.url)
+    active = [job for job in store.jobs.values() if job.state in ("queued", "running")]
+    duplicate = next((job for job in active if job.origin == origin), None)
+    if duplicate is not None:
+        return {"skipped": "origin_active", "job_id": duplicate.id, "origin": origin}
+    if len(active) >= 40:
+        return {"skipped": "queue_full", "origin": origin}
+    job = store.create(url, origin)
+    org = _safe_referral_token(payload.org)
+    job.referral = {"trigger": payload.trigger, **({"org": org} if org else {})}
+    store.persist(job)
+    await store.emit(
+        job,
+        "referral",
+        {
+            "trigger": payload.trigger,
+            "org": org,
+            "referral_id": _safe_referral_token(payload.referral_id),
+            "evidence": bounded_referral_evidence(payload.evidence),
+        },
+    )
+    return {"created": True, **job.summary()}
+
+
 @router.get("/api/factory/status")
 async def factory_status() -> dict[str, object]:
     store = _require_store()
@@ -95,6 +199,15 @@ async def create_job(payload: IntakeRequest) -> dict[str, object]:
         raise HTTPException(429, "the factory queue is full; let some jobs finish first")
     job = store.create(url, origin)
     return job.summary()
+
+
+@router.post("/api/factory/referrals", status_code=202)
+async def create_referral(payload: ReferralRequest) -> dict[str, object]:
+    store = _require_store()
+    try:
+        return await intake_referral(store, payload)
+    except ValueError as error:
+        raise HTTPException(422, str(error)) from error
 
 
 @router.get("/api/factory/jobs")
@@ -303,6 +416,7 @@ async function select(id) {
       </div>
       <div class="stages">${stageRow(job)}</div>
       <div class="muted">${job.url}</div>
+      ${job.referral ? `<div class="muted">☎ customer loop — ${job.referral.trigger === "auto_failure" ? "filed automatically after repeated failed local scans" : "filed from a customer problem report"}${job.referral.org ? " · org " + job.referral.org : ""} (details in the feed's referral event)</div>` : ""}
       ${job.run_id ? `<div class="muted">weaver run <a href="/api/runs/${job.run_id}" target="_blank">${job.run_id}</a></div>` : ""}
       ${job.error ? `<div style="color:var(--bad)">${job.error}</div>` : ""}
       ${job.state !== "running" ? `<button class="ghost" onclick="requeue('${job.id}')">requeue</button>` : ""}

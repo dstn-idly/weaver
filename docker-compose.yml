@@ -56,6 +56,12 @@ services:
       AUTOPOSTING_REAPER_BASE_URL: ${AUTOPOSTING_REAPER_BASE_URL:-https://www.autopostingpro.com}
       AUTOPOSTING_REAPER_SECRET: ${AUTOPOSTING_REAPER_SECRET:-}
       AUTOPOSTING_REAPER_INTERVAL_SECONDS: ${AUTOPOSTING_REAPER_INTERVAL_SECONDS:-30}
+      # Customer→factory feedback loop (opt-in). Set the factory base to the
+      # compose-internal weaver service to arm the referral pass; the token is
+      # the BOX's own WEAVER_API_TOKEN (from .env), which never leaves this
+      # network — the web app cannot push here, so the reaper files locally.
+      AUTOPOSTING_REAPER_FACTORY_BASE_URL: ${AUTOPOSTING_REAPER_FACTORY_BASE_URL:-}
+      WEAVER_API_TOKEN: ${WEAVER_API_TOKEN:-}
     init: true
     read_only: true
     cap_drop:
