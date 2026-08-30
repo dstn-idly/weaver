@@ -1,0 +1,21 @@
+weaver/vehicle/vdp.py
+  s_da9cd4ad208db2::t_8154801de74860 39-42,2739-2749,2754
+tests/test_vehicle_vdp.py
+  s_da9cd4ad208db2::t_ad5a07093d2f3e 2817-2904
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "d1032cd8a95d87aa11e043efb00711f65200acf9",
+  "prompts": {},
+  "sessions": {
+    "s_da9cd4ad208db2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4cd1a6ac-f843-47f4-ac8d-77cbe7e08a68",
+        "model": "claude-fable-5"
+      },
+      "human_author": "dustin thach <epikunder321123@gmail.com>"
+    }
+  }
+}
