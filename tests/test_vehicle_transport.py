@@ -799,7 +799,10 @@ def test_listing_template_shell_escalates_and_waits_for_concrete_spec_evidence(
         session._static_fetch = static
         html = await session.fetch_listing(listing_url, parse_spec(SPEC).listing)
         assert "1HGBH41JXMN109186" in html
-        assert static_calls == [listing_url]
+        # Listing navigation never trusts a static document (Malloy Ford's
+        # CDN serves a different static variant per request): the static
+        # tier is not even probed, the browser renders directly.
+        assert static_calls == []
         assert session.last_mode == "persistent_browser"
         assert len(browser.calls) == 1
         _url, options = browser.calls[0]

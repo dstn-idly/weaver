@@ -1736,6 +1736,15 @@ class PersistentDealerSession:
             and self.static_first
             and not self._static_nav_gated
             and (self.last_mode != "persistent_browser" or vdp_gallery_wait)
+            # LISTING navigation never trusts a static document. Malloy Ford's
+            # CDN serves a different static variant per request — sometimes
+            # rich, sometimes four cards with too few skeletons to trip the
+            # placeholder gate — and every starved-crawl theory of 2026-08-30
+            # (scroll timing, session heat, IP rate windows) died against one
+            # fact: the thin pages were static-tier serializations, with the
+            # sticky last_mode masking the tier in the narration. Listing
+            # pages are few; rendering them buys deterministic hydration.
+            and listing_readiness is None
         ):
             # Sticky browser mode exists to preserve challenge clearance for
             # LISTING navigation. A gallery-adequate DETAIL fetch may still
