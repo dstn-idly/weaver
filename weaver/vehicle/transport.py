@@ -1768,6 +1768,13 @@ class PersistentDealerSession:
                 # the full redirect bound against the dealer first.
                 self._static_nav_gated = True
                 static = None
+            if static is not None and listing_readiness is not None and _skeleton_placeholder_count(static) >= 3:
+                # A lazy SRP's static document is 2 real cards and a page of
+                # skeletons; readiness would bless it and the crawl would
+                # harvest 4 vehicles a page from a 530-car lot (Malloy Ford).
+                # Only the browser path scrolls the skeletons full, so a
+                # skeleton-bearing LISTING page is never accepted static.
+                static = None
             if static is not None and vdp_gallery_wait and not _static_gallery_adequate(static):
                 # A gallery-adequate fixture was requested but the static
                 # document carries almost no photo URLs — a hydrated platform
@@ -2583,6 +2590,17 @@ _PLACEHOLDER_CENSUS = r"""
   ).length,
 })
 """
+
+
+_SKELETON_CLASS_RE = re.compile(
+    r'class="[^"]*(?:placeholder-card|skeleton-card|loading-card)', re.IGNORECASE
+)
+
+
+def _skeleton_placeholder_count(html: str) -> int:
+    """How many skeleton card shells the markup carries (cheap, string-level)."""
+
+    return len(_SKELETON_CLASS_RE.findall(html or ""))
 
 
 async def _scroll_to_hydrate(page: object) -> None:

@@ -4267,3 +4267,69 @@ def test_scroll_hydration_fills_lazy_placeholder_pages_and_leaves_others_alone()
         await _scroll_to_hydrate(object())
 
     asyncio.run(run())
+
+
+def test_a_skeleton_bearing_listing_page_is_never_accepted_static(monkeypatch) -> None:
+    """Malloy Ford's static SRP is 2 real cards plus skeleton shells; only the
+    browser path scrolls them full, so listing navigation must reject the
+    static document and render. Detail fetches are untouched."""
+
+    from weaver.vehicle.models import parse_spec
+
+    async def allow(url):
+        return SimpleNamespace(url=url)
+
+    monkeypatch.setattr("weaver.vehicle.transport.validate_public_url", allow)
+
+    skeleton_static = (
+        "<html><body>" + ("vehicle inventory content " * 30)
+        + '<li class="box vehicle-card vehicle-card-detailed"><a href="/used/Ford/1">car</a></li>'
+        + '<li class="vehicle-card placeholder-card"></li>' * 22
+        + "</body></html>"
+    )
+    rendered = []
+
+    async def fake_static(url):
+        return skeleton_static
+
+    async def fake_rendered(url, **kwargs):
+        rendered.append(url)
+        return "<html><body>" + ("hydrated inventory " * 40) + "</body></html>"
+
+    async def run():
+        session = PersistentDealerSession("https://dealer.example")
+        session._static_fetch = fake_static
+        session._fetch_rendered_once = fake_rendered
+        listing = parse_spec(
+            {
+                "schema": "autoposting.vehicle-extraction",
+                "v": 2,
+                "origin": "https://dealer.example",
+                "start_urls": ["https://dealer.example/used-inventory/index.htm"],
+                "listing": {
+                    "card_selector": "li.vehicle-card",
+                    "detail_link_selector": "a[href]",
+                    "fields": {},
+                },
+                "detail": {"root_selector": "body", "fields": {}, "gallery_mode": "fixed_auto", "max_photos": 80},
+            }
+        ).listing
+        html = await session._fetch_once(
+            "https://dealer.example/used-inventory/index.htm",
+            listing_readiness=listing,
+            browser_only=False,
+        )
+        assert "hydrated inventory" in html
+        assert rendered  # the browser path ran
+
+        # A DETAIL fetch (no listing readiness) still accepts the static doc.
+        rendered.clear()
+        html = await session._fetch_once(
+            "https://dealer.example/vdp/1",
+            listing_readiness=None,
+            browser_only=False,
+        )
+        assert "vehicle-card-detailed" in html
+        assert not rendered
+
+    asyncio.run(run())
