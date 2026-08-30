@@ -1,0 +1,22 @@
+weaver/vehicle/transport.py
+  s_da9cd4ad208db2::t_dc175005017d7e 1992
+  s_da9cd4ad208db2::t_be912d9506499d 1938-1963
+tests/test_vehicle_transport.py
+  s_da9cd4ad208db2::t_cbb860af13aefb 4463-4513
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "b599b8b944f41bd1432737cf1a5fbeddda307b58",
+  "prompts": {},
+  "sessions": {
+    "s_da9cd4ad208db2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4cd1a6ac-f843-47f4-ac8d-77cbe7e08a68",
+        "model": "claude-fable-5"
+      },
+      "human_author": "dustin thach <epikunder321123@gmail.com>"
+    }
+  }
+}
