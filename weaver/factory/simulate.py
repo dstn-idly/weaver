@@ -131,6 +131,13 @@ async def simulate_listing_config(
             if not result.get("ok"):
                 break
             url = result.get("nextUrl")
+            # The engine's own detail-link handling is origin-pinned; the
+            # simulator must not be looser with a next-page href. An off-origin
+            # next link would only fail closed later (expectOrigin), but the
+            # factory's browser should never fetch a third-party page at all.
+            origin = str(config.get("origin") or "").rstrip("/")
+            if url and origin and url.rstrip("/") != origin and not url.startswith(origin + "/"):
+                url = None
 
     total_vehicles = sum(p["vehicles"] for p in pages)
     total_known = sum(p["vins_known_to_weaver"] for p in pages)
@@ -140,6 +147,11 @@ async def simulate_listing_config(
     )
     return {
         "engine_sha256": digest,
+        # The page the client engine was proven on. A customer deployment must
+        # use this exact page as the org's scan entry (usedCarsUrl) — the
+        # platform never imports this config, so the entry route is the one
+        # piece of factory knowledge an onboarding operator has to carry over.
+        "entry_url": start_url,
         "pages": pages,
         "page_cap": MAX_SIMULATED_PAGES,
         "total_vehicles": total_vehicles,

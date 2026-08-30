@@ -434,3 +434,121 @@ def test_a_failed_crawl_copies_the_runs_failure_bundle_beside_the_job(
         assert not any(event["type"] == "failure_artifacts" for event in bare.events)
 
     asyncio.run(run())
+
+
+def test_simulation_runs_on_the_crawl_proven_listing_route_not_the_intake_url():
+    from weaver.factory.orchestrator import simulation_start_url
+
+    spec = {
+        "origin": "https://www.edmarktoyota.com",
+        "start_urls": ["https://www.edmarktoyota.com/llm/inventory/"],
+    }
+    # A job submitted as a bare domain must not be simulated on the homepage.
+    assert (
+        simulation_start_url(spec, "https://www.edmarktoyota.com")
+        == "https://www.edmarktoyota.com/llm/inventory/"
+    )
+    # Even a job submitted with a real SRP path simulates on the route the
+    # config's card grammar was actually learned from.
+    assert (
+        simulation_start_url(spec, "https://www.edmarktoyota.com/used-vehicles/")
+        == "https://www.edmarktoyota.com/llm/inventory/"
+    )
+    # A start_url off the spec's own origin would break the expectOrigin pin.
+    foreign = {
+        "origin": "https://dealer.example",
+        "start_urls": ["https://cdn.other.example/inventory", "https://dealer.example/cars"],
+    }
+    assert simulation_start_url(foreign, "https://dealer.example") == "https://dealer.example/cars"
+    # No usable start_urls: fall back to what the job was submitted with.
+    assert simulation_start_url({"origin": "https://d.example"}, "https://d.example/x") == "https://d.example/x"
+    assert (
+        simulation_start_url({"start_urls": [None, "ftp://bad", 7]}, "https://d.example")
+        == "https://d.example"
+    )
+    # The origin itself is an acceptable proven route (trailing slash folded).
+    assert (
+        simulation_start_url(
+            {"origin": "https://d.example", "start_urls": ["https://d.example/"]},
+            "https://d.example/other",
+        )
+        == "https://d.example/"
+    )
+
+
+def test_process_job_simulates_on_the_specs_proven_route(tmp_path, monkeypatch):
+    """The helper alone passing is not the behavior: process_job must hand the
+    spec's proven listing route to BOTH simulation calls, or a bare-domain job
+    is judged against its homepage again."""
+
+    import weaver.factory.orchestrator as orchestrator
+
+    simulated_on = []
+
+    async def fake_create_run(client, job):
+        return "runX"
+
+    async def fake_poll_run(client, store, job, run_id):
+        return {"status": "passed", "row_count": 3}
+
+    async def fake_artifact(client, run_id, name):
+        if name == "manifest.json":
+            return {"qa": {"issues": []}}
+        if name == "records.jsonl":
+            return [{"vin": "JHMCM56557C404453", "price": "9999"}]
+        if name == "spec.json":
+            return {
+                "origin": "https://dealer.example",
+                "start_urls": ["https://dealer.example/llm/inventory/"],
+            }
+        raise AssertionError(f"unexpected artifact {name}")
+
+    def fake_translate(spec):
+        return (
+            {"v": 1, "origin": "https://dealer.example", "card": "li.car",
+             "fields": {"price": {"selector": ".p", "attr": "text"}}},
+            [],
+        )
+
+    def fake_reconcile(config, simulated_vehicles, records):
+        # Force the drop path so the RE-simulation's URL is pinned too.
+        if "price" in config.get("fields", {}):
+            slimmed = dict(config, fields={})
+            return slimmed, ["price"], {"price": "0/1"}
+        return config, [], {}
+
+    async def fake_simulate(config, start_url, *, known_vins, emit):
+        simulated_on.append(start_url)
+        return {
+            "passed": True,
+            "entry_url": start_url,
+            "pages": [{"url": start_url, "ok": True, "vehicles": 1, "sample": []}],
+        }
+
+    async def fake_luna(*, qa, samples, simulation, emit):
+        return {"verdict": "ship"}
+
+    monkeypatch.setattr(orchestrator, "_create_run", fake_create_run)
+    monkeypatch.setattr(orchestrator, "_poll_run", fake_poll_run)
+    monkeypatch.setattr(orchestrator, "_artifact", fake_artifact)
+    monkeypatch.setattr(orchestrator, "translate_spec_to_extension_config", fake_translate)
+    monkeypatch.setattr(orchestrator, "reconcile_config_fields", fake_reconcile)
+    monkeypatch.setattr(orchestrator, "simulate_listing_config", fake_simulate)
+    monkeypatch.setattr(orchestrator, "luna_qa_review", fake_luna)
+
+    async def run():
+        store = FactoryStore(tmp_path)
+        job = store.create("https://dealer.example", "https://dealer.example")
+        await orchestrator.process_job(store, job)
+        assert simulated_on == [
+            "https://dealer.example/llm/inventory/",
+            "https://dealer.example/llm/inventory/",
+        ]
+        assert job.verdict == "ship"
+        assert any(
+            event["type"] == "stage"
+            and "crawl-proven listing route" in str(event["payload"].get("detail", ""))
+            for event in job.events
+        )
+
+    asyncio.run(run())

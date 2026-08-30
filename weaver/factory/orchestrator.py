@@ -196,6 +196,29 @@ async def _copy_failure_bundle(
         )
 
 
+def simulation_start_url(spec: dict[str, Any], fallback: str) -> str:
+    """The listing route the client engine must be simulated on.
+
+    The crawl proves inventory on spec["start_urls"] — often a machine route
+    (/llm/inventory/) or a discovered SRP path — and the translated config's
+    card grammar is learned from THAT page's markup. A job submitted as a bare
+    domain would otherwise be simulated on the homepage, where no card
+    selector can match and validateConfig's expectOrigin pin can even fail on
+    a www redirect: zero simulated vehicles, guaranteed, for a config that
+    works. Only routes on the spec's own origin qualify — the origin pin must
+    hold on the simulated page too.
+    """
+
+    origin = str(spec.get("origin") or "").rstrip("/")
+    for candidate in spec.get("start_urls") or []:
+        if not isinstance(candidate, str) or not candidate.startswith(("https://", "http://")):
+            continue
+        if origin and candidate.rstrip("/") != origin and not candidate.startswith(origin + "/"):
+            continue
+        return candidate
+    return fallback
+
+
 async def process_job(store: FactoryStore, job: FactoryJob) -> None:
     job.state = "running"
     job.stage = "crawl"
@@ -277,7 +300,15 @@ async def process_job(store: FactoryStore, job: FactoryJob) -> None:
         async def sim_emit(event_type: str, payload: dict[str, Any]) -> None:
             await store.emit(job, event_type, payload)
 
-        simulation = await simulate_listing_config(config, job.url, known_vins=known_vins, emit=sim_emit)
+        sim_url = simulation_start_url(spec, job.url)
+        if sim_url.rstrip("/") != job.url.rstrip("/"):
+            await store.emit(
+                job,
+                "stage",
+                {"stage": "simulate",
+                 "detail": f"simulating on the crawl-proven listing route {sim_url}"},
+            )
+        simulation = await simulate_listing_config(config, sim_url, known_vins=known_vins, emit=sim_emit)
         simulated_vehicles = [
             vehicle for page in simulation.get("pages", []) for vehicle in page.get("sample", [])
         ]
@@ -297,7 +328,7 @@ async def process_job(store: FactoryStore, job: FactoryJob) -> None:
                 {"dropped": dropped, "agreement": agreement,
                  "detail": "fields disagreeing with crawl ground truth removed; the extension detail pass supplies them"},
             )
-            simulation = await simulate_listing_config(config, job.url, known_vins=known_vins, emit=sim_emit)
+            simulation = await simulate_listing_config(config, sim_url, known_vins=known_vins, emit=sim_emit)
         elif agreement:
             await store.emit(job, "fields_verified", {"agreement": agreement})
         (store.artifact_path(job, "simulation.json")).write_text(json.dumps(simulation, indent=1), encoding="utf-8")

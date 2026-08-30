@@ -400,7 +400,16 @@ function logLine(event) {
   if (!target) return;
   const cls = event.type.startsWith("luna") ? "luna" : (event.type === "failed" ? "err" : "");
   const payload = JSON.stringify(event.payload, null, event.type.startsWith("luna") ? 1 : 0);
-  target.insertAdjacentHTML("beforeend", `<div class="${cls}"><span class="t">${event.at.slice(11,19)}</span> ${event.type}  ${payload}\n</div>`);
+  // Event payloads carry dealer-page-derived strings (URLs, error text,
+  // record samples). They are data, never markup.
+  const line = document.createElement("div");
+  line.className = cls;
+  const stamp = document.createElement("span");
+  stamp.className = "t";
+  stamp.textContent = event.at.slice(11,19);
+  line.appendChild(stamp);
+  line.appendChild(document.createTextNode(` ${event.type}  ${payload}\n`));
+  target.appendChild(line);
   target.scrollTop = target.scrollHeight;
 }
 async function select(id) {
