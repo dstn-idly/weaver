@@ -39,6 +39,7 @@ import soupsieve
 
 from .extract import _asc_stamped_total, card_stock_keys, extract_listing_page
 from .identity import (
+    canonical_page_url,
     clean_vin,
     detail_url_authority,
     card_scope_identity_key,
@@ -521,7 +522,17 @@ def _authoritative_detail_urls_in(
     for anchor in candidates:
         if _anchor_is_navigation(anchor):
             continue
-        url = same_origin_url(page_url, anchor.get("href"), origin)
+        raw_href = str(anchor.get("href") or "").strip()
+        if not raw_href or raw_href.startswith(("#", "javascript:")):
+            # A fragment or script anchor is widget chrome (Dealer.com's
+            # hydrated cards carry a href="#" photo-nav control), never a
+            # vehicle link — and resolving it to the page's own URL would
+            # make every card "own" a second detail URL and fail the
+            # one-vehicle-per-card census.
+            continue
+        url = same_origin_url(page_url, raw_href, origin)
+        if url is not None and canonical_page_url(url) == canonical_page_url(page_url):
+            continue
         if not url or not detail_url_authority(
             url,
             local_vehicle_evidence=local_evidence,
@@ -2279,7 +2290,14 @@ def infer_vehicle_spec(
         # the best candidate sees almost nothing. One rendered refetch gives
         # the catalog the cards the customer's browser would see; the swap is
         # kept only when the rendered page actually offers a richer candidate.
-        refreshed = refetch_listing()
+        # This refetch gathers RICHER evidence; it must never be fatal. A
+        # refreshed page that yields no candidates (an interstitial, a thin
+        # variant, a serialization hiccup) simply loses the comparison and
+        # the original catalog stands.
+        try:
+            refreshed = refetch_listing()
+        except Exception:  # noqa: BLE001 - keep the original evidence
+            refreshed = None
         if isinstance(refreshed, str) and refreshed:
             fresh_selectors = _application_card_selector_candidates(
                 refreshed,
@@ -2304,7 +2322,7 @@ def infer_vehicle_spec(
                 (int(row.get("locally_matched_cards") or 0) for row in fresh_catalog),
                 default=0,
             )
-            if fresh_best > previous_best:
+            if fresh_catalog and fresh_best > previous_best:
                 listing_html = refreshed
                 card_selectors = fresh_selectors
                 card_catalog = fresh_catalog

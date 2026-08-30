@@ -2645,7 +2645,18 @@ _HYDRATION_CENSUS = r"""
   for (const node of nodes) {
     const cls = String(node.className || "");
     if (/placeholder|skeleton|loading/i.test(cls)) continue;
-    if (!node.querySelector("a[href]")) continue;
+    // The card counts only when its DETAIL LINK is bound: Dealer.com
+    // hydrates card content first and binds hrefs last, and a '#' anchor
+    // is a widget control, not a vehicle link.
+    let linked = false;
+    for (const a of node.querySelectorAll("a[href]")) {
+      const href = a.getAttribute("href") || "";
+      if (href.length > 1 && href !== "#" && !href.startsWith("#") && !href.startsWith("javascript")) {
+        linked = true;
+        break;
+      }
+    }
+    if (!linked) continue;
     cards++;
   }
   const placeholders = document.querySelectorAll(

@@ -1572,3 +1572,31 @@ def test_hydration_starved_fires_only_on_big_lots_with_thin_catalogs():
     # Small lots and unstamped pages never trigger.
     assert hydration_starved('<html data-weaver-asc-item-results="8"><body></body></html>', thin) is False
     assert hydration_starved("<html><body></body></html>", thin) is False
+
+
+def test_a_fragment_anchor_is_widget_chrome_not_a_second_vehicle():
+    """Dealer.com's hydrated cards carry an href='#' photo-nav control; it
+    must never count as a detail URL, or every card 'owns' two vehicles and
+    fails the one-vehicle-per-card census (Malloy Ford, zero candidates on a
+    perfect 24-card page)."""
+
+    from bs4 import BeautifulSoup
+
+    from weaver.vehicle.infer import _detail_urls_in
+
+    card_html = (
+        '<li class="vehicle-card">'
+        '<a href="#">Previous Photo</a>'
+        '<a href="javascript:void(0)">Next Photo</a>'
+        '<a href="/used/Ford/2024-Ford-Bronco-73eb296eac18168a1686c87992fcbd84.htm">'
+        "<span>2024 Ford Bronco</span><span>$54,900</span><span>29,387 miles</span></a>"
+        '<img src="/photo.jpg"/></li>'
+    )
+    card = BeautifulSoup(card_html, "html.parser").find("li")
+    owned = _detail_urls_in(
+        card,
+        page_url="https://dealer.example/used-inventory/index.htm",
+        origin="https://dealer.example",
+    )
+    assert len(owned) == 1
+    assert owned[0].endswith("73eb296eac18168a1686c87992fcbd84.htm")
