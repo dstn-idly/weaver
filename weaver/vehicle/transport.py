@@ -1864,9 +1864,9 @@ class PersistentDealerSession:
                     raise RuntimeError(
                         "persistent browser does not support bounded readiness predicates"
                     )
-                # A lazy SRP holds skeleton placeholders at load; scroll them
+                # A lazy SRP holds skeleton placeholders at load; scroll it
                 # full before judging readiness or stamping the denominator.
-                await _scroll_to_hydrate(page)
+                await _scroll_to_hydrate(page, card_selector=listing_readiness.card_selector)
                 try:
                     await waiter(
                         _LISTING_READINESS_PREDICATE,
@@ -2579,19 +2579,6 @@ def _challenge_or_empty(html: str) -> bool:
     )
 
 
-# Lazy SRPs (Malloy Ford's Dealer.com theme) server-render 2 real cards plus
-# a page of skeleton placeholders and fill the rest only as the visitor
-# SCROLLS — a load-complete render still holds 2 vehicles of a declared 1,114.
-# The census counts the skeletons; the scroll pass runs only when they exist.
-_PLACEHOLDER_CENSUS = r"""
-() => ({
-  placeholders: document.querySelectorAll(
-    "[class*='placeholder-card'], [class*='skeleton-card'], [class*='loading-card']"
-  ).length,
-})
-"""
-
-
 _SKELETON_CLASS_RE = re.compile(
     r'class="[^"]*(?:placeholder-card|skeleton-card|loading-card)', re.IGNORECASE
 )
@@ -2603,45 +2590,71 @@ def _skeleton_placeholder_count(html: str) -> int:
     return len(_SKELETON_CLASS_RE.findall(html or ""))
 
 
-async def _scroll_to_hydrate(page: object) -> None:
-    """Bounded scroll pass for SRPs that hydrate their cards on scroll.
+# Lazy SRPs (Malloy Ford's Dealer.com theme) hydrate their cards after load
+# and on scroll, and the server's response varies per request — sometimes a
+# rich page, sometimes 2 real cards and a wall of skeletons. A census taken
+# the instant navigation lands samples a DOM the widget has not mounted yet,
+# so hydration is judged by STABILITY: settle briefly, then scroll bottom-ward
+# until the card population stops growing.
+_HYDRATION_CENSUS = r"""
+(sel) => {
+  const generic = "[class*='vehicle-card'],[class*='vehicle-item'],[class*='inventory-card']";
+  let cards = 0;
+  try { cards = document.querySelectorAll(sel || generic).length; }
+  catch (_) { cards = document.querySelectorAll(generic).length; }
+  const placeholders = document.querySelectorAll(
+    "[class*='placeholder-card'],[class*='skeleton-card'],[class*='loading-card']"
+  ).length;
+  return { cards, placeholders };
+}
+"""
 
-    Fires only when skeleton placeholders are present, scrolls the window
-    bottom-ward while they keep filling in, and stops when they are gone,
-    stop shrinking, or the bound is spent. Hydration help must never fail a
-    fetch: every page call is guarded.
+
+async def _scroll_to_hydrate(page: object, card_selector: str | None = None) -> None:
+    """Scroll a card page full and return when its population stabilizes.
+
+    Runs on listing-shaped pages only (anything with card or skeleton class
+    families); a page with neither exits after one cheap census. Bounded at
+    14 scroll rounds; three unchanged rounds in a row count as settled.
+    Hydration help must never fail a fetch: every page call is guarded.
     """
 
     evaluator = getattr(page, "evaluate", None)
     if not callable(evaluator):
         return
-    try:
-        census = await evaluator(_PLACEHOLDER_CENSUS)
-    except Exception:  # noqa: BLE001 - hydration help never fails a fetch
+
+    async def census() -> dict[str, Any] | None:
+        try:
+            state = await evaluator(_HYDRATION_CENSUS, card_selector)
+        except Exception:  # noqa: BLE001 - hydration help never fails a fetch
+            return None
+        return state if isinstance(state, dict) else None
+
+    await asyncio.sleep(0.8)  # let the inventory widget mount before judging
+    state = await census()
+    if state is None:
         return
-    if not isinstance(census, dict):
-        return
-    remaining = int(census.get("placeholders") or 0)
-    if remaining < 3:
-        return
-    stagnant = 0
-    for _ in range(12):
+    if int(state.get("cards") or 0) == 0 and int(state.get("placeholders") or 0) == 0:
+        return  # not a card page; nothing to hydrate
+    last_cards = -1
+    stable_rounds = 0
+    for _ in range(14):
         try:
             await evaluator("() => { window.scrollTo(0, document.body.scrollHeight); }")
         except Exception:  # noqa: BLE001
             return
-        await asyncio.sleep(0.7)
-        try:
-            census = await evaluator(_PLACEHOLDER_CENSUS)
-        except Exception:  # noqa: BLE001
+        await asyncio.sleep(0.9)
+        state = await census()
+        if state is None:
             return
-        now = int(census.get("placeholders") or 0) if isinstance(census, dict) else 0
-        if now == 0:
-            return
-        stagnant = stagnant + 1 if now >= remaining else 0
-        if stagnant >= 2:
-            return
-        remaining = now
+        cards = int(state.get("cards") or 0)
+        if cards == last_cards:
+            stable_rounds += 1
+            if stable_rounds >= 3:
+                return
+        else:
+            stable_rounds = 0
+        last_cards = cards
 
 
 _BROWSER_CRASH_MARKERS = (

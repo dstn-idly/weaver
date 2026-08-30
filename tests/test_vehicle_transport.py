@@ -4222,10 +4222,12 @@ def test_a_renderer_crash_recycles_the_browser_and_retries_the_navigation(
     asyncio.run(run())
 
 
-def test_scroll_hydration_fills_lazy_placeholder_pages_and_leaves_others_alone() -> None:
-    """Malloy Ford's SRP server-renders 2 cards plus skeleton placeholders and
-    fills the rest on scroll. The pass fires only when placeholders exist,
-    stops when they are gone or stop shrinking, and never fails the fetch."""
+def test_scroll_hydration_settles_when_the_card_population_stops_growing() -> None:
+    """The server's response varies per request and the widget mounts after
+    load, so hydration is judged by stability: settle, scroll while the card
+    count grows, stop after three unchanged rounds. Pages with no card or
+    skeleton classes exit after one cheap census, and a broken page never
+    fails the fetch."""
 
     from weaver.vehicle.transport import _scroll_to_hydrate
 
@@ -4233,29 +4235,43 @@ def test_scroll_hydration_fills_lazy_placeholder_pages_and_leaves_others_alone()
         def __init__(self, censuses):
             self.censuses = list(censuses)
             self.scrolls = 0
+            self.selectors = []
 
         async def evaluate(self, script, *args):
             if "scrollTo" in script:
                 self.scrolls += 1
                 return None
-            return {"placeholders": self.censuses.pop(0) if self.censuses else 0}
+            if args:
+                self.selectors.append(args[0])
+            if self.censuses:
+                current = self.censuses[0]
+                if len(self.censuses) > 1:
+                    self.censuses.pop(0)
+                return current
+            return {"cards": 0, "placeholders": 0}
 
     async def run():
-        # No placeholders: no scrolling at all.
-        clean = Page([0])
-        await _scroll_to_hydrate(clean)
-        assert clean.scrolls == 0
+        # Not a card page at all: one census, zero scrolling.
+        blank = Page([{"cards": 0, "placeholders": 0}])
+        await _scroll_to_hydrate(blank)
+        assert blank.scrolls == 0
 
-        # Placeholders shrink to zero: scrolls until hydrated.
-        lazy = Page([22, 14, 6, 0])
-        await _scroll_to_hydrate(lazy)
-        assert lazy.scrolls == 3
+        # Cards keep growing, then stabilize: scrolls until 3 stable rounds.
+        lazy = Page([
+            {"cards": 4, "placeholders": 22},   # initial census
+            {"cards": 24, "placeholders": 5},   # after scroll 1
+            {"cards": 24, "placeholders": 5},   # stable 1
+            {"cards": 24, "placeholders": 5},   # stable 2
+            {"cards": 24, "placeholders": 5},   # stable 3 -> done
+        ])
+        await _scroll_to_hydrate(lazy, card_selector="li.vehicle-card")
+        assert lazy.scrolls == 4
+        assert lazy.selectors[0] == "li.vehicle-card"
 
-        # Placeholders that stop shrinking end the pass after two stagnant
-        # rounds instead of spinning the full bound.
-        stuck = Page([22, 18, 18, 18, 18, 18])
-        await _scroll_to_hydrate(stuck)
-        assert stuck.scrolls == 3
+        # The bound caps a page that never stabilizes.
+        restless = Page([{"cards": n, "placeholders": 3} for n in range(1, 40)])
+        await _scroll_to_hydrate(restless)
+        assert restless.scrolls == 14
 
         # An evaluator that explodes never fails the fetch.
         class Broken:
@@ -4263,7 +4279,6 @@ def test_scroll_hydration_fills_lazy_placeholder_pages_and_leaves_others_alone()
                 raise RuntimeError("page gone")
 
         await _scroll_to_hydrate(Broken())
-        # And a page object with no evaluate at all is fine too.
         await _scroll_to_hydrate(object())
 
     asyncio.run(run())
