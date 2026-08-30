@@ -4358,3 +4358,102 @@ def test_a_skeleton_bearing_listing_page_is_never_accepted_static(monkeypatch) -
         assert not rendered
 
     asyncio.run(run())
+
+
+def test_a_heat_starved_listing_page_recycles_the_browser_and_refetches_cold(
+    monkeypatch,
+) -> None:
+    """Dealer.com serves 24-card pages to a cold session and 4-card pages to a
+    hot one. A page starved against the run's own best (or against a declared
+    big lot) is refetched once through a recycled browser; a fruitless cold
+    refetch disproves the theory and disarms further recycles."""
+
+    from types import SimpleNamespace
+
+    from weaver.vehicle.models import parse_spec
+    from weaver.vehicle.replay import CrawlLimits
+    from weaver.vehicle.transport import capture_dealer_fixtures
+
+    spec = parse_spec(
+        {
+            "schema": "autoposting.vehicle-extraction",
+            "v": 2,
+            "origin": "https://dealer.example",
+            "start_urls": ["https://dealer.example/used-inventory/index.htm"],
+            "listing": {
+                "card_selector": "li.vehicle-card",
+                "detail_link_selector": "a[href]",
+                "fields": {},
+            },
+            "detail": {"root_selector": "body", "fields": {}, "gallery_mode": "fixed_auto", "max_photos": 80},
+        }
+    )
+
+    def fake_page(count, start):
+        return SimpleNamespace(
+            raw_card_count=count,
+            rejected_card_count=0,
+            expected_total=530,
+            records=[
+                {"detail_url": f"https://dealer.example/used/{start + i}", "vin": None}
+                for i in range(count)
+            ],
+        )
+
+    class HeatTransport:
+        def __init__(self, cold_count=24, hot_count=4):
+            self.recycles = 0
+            self.navs = 0
+            self.cold_count = cold_count
+            self.hot_count = hot_count
+            self.last_mode = "persistent_browser"
+
+        async def fetch(self, url, **kwargs):
+            self.navs += 1
+            # The first two navigations after a recycle read cold.
+            count = self.cold_count if self.navs <= 2 else self.hot_count
+            start = int(url.split("start=")[1]) if "start=" in url else 0
+            return f"PAGE|{count}|{start}"
+
+        async def fetch_detail(self, url):
+            return "<html><body>vdp</body></html>"
+
+        async def _force_browser_recycle(self):
+            self.recycles += 1
+            self.navs = 0
+
+    def fake_extract(html, *, page_url, origin, spec):
+        _tag, count, start = html.split("|")
+        return fake_page(int(count), int(start))
+
+    def fake_next(html, *, current_url, origin, spec, visited):
+        _tag, _count, start = html.split("|")
+        nxt = int(start) + 24
+        if nxt >= 96:
+            return SimpleNamespace(url=None)
+        return SimpleNamespace(
+            url=f"https://dealer.example/used-inventory/index.htm?start={nxt}"
+        )
+
+    monkeypatch.setattr("weaver.vehicle.transport.extract_listing_page", fake_extract)
+    monkeypatch.setattr("weaver.vehicle.transport.infer_next_page", fake_next)
+
+    async def run():
+        transport = HeatTransport()
+        fixtures = await capture_dealer_fixtures(
+            spec, transport, limits=CrawlLimits(max_listing_pages=4, max_detail_pages=1)
+        )
+        # Pages 1-2 were cold (24). Page 3 came back starved (4) -> recycle,
+        # refetch cold (24). Every stored page is a full page.
+        assert transport.recycles >= 1
+        for html in fixtures.listing_pages.values():
+            assert html.startswith("PAGE|24|")
+
+        # A platform whose cold refetch yields nothing more disarms recycling.
+        small = HeatTransport(cold_count=6, hot_count=6)
+        await capture_dealer_fixtures(
+            spec, small, limits=CrawlLimits(max_listing_pages=4, max_detail_pages=1)
+        )
+        assert small.recycles == 1  # one test of the theory, then disarmed
+
+    asyncio.run(run())

@@ -2753,6 +2753,8 @@ async def capture_dealer_fixtures(
     visited: set[str] = set()
     detail_targets: dict[str, tuple[str, str | None]] = {}
     expected_total: int | None = None
+    best_listing_cards = 0
+    heat_recycles = 0
     while queue and len(listing_pages) < limits.max_listing_pages:
         url = queue.pop(0)
         key = canonical_page_url(url)
@@ -2765,8 +2767,49 @@ async def capture_dealer_fixtures(
             spec.listing,
             known_detail_urls=tuple(raw for raw, _vin in detail_targets.values()),
         )
-        listing_pages[url] = html
         page = extract_listing_page(html, page_url=url, origin=spec.origin, spec=spec.listing)
+        # SESSION-HEAT COUNTER: Dealer.com serves full 24-card pages to a
+        # cold session and 4-card starved pages to one that just walked many
+        # SRP pages — no amount of scroll patience conjures data the server
+        # will not send. A page starved relative to this run's own best is
+        # refetched ONCE through a freshly recycled browser, which reads cold.
+        declared = page.expected_total or expected_total or 0
+        starved = (
+            best_listing_cards >= 12 and page.raw_card_count * 2 < best_listing_cards
+        ) or (declared >= 50 and page.raw_card_count < 12)
+        if starved and heat_recycles < 40:
+            recycle = getattr(session, "_force_browser_recycle", None)
+            if callable(recycle):
+                heat_recycles += 1
+                await _note(
+                    "crawl_heat_recycle",
+                    {"url": url, "starved_cards": page.raw_card_count,
+                     "run_best": best_listing_cards, "recycle": heat_recycles},
+                )
+                try:
+                    await recycle()
+                    fresh_html = await _fetch_listing_fixture(
+                        session,
+                        url,
+                        spec.listing,
+                        known_detail_urls=tuple(
+                            raw for raw, _vin in detail_targets.values()
+                        ),
+                    )
+                    fresh_page = extract_listing_page(
+                        fresh_html, page_url=url, origin=spec.origin, spec=spec.listing
+                    )
+                    if fresh_page.raw_card_count > page.raw_card_count:
+                        html, page = fresh_html, fresh_page
+                    else:
+                        # The cold refetch found nothing more: this platform's
+                        # small pages are genuinely full, and the starvation
+                        # theory is disproven here — stop paying for recycles.
+                        heat_recycles = 40
+                except Exception:  # noqa: BLE001 - the starved page still counts
+                    pass
+        best_listing_cards = max(best_listing_cards, page.raw_card_count)
+        listing_pages[url] = html
         if page.expected_total is not None:
             expected_total = max(expected_total or 0, page.expected_total)
         before_details = len(detail_targets)
