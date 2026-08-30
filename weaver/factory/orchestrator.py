@@ -209,7 +209,12 @@ def _load_repair_plan(store: FactoryStore, job: FactoryJob) -> dict[str, Any] | 
         )
     except (OSError, ValueError):
         return None
-    return raw if isinstance(raw, dict) else None
+    # A plan that carries no causes or no notes cannot inform anything; it
+    # must degrade to "no plan" (reuse allowed, no informed counting) rather
+    # than silently blocking crawl reuse forever.
+    if not isinstance(raw, dict) or not raw.get("causes") or not str(raw.get("notes") or "").strip():
+        return None
+    return raw
 
 
 def _clear_repair_plan(store: FactoryStore, job: FactoryJob) -> None:
@@ -278,11 +283,13 @@ async def process_job(store: FactoryStore, job: FactoryJob) -> None:
             job.run_id = run_id
             job.last_crawl_at = datetime.now(timezone.utc).isoformat()
             if notes:
-                job.repair_attempts += 1
+                # Informational only: the attempt COUNTS at verdict time, so a
+                # crawl that dies of a 429 or a restart never inflates the
+                # two-informed-attempts escalation invariant.
                 await store.emit(
                     job,
                     "repair_attempt",
-                    {"attempt": job.repair_attempts,
+                    {"attempt": job.repair_attempts + 1,
                      "primary_cause": (repair_plan or {}).get("primary_cause"),
                      "detail": "spec inference receives the prior verdict's diagnosis"},
                 )
@@ -312,6 +319,11 @@ async def process_job(store: FactoryStore, job: FactoryJob) -> None:
                 await _copy_failure_bundle(client, store, job, run_id, run)
             except Exception:  # noqa: BLE001 - diagnostics copy never masks the failure
                 pass
+            # The refusal is judged across the WHOLE error list — a 429 that
+            # is not errors[0] still deserves the pressure rest.
+            all_errors = " | ".join(str(e) for e in (run.get("errors") or []))
+            if _DEALER_REFUSAL_RE.search(all_errors):
+                job.last_crawl_refusal = all_errors[:400]
             raise RuntimeError(f"verification crawl failed: {(run.get('errors') or ['unknown'])[0]}")
         # The dealer served this crawl to completion: any remembered refusal
         # is history, and the origin returns to ordinary manners.
@@ -408,10 +420,24 @@ async def process_job(store: FactoryStore, job: FactoryJob) -> None:
                 luna_verdict=verdict,
                 simulation=simulation,
             )
-            if plan is not None:
-                same_wall = (
-                    repair_plan is not None
-                    and repair_plan.get("primary_cause") == plan.get("primary_cause")
+            informed = repair_plan is not None
+            if plan is None:
+                # A judgement-call verdict with nothing typed to act on must
+                # not leave a stale diagnosis injecting itself forever.
+                _clear_repair_plan(store, job)
+            else:
+                same_wall = informed and repair_plan.get("primary_cause") == plan.get(
+                    "primary_cause"
+                )
+                if informed:
+                    # This run was judged WITH a diagnosis injected: it counts.
+                    # A new wall restarts the per-wall count at one — hitting a
+                    # different wall is progress, not the same failure twice.
+                    job.repair_attempts = job.repair_attempts + 1 if same_wall else 1
+                # Total informed rounds ride in the plan so an oscillating
+                # verdict (wall A, wall B, wall A, ...) still has a ceiling.
+                plan["rounds"] = int((repair_plan or {}).get("rounds") or 0) + (
+                    1 if informed else 0
                 )
                 (store.artifact_path(job, "repair-plan.json")).write_text(
                     json.dumps(plan, indent=1), encoding="utf-8"
@@ -420,10 +446,12 @@ async def process_job(store: FactoryStore, job: FactoryJob) -> None:
                     job,
                     "repair_plan",
                     {"causes": plan["causes"], "primary_cause": plan["primary_cause"],
+                     "rounds": plan["rounds"],
                      "detail": "the next requeue crawls fresh with this diagnosis injected"},
                 )
-                if same_wall and job.repair_attempts >= 2:
-                    # Two informed attempts hit the same wall. Burning more
+                if (same_wall and job.repair_attempts >= 2) or plan["rounds"] >= 4:
+                    # Two informed attempts on the same wall — or four informed
+                    # rounds total, however the walls alternate. Burning more
                     # crawls is not a strategy; a person now knows exactly why.
                     job.blocked_reason = (
                         f"{plan['primary_cause']}: {plan['summary'] or 'see repair-plan.json'}"
@@ -433,6 +461,7 @@ async def process_job(store: FactoryStore, job: FactoryJob) -> None:
                         "needs_human",
                         {"primary_cause": plan["primary_cause"],
                          "attempts": job.repair_attempts,
+                         "rounds": plan["rounds"],
                          "detail": job.blocked_reason},
                     )
         job.state = "done"
@@ -475,6 +504,14 @@ PRESSURE_COOLDOWN_SECONDS = max(
 )
 
 _RATE_LIMIT_ERROR_RE = re.compile(r"\b429\b|too many requests", re.IGNORECASE)
+
+# What may be RECORDED as a dealer refusal is stricter than what the cooldown
+# recognizes: only text the transport attributes to the dealer itself. A bare
+# "429" also appears in weaver's own queued-run limit and in OpenAI rate-limit
+# messages, and neither is the dealership saying stop.
+_DEALER_REFUSAL_RE = re.compile(
+    r"dealer returned HTTP 429|dealer_rate_limited", re.IGNORECASE
+)
 
 
 def origin_cooldown_remaining(store: FactoryStore, job: FactoryJob, now: float) -> float:
@@ -544,9 +581,13 @@ async def factory_worker(store: FactoryStore) -> None:
             job.state = "failed"
             job.stage = "failed"
             job.error = str(error)[:400]
-            if _RATE_LIMIT_ERROR_RE.search(job.error):
-                # Requeue clears `error` for display; the refusal itself must
-                # outlive that so the pressure cooldown keeps counting.
+            if _DEALER_REFUSAL_RE.search(job.error):
+                # DEALER-attributed refusals only: weaver's own queued-run
+                # limit and an OpenAI 429 also say "429", and recording those
+                # here would pin the origin behind a 12-hour rest the dealer
+                # never asked for. Requeue clears `error` for display; the
+                # refusal itself must outlive that so the pressure cooldown
+                # keeps counting.
                 job.last_crawl_refusal = job.error
             store.persist(job)
             try:

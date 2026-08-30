@@ -116,6 +116,14 @@ def build_repair_plan(
     concerns = (luna_verdict or {}).get("concerns") or []
     for concern in concerns[:4]:
         parts.append(_clip(str(concern), 280))
+    if not parts:
+        # A plan must never carry empty notes: an informed run is recognized
+        # by its notes, and empty notes would disarm both the attempt counter
+        # and the escalation while still blocking crawl reuse — an infinite
+        # recrawl loop. The causes themselves are always a usable diagnosis.
+        parts.append(
+            "The prior crawl failed these typed checks: " + ", ".join(causes) + "."
+        )
 
     notes = _clip(" ".join(parts), NOTES_LIMIT)
     return {

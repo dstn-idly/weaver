@@ -744,3 +744,214 @@ def test_a_repair_run_carries_the_diagnosis_and_two_same_walls_stop_the_loop(
         assert not plan_path.exists()
 
     asyncio.run(run())
+
+
+def test_triage_synthesizes_notes_when_the_verdict_offers_no_prose():
+    """An informed run is recognized by its notes; a plan with empty notes
+    would disarm the counter and escalation while still blocking crawl reuse.
+    The causes themselves are always a usable diagnosis."""
+
+    from weaver.factory.triage import build_repair_plan
+
+    plan = build_repair_plan(
+        qa_issues=[], luna_verdict={"summary": "x", "concerns": []},
+        simulation={"vin_agreement": "3/10"},
+    )
+    assert plan is not None
+    assert plan["causes"] == ["sim_disagreement"]
+    assert "sim_disagreement" in plan["notes"]
+    assert plan["notes"].strip()
+
+
+def _repair_harness(monkeypatch, tmp_path, script):
+    """process_job with scripted per-run outcomes.
+
+    ``script`` is a list of dicts consumed one per run creation:
+      {"status": "partial"|"passed"|"failed", "qa": [...], "luna": {...},
+       "errors": [...]}
+    Returns (store, job, created_notes).
+    """
+
+    import weaver.factory.orchestrator as orchestrator
+
+    created_notes: list[str] = []
+    cursor = {"i": -1}
+
+    async def fake_create_run(client, job, *, repair_notes=""):
+        created_notes.append(repair_notes)
+        cursor["i"] += 1
+        return f"run{cursor['i']}"
+
+    async def fake_poll_run(client, store, job, run_id):
+        step = script[cursor["i"]]
+        return {"status": step["status"], "row_count": 1,
+                "errors": step.get("errors", [])}
+
+    async def fake_artifact(client, run_id, name):
+        step = script[cursor["i"]]
+        if name == "manifest.json":
+            return {"qa": {"issues": step.get("qa", [])}}
+        if name == "records.jsonl":
+            return []
+        if name == "spec.json":
+            return {"origin": "https://dealer.example",
+                    "start_urls": ["https://dealer.example/used/"]}
+        raise AssertionError(name)
+
+    async def fake_copy_bundle(client, store, job, run_id, run):
+        return None
+
+    async def fake_simulate(config, start_url, *, known_vins, emit):
+        return {"passed": True, "entry_url": start_url, "vin_agreement": "0/0",
+                "pages": [{"url": start_url, "ok": True, "vehicles": 1, "sample": []}]}
+
+    async def fake_luna(*, qa, samples, simulation, emit):
+        return script[cursor["i"]].get(
+            "luna", {"verdict": "needs_repair", "summary": "s", "concerns": ["c"]}
+        )
+
+    orchestrator_patches = {
+        "_create_run": fake_create_run,
+        "_poll_run": fake_poll_run,
+        "_artifact": fake_artifact,
+        "_copy_failure_bundle": fake_copy_bundle,
+        "translate_spec_to_extension_config": lambda spec: (
+            {"v": 1, "origin": "https://dealer.example", "card": "li.car", "fields": {}}, []
+        ),
+        "reconcile_config_fields": lambda c, s, r: (c, [], {}),
+        "simulate_listing_config": fake_simulate,
+        "luna_qa_review": fake_luna,
+    }
+    for name, value in orchestrator_patches.items():
+        monkeypatch.setattr(orchestrator, name, value)
+
+    store = FactoryStore(tmp_path)
+    job = store.create("https://dealer.example", "https://dealer.example")
+    return store, job, created_notes
+
+
+def _requeue(job):
+    job.state, job.stage, job.error, job.verdict = "queued", "queued", None, None
+
+
+def test_a_failed_crawl_never_counts_as_an_informed_repair_attempt(
+    tmp_path, monkeypatch
+):
+    """Attempts count judged outcomes. Two crawls dying of a dealer 429 must
+    not push the counter to the escalation threshold — and only DEALER-
+    attributed 429 text is remembered as a refusal."""
+
+    import weaver.factory.orchestrator as orchestrator
+
+    wall = {"qa": ["expected_total_mismatch:32/175"], "status": "partial"}
+    dead = {"status": "failed",
+            "errors": ["dealer returned HTTP 429 after 3 bounded attempts"]}
+    self429 = {"status": "failed",
+               "errors": ["Weaver is at its queued-run limit (429 Too Many Requests)"]}
+    store, job, notes = _repair_harness(
+        monkeypatch, tmp_path, [wall, dead, self429, wall]
+    )
+
+    async def run():
+        await orchestrator.process_job(store, job)          # writes the plan
+        assert job.repair_attempts == 0
+
+        _requeue(job)
+        with pytest.raises(RuntimeError):
+            await orchestrator.process_job(store, job)      # dealer 429 death
+        assert job.repair_attempts == 0                     # not judged: no count
+        assert "dealer returned HTTP 429" in (job.last_crawl_refusal or "")
+
+        job.last_crawl_refusal = None
+        _requeue(job)
+        with pytest.raises(RuntimeError):
+            await orchestrator.process_job(store, job)      # weaver's own 429
+        assert job.repair_attempts == 0
+        assert job.last_crawl_refusal is None               # not the dealer's voice
+
+        _requeue(job)
+        await orchestrator.process_job(store, job)          # first judged informed
+        assert job.repair_attempts == 1                     # exactly one
+        assert job.blocked_reason is None
+        assert job.last_crawl_refusal is None               # completed crawl clears
+
+    asyncio.run(run())
+
+
+def test_a_new_wall_restarts_the_count_and_oscillation_still_has_a_ceiling(
+    tmp_path, monkeypatch
+):
+    """Hitting a different wall is progress (per-wall count restarts at one),
+    but four informed rounds block regardless of how the walls alternate."""
+
+    import weaver.factory.orchestrator as orchestrator
+
+    wall_a = {"qa": ["expected_total_mismatch:32/175"], "status": "partial"}
+    wall_b = {"qa": ["field_coverage:mileage:0.00<1.00"], "status": "partial"}
+    store, job, notes = _repair_harness(
+        monkeypatch, tmp_path, [wall_a, wall_b, wall_a, wall_b, wall_a]
+    )
+
+    async def run():
+        await orchestrator.process_job(store, job)          # plan A, uninformed
+        for expected_attempts in (1, 1, 1):                 # B, A, B: walls keep moving
+            _requeue(job)
+            await orchestrator.process_job(store, job)
+            assert job.repair_attempts == expected_attempts
+            assert job.blocked_reason is None
+        _requeue(job)
+        await orchestrator.process_job(store, job)          # round 4: ceiling
+        assert job.blocked_reason is not None
+        assert any(e["type"] == "needs_human" for e in job.events)
+
+    asyncio.run(run())
+
+
+def test_a_judgement_call_verdict_clears_the_stale_plan(tmp_path, monkeypatch):
+    """When the new needs_repair verdict offers nothing typed to act on, the
+    old diagnosis must not keep injecting itself forever."""
+
+    import weaver.factory.orchestrator as orchestrator
+
+    typed = {"qa": ["expected_total_mismatch:32/175"], "status": "partial"}
+    judgement = {"qa": [], "status": "partial",
+                 "luna": {"verdict": "needs_repair", "summary": "taste", "concerns": []}}
+    plain = {"qa": [], "status": "passed",
+             "luna": {"verdict": "needs_repair", "summary": "taste", "concerns": []}}
+    store, job, notes = _repair_harness(monkeypatch, tmp_path, [typed, judgement, plain])
+
+    async def run():
+        await orchestrator.process_job(store, job)
+        plan_path = store.artifact_path(job, "repair-plan.json")
+        assert plan_path.exists()
+
+        _requeue(job)
+        await orchestrator.process_job(store, job)          # nothing typed now
+        assert not plan_path.exists()
+
+        _requeue(job)
+        await orchestrator.process_job(store, job)          # plan gone: reuse OK again
+        assert notes[2] == ""                               # no stale diagnosis injected
+
+    asyncio.run(run())
+
+
+def test_a_referral_never_recrawls_an_origin_escalated_to_a_human(tmp_path):
+    from weaver.factory import portal
+    from weaver.factory.portal import ReferralRequest, intake_referral
+
+    async def run():
+        store = FactoryStore(tmp_path)
+        done = store.create("https://dealer.example/used", "https://dealer.example")
+        done.state = "done"
+        done.blocked_reason = "incomplete_coverage: humans required"
+        store.persist(done)
+        outcome = await intake_referral(
+            store,
+            ReferralRequest(url="https://dealer.example/used", trigger="auto_failure"),
+        )
+        assert outcome.get("skipped") == "origin_blocked"
+        assert outcome.get("job_id") == done.id
+        assert len(store.jobs) == 1
+
+    asyncio.run(run())

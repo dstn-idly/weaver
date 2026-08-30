@@ -140,6 +140,15 @@ async def intake_referral(store: FactoryStore, payload: ReferralRequest) -> dict
     duplicate = next((job for job in active if job.origin == origin), None)
     if duplicate is not None:
         return {"skipped": "origin_active", "job_id": duplicate.id, "origin": origin}
+    # An origin the repair loop already escalated to a human is not crawled
+    # again by a machine-filed referral: the factory just declared machines
+    # cannot fix it. A person clears blocked_reason by requeueing that job.
+    blocked = next(
+        (job for job in store.jobs.values() if job.origin == origin and job.blocked_reason),
+        None,
+    )
+    if blocked is not None:
+        return {"skipped": "origin_blocked", "job_id": blocked.id, "origin": origin}
     if len(active) >= 40:
         return {"skipped": "queue_full", "origin": origin}
     job = store.create(url, origin)
@@ -239,6 +248,10 @@ async def requeue_job(job_id: str, force: bool = False) -> dict[str, object]:
     job.stage = "queued"
     job.error = None
     job.verdict = None
+    # A human pressing requeue on an escalated job IS the human intervention:
+    # the block lifts for this one retry. The repair plan and attempt count
+    # survive, so the same wall failing once more re-escalates immediately.
+    job.blocked_reason = None
     # `force` waives the origin cooldown for this one run — for when a human
     # has checked that the dealership is serving again. It is consumed once and
     # recorded on the job's feed, so an override is never silent.
