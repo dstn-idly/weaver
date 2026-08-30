@@ -1,0 +1,35 @@
+weaver/factory/portal.py
+  s_da9cd4ad208db2::t_139debdb6ff70d 251-254
+  s_da9cd4ad208db2::t_c4ab1eb05687c1 143-151
+weaver/vehicle/infer.py
+  s_da9cd4ad208db2::t_4d9370174bf3d5 2168-2170,2175-2178
+weaver/factory/triage.py
+  s_da9cd4ad208db2::t_2dbce2a178a494 119-126
+weaver/factory/orchestrator.py
+  s_da9cd4ad208db2::t_181d020a425514 212-217
+  s_da9cd4ad208db2::t_6e5fc566aa5ae6 508-515
+  s_da9cd4ad208db2::t_5999d519e462ff 322-326
+  s_da9cd4ad208db2::t_d48c579e47a2e8 286-288,292
+  s_da9cd4ad208db2::t_458323fd10e911 423-440,449,452-454,464
+  s_da9cd4ad208db2::t_7076219d63a143 584-590
+tests/test_factory.py
+  s_da9cd4ad208db2::t_efd7ac7576d095 747-957
+tests/test_vehicle_infer.py
+  s_da9cd4ad208db2::t_25e5ce2e41e7d9 1539-1548,1553
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "040a62345f65cdf2dfceaa4e6b211bda836124ae",
+  "prompts": {},
+  "sessions": {
+    "s_da9cd4ad208db2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4cd1a6ac-f843-47f4-ac8d-77cbe7e08a68",
+        "model": "claude-fable-5"
+      },
+      "human_author": "dustin thach <epikunder321123@gmail.com>"
+    }
+  }
+}
