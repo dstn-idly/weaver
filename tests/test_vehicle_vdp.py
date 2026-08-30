@@ -2738,3 +2738,79 @@ def test_a_warranty_products_serial_is_not_a_vin() -> None:
     assert not refused.identity_proven
     assert refused.photos == ()
     assert refused.matched_by is None
+
+
+def test_unite_gallery_build_proves_its_pin_declared_gallery() -> None:
+    """Orange's DealerCenter build is UniteGallery, not Orlando's slider: no
+    data-base-img-url anywhere, the largest published rendition is the 1116px
+    data-pin-media, labels are one identical vehicle title (not per-asset
+    distinct), the Car JSON-LD publishes modelDate and a name instead of
+    year/make/model keys, and each asset renders twice — a labeled thumb plus
+    a bare runtime slide with no attributes. Four narrow misses, one dealership
+    stuck at 1 photo."""
+
+    vin = "5UX43EU03S9Y37600"
+    url = "https://dealer.example/inventory/bmw/x5/o-y37600/"
+    title = "2025 BMW X5 SUV XDRIVE50E SPORT UTILITY 4D"
+
+    def thumb(asset: str) -> str:
+        return (
+            f'<img alt="{title}" class="ug-thumb-image" width="279" height="208" '
+            f'src="https://imagescf.dealercenter.net/279/208/{asset}.jpg" '
+            f'data-pin-media="https://imagescf.dealercenter.net/1116/836/{asset}.jpg">'
+        )
+
+    assets = [f"202606-{i:032x}" for i in range(3)]
+    gallery = (
+        '<div class="dws-vdp-media-container" id="DWS_VDP_Media_5">'
+        '<div id="DWS_UG_Gallery_5" class="dws-unite-gallery ug-gallery-wrapper">'
+        + "".join(thumb(a) for a in assets)
+        # The bare runtime slide: same asset, zero attributes.
+        + f'<img src="https://imagescf.dealercenter.net/1116/836/{assets[0]}.jpg">'
+        + "</div></div>"
+    )
+    ld = json.dumps({
+        "@type": "AutoDealer",
+        "makesOffer": {"@type": "Offer", "itemOffered": {
+            "@type": "Car",
+            "vehicleIdentificationNumber": vin,
+            "name": "2025 BMW X5",
+            "modelDate": 2025,
+            "image": f"https://imagescf.dealercenter.net/640/480/{assets[0]}.jpg",
+        }},
+    })
+    html = (
+        f'<html><head><link rel="canonical" href="{url}"></head><body>'
+        f'<script type="application/ld+json">{ld}</script>{gallery}</body></html>'
+    )
+    result = extract_vdp(
+        html,
+        detail_url=url,
+        origin="https://dealer.example",
+        detail=DetailSpec(root_selector=None, gallery_selector=".dws-vdp-media-container",
+                          gallery_item_selector="img", fields={}, max_photos=80),
+        expected_vin=vin,
+    )
+    assert result.identity_proven
+    # modelDate is a year spelling.
+    assert result.record.get("year") == 2025
+    assert len(result.photos) == 3
+    assert all(p.source == "pin_media" and p.width == 1116 for p in result.photos)
+
+    # A similar-vehicles label cannot satisfy the name-token agreement: swap
+    # one thumb's label for another car's and the whole gallery fails closed.
+    hostile = html.replace(f'alt="{title}" class="ug-thumb-image" width="279" height="208" '
+                           f'src="https://imagescf.dealercenter.net/279/208/{assets[1]}.jpg"',
+                           f'alt="2026 GMC TERRAIN ELEVATION SPORT UTILITY 4D" class="ug-thumb-image" '
+                           f'width="279" height="208" '
+                           f'src="https://imagescf.dealercenter.net/279/208/{assets[1]}.jpg"')
+    assert hostile != html
+    refused = extract_vdp(
+        hostile,
+        detail_url=url,
+        origin="https://dealer.example",
+        detail=DetailSpec(root_selector=None, gallery_selector=".dws-vdp-media-container",
+                          gallery_item_selector="img", fields={}, max_photos=80),
+        expected_vin=vin,
+    )
+    assert len(refused.photos) <= 1  # falls back to JSON-LD only, never a partial gallery

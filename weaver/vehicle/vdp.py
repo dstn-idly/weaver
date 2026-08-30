@@ -202,7 +202,7 @@ _TYPE_PRODUCT_RE = re.compile(r"(?:^|[/#])product$", re.I)
 _FIELD_ALIASES: dict[str, tuple[str, ...]] = {
     "vin": ("vehicleidentificationnumber", "vin", "serialnumber"),
     "stock_number": ("stocknumber", "stock", "sku"),
-    "year": ("vehiclemodeldate", "modelyear", "year"),
+    "year": ("vehiclemodeldate", "modelyear", "modeldate", "year"),
     "make": ("make", "brand"),
     "model": ("model",),
     "trim": ("vehicleconfiguration", "trim", "trimlevel"),
@@ -1670,7 +1670,11 @@ def _is_explicit_primary_gallery_component(node: Tag | BeautifulSoup) -> bool:
             r"(?:vehicle[-_ ]?(?:gallery|carousel)|product__gallery|"
             r"product[-_ ]?gallery|photo[-_ ]?gallery|"
             r"vdp.{0,40}(?:gallery|carousel|slider)|"
-            r"(?:gallery|carousel|slider).{0,40}vdp)",
+            r"(?:gallery|carousel|slider).{0,40}vdp|"
+            # DealerCenter's UniteGallery build names its primary media
+            # container dws-vdp-media-container with no gallery/slider token;
+            # the exact platform class is present on both captured builds.
+            r"dws-vdp-media-container)",
             signature,
             re.I,
         )
@@ -2394,6 +2398,16 @@ def _node_photo(
     if node.name == "img":
         pin_url = safe_data_url(base_url, node.get("data-pin-media"))
         src_url = safe_data_url(base_url, node.get("src"))
+        src_url_for_width = safe_data_url(base_url, node.get("src"))
+        if src_url_for_width:
+            declared = _imagescf_size_width(src_url_for_width)
+            if declared is not None:
+                # The CDN's own path declares this rendition's size on the one
+                # host where that grammar is established. Orange's UniteGallery
+                # build renders bare /1116/836/ slide imgs with no attributes
+                # at all; without this width they read as unproven and one
+                # unproven node failed the whole per-node full-res conjunction.
+                add(node.get("src"), "img_src", 700, width=declared)
         if pin_url and src_url and pin_url != src_url:
             # data-pin-media is trusted only as a STRICTLY LARGER rendition
             # of the node's own asset: same identity under photo_asset_key
@@ -2608,7 +2622,13 @@ def _configured_gallery_identity_proven(
     owned_urls: set[str] = set()
     per_asset_attr_vins: list[frozenset[str]] = []
     per_asset_url_vins: list[frozenset[str]] = []
-    per_asset_labels: list[frozenset[str]] = []
+    # Labels are aggregated per ASSET, not per node: Orange's UniteGallery
+    # build renders each asset twice — a labeled thumb and a bare runtime
+    # slide with no attributes at all — and a per-node demand let the bare
+    # rendition veto an asset whose own labeled thumb sits beside it. The
+    # agreement the route enforces binds the asset to the vehicle; every
+    # asset must still carry at least one fully matching label.
+    labels_by_asset: dict[str, set[str]] = {}
     collection_keys: set[tuple[str, ...]] = set()
     all_known_full = True
     all_collection_keyed = True
@@ -2651,7 +2671,7 @@ def _configured_gallery_identity_proven(
         owned_urls.add(photo.url.casefold())
         per_asset_attr_vins.append(frozenset(vins))
         per_asset_url_vins.append(url_vins)
-        per_asset_labels.append(frozenset(labels))
+        labels_by_asset.setdefault(photo_asset_key(photo.url), set()).update(labels)
         collection = _photo_collection_key(photo.url)
         if collection:
             collection_keys.add(collection)
@@ -2718,14 +2738,26 @@ def _configured_gallery_identity_proven(
         if vehicle_record.get(name) not in (None, "")
     ]
     if len(required_tokens) < 3:
-        return False
-    return all(
+        # DealerCenter's Car JSON-LD publishes neither brand nor model — only
+        # a name ("2025 BMW X5") whose tokens ARE the year/make/model. Fall
+        # back to those tokens with the SAME bar: at least three, each one
+        # required in every asset's own label. A similar-vehicles rail label
+        # ("2026 GMC TERRAIN…") cannot satisfy them.
+        name_tokens = [
+            _key(token)
+            for token in str(vehicle_record.get("name") or "").split()
+            if token.strip()
+        ][:6]
+        if len(name_tokens) < 3:
+            return False
+        required_tokens = name_tokens
+    return bool(labels_by_asset) and all(
         labels
         and any(
             all(token in _key(label) for token in required_tokens)
             for label in labels
         )
-        for labels in per_asset_labels
+        for labels in labels_by_asset.values()
     )
 
 
