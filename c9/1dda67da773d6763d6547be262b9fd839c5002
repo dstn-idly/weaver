@@ -1,0 +1,29 @@
+weaver/factory/simulate.py
+  s_da9cd4ad208db2::t_dd7f97967458b0 134-140
+  s_da9cd4ad208db2::t_bba9bbfee553f1 150-154
+weaver/factory/portal.py
+  s_da9cd4ad208db2::t_3cf3435ee3d856 403-412
+weaver/factory/orchestrator.py
+  s_da9cd4ad208db2::t_2d2408e1b7bd3f 199-221
+  s_da9cd4ad208db2::t_931bdb8e396a00 304
+  s_da9cd4ad208db2::t_8bcc4d58d2c52b 303,305-311
+  s_da9cd4ad208db2::t_16225d64e55669 331
+tests/test_factory.py
+  s_da9cd4ad208db2::t_703cf3ecc7f9a2 437-554
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "c91dda67da773d6763d6547be262b9fd839c5002",
+  "prompts": {},
+  "sessions": {
+    "s_da9cd4ad208db2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4cd1a6ac-f843-47f4-ac8d-77cbe7e08a68",
+        "model": "claude-fable-5"
+      },
+      "human_author": "dustin thach <epikunder321123@gmail.com>"
+    }
+  }
+}
