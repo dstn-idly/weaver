@@ -425,28 +425,37 @@ def _expected_total(soup: BeautifulSoup, spec: ListingSpec) -> int | None:
     text = clean_text(raw)
     if not text:
         return None
-    # Inventory stats commonly read "Showing 1 - 24 of 252 results". The first
-    # number is the current window, not the lot size; prefer its denominator.
-    denominators = re.findall(r"\b(?:of|sur)\s+([\d][\d\s,.]*)", text, re.I)
-    if not denominators:
-        denominators = re.findall(
-            r"\b\d+\s*(?:[-–]|a)\s*\d+\s+de\s+([\d][\d\s,.]*)",
-            text,
-            re.I,
-        )
-    if denominators:
-        digits = re.sub(r"\D", "", denominators[-1])
-        return int(digits) if digits else None
+    # A number the page itself labels as vehicles/results is the strongest
+    # statement of lot size, and it must be read FIRST: DWS prints
+    # "Page 1 of 1 (60 vehicles)", where the bare "of 1" is PAGE arithmetic —
+    # reading the denominator first returned total=1 for a 60-car lot and
+    # failed the whole spec as implausible.
     labelled = re.findall(
-        r"([\d][\d\s,.]*)\s+(?:vehicles?|cars?|results?|v[ée]hicules?|"
+        r"([\d][\d\s,.]*)\s+(?:vehicles?|cars?|results?|matches?|v[ée]hicules?|"
         r"voitures?|autos?|veh[ií]culos?|coches?)\b",
         text,
         re.I,
     )
     if labelled:
         values = [int(digits) for value in labelled if (digits := re.sub(r"\D", "", value))]
-        return max(values) if values else None
-    numbers = [int(token.replace(",", "")) for token in re.findall(r"\d[\d,]*", text)]
+        if values:
+            return max(values)
+    # "Showing 1 - 24 of 252". The first number is the window; prefer the
+    # denominator — but never a page-count "of" ("Page 1 of 12").
+    without_pages = re.sub(r"\bpages?\s+\d+\s+(?:of|sur|de)\s+\d[\d\s,.]*", " ", text, flags=re.I)
+    denominators = re.findall(r"\b(?:of|sur)\s+([\d][\d\s,.]*)", without_pages, re.I)
+    if not denominators:
+        denominators = re.findall(
+            r"\b\d+\s*(?:[-–]|a)\s*\d+\s+de\s+([\d][\d\s,.]*)",
+            without_pages,
+            re.I,
+        )
+    if denominators:
+        digits = re.sub(r"\D", "", denominators[-1])
+        return int(digits) if digits else None
+    # The bare-number fallback also ignores page arithmetic: an element that
+    # says only "Page 2 of 12" states no lot size at all.
+    numbers = [int(token.replace(",", "")) for token in re.findall(r"\d[\d,]*", without_pages)]
     return max(numbers) if numbers else None
 
 

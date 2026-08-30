@@ -415,3 +415,30 @@ def test_withheld_price_is_never_refilled_from_the_detail_page() -> None:
     merged = merge_fill_missing(base, {"price": 30988, "mileage": 64221})
     assert "price" not in merged
     assert merged["mileage"] == 64221
+
+
+def test_lot_total_is_the_vehicle_count_never_the_page_count() -> None:
+    """DWS prints "Page 1 of 1 (60 vehicles)": the bare "of 1" is page
+    arithmetic, and reading the denominator first returned total=1 for a
+    60-car lot — three inference attempts died on "implausible inventory
+    total (1)". A number the page labels as vehicles wins; page arithmetic
+    is never a lot size."""
+
+    from bs4 import BeautifulSoup
+
+    from weaver.vehicle.extract import _expected_total
+    from weaver.vehicle.models import ListingSpec
+
+    def total_of(text):
+        soup = BeautifulSoup(f'<div class="t">{text}</div>', "html.parser")
+        return _expected_total(soup, ListingSpec(
+            card_selector=".x", detail_link_selector="a", fields={},
+            next_page_selector=None, total_selector=".t", total_attribute=None,
+        ))
+
+    assert total_of("Page 1 of 1 (60 vehicles)") == 60
+    assert total_of("Showing 1 - 24 of 252 results") == 252
+    assert total_of("Showing 1 - 24 of 252") == 252
+    assert total_of("181 vehicles found") == 181
+    # A pure page counter states no lot size at all.
+    assert total_of("Page 2 of 12") is None
