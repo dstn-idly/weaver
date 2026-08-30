@@ -1,0 +1,25 @@
+weaver/factory/orchestrator.py
+  s_da9cd4ad208db2::t_db77dcf7324b37 14
+  s_da9cd4ad208db2::t_019cfb17f3b1bf 388-400,408,424,427-432
+tests/test_factory.py
+  s_da9cd4ad208db2::t_302af147b352e4 562-563
+  s_da9cd4ad208db2::t_b0690f57b88abb 559-561
+  s_da9cd4ad208db2::t_2226fdd269f3ed 564-566
+  s_da9cd4ad208db2::t_d4f88889b538c5 555-558,567-595
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "579b54e7c5388e79ba00c20b6aab1f7f894811b4",
+  "prompts": {},
+  "sessions": {
+    "s_da9cd4ad208db2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4cd1a6ac-f843-47f4-ac8d-77cbe7e08a68",
+        "model": "claude-fable-5"
+      },
+      "human_author": "dustin thach <epikunder321123@gmail.com>"
+    }
+  }
+}
