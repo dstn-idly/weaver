@@ -154,15 +154,20 @@ _MILEAGE_REJECT_NEAR = re.compile(
 def _labeled_mileage(text: str) -> int | None:
     for pattern in _MILEAGE_ACCEPT:
         for match in pattern.finditer(text):
-            # Judge the match against ITS OWN text segment (get_text joins
-            # nodes with " | "), not a fixed byte window — a flat window
-            # reaches into the neighboring spec row and a warranty line
-            # there would veto a legitimate odometer sentence.
+            # Judge the match against a LOCAL window CLAMPED to its own text
+            # segment (get_text joins nodes with " | "). Both failure modes
+            # are real: a flat byte window reaches into the neighboring spec
+            # row (whose warranty line vetoes a legitimate odometer), and a
+            # whole-segment window dies on long description prose, where the
+            # same node mentions EPA range and kW charging three sentences
+            # after a perfectly good "demonstrator with just 2,875 miles".
             segment_start = text.rfind("|", 0, match.start()) + 1
             segment_end = text.find("|", match.end())
             if segment_end == -1:
-                segment_end = min(len(text), match.end() + 40)
-            context = text[segment_start:segment_end]
+                segment_end = len(text)
+            context = text[
+                max(segment_start, match.start() - 70) : min(segment_end, match.end() + 50)
+            ]
             if _MILEAGE_REJECT_NEAR.search(context):
                 continue
             try:
