@@ -154,11 +154,29 @@ def parse_vdp(html: str, origin: str) -> dict:
     return out
 
 
-async def browser_walk(start_url: str, origin: str, max_pages: int) -> list[dict]:
+# Runs INSIDE the dealer's own page: same-origin fetches from a real browser
+# are the site's own AJAX as far as the WAF can tell. The fetched documents
+# come back as inert text and are parsed only by the vetted Python parser.
+_JS_FETCH_CHUNK = """
+  async (urls) => {
+    const out = {};
+    for (const u of urls) {
+      try {
+        const r = await fetch(u, {headers: {Accept: 'text/html'}});
+        out[u] = r.status === 200 ? await r.text() : null;
+      } catch (e) { out[u] = null; }
+    }
+    return out;
+  }
+"""
+
+
+async def scrape(start_url: str, origin: str, max_pages: int, vdp_limit: int) -> list[dict]:
     from scrapling.fetchers import AsyncStealthySession
 
     rows: list[dict] = []
     seen_urls: set[str] = set()
+    detail_html: dict = {}
     async with AsyncStealthySession(
         max_pages=1, headless=True, solve_cloudflare=True, timeout=90_000, wait=1_200
     ) as session:
@@ -179,34 +197,40 @@ async def browser_walk(start_url: str, origin: str, max_pages: int) -> list[dict
             if not fresh:
                 break
             await asyncio.sleep(1.2 + random.uniform(0.0, 1.0))
-    return rows
 
+        # VDP pass without leaving the browser: the plain client is TLS-gated
+        # on this platform (403 even with harvested cookies), so the vehicle
+        # pages are fetched from within the SRP page context instead.
+        urls = [row["detail_url"] for row in rows[:vdp_limit]]
 
-async def vdp_pass(rows: list[dict], origin: str, limit: int) -> None:
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Referer": origin + "/",
-    }
-    async with httpx.AsyncClient(timeout=25, follow_redirects=True, headers=headers) as client:
-        done = 0
-        for row in rows:
-            if done >= limit:
-                break
-            try:
-                response = await client.get(row["detail_url"])
-            except httpx.HTTPError:
-                continue
-            if response.status_code != 200:
-                continue
-            detail = parse_vdp(response.text, origin)
+        async def vdp_action(page):
+            for index in range(0, len(urls), 4):
+                chunk = urls[index : index + 4]
+                try:
+                    got = await page.evaluate(_JS_FETCH_CHUNK, chunk)
+                except Exception as error:  # noqa: BLE001 - one bad chunk never ends the pass
+                    print(f"[vdp] chunk at {index} failed: {str(error)[:80]}", flush=True)
+                    continue
+                if isinstance(got, dict):
+                    detail_html.update({k: v for k, v in got.items() if isinstance(v, str)})
+                if (index // 4) % 10 == 0:
+                    print(f"[vdp] {min(index + 4, len(urls))}/{len(urls)} fetched", flush=True)
+                await asyncio.sleep(0.5 + random.uniform(0.0, 0.5))
+
+        if urls:
+            await session.fetch(start_url, page_action=vdp_action, wait=0)
+
+    enriched = 0
+    for row in rows:
+        html = detail_html.get(row["detail_url"])
+        if not html:
+            continue
+        detail = parse_vdp(html, origin)
+        if detail:
             row.update({k: v for k, v in detail.items() if v})
-            done += 1
-            if done % 25 == 0:
-                print(f"[vdp] {done} enriched", flush=True)
-            await asyncio.sleep(0.8 + random.uniform(0.0, 0.7))
-    print(f"[vdp] enriched {done} vehicle pages", flush=True)
+            enriched += 1
+    print(f"[vdp] enriched {enriched} of {len(rows)} vehicles", flush=True)
+    return rows
 
 
 def to_sync_rows(rows: list[dict]) -> list[dict]:
@@ -236,14 +260,13 @@ async def main() -> int:
     parser.add_argument("--secret", required=True, help="APP_API_SECRET value")
     parser.add_argument("--base", default="https://www.autopostingpro.com")
     parser.add_argument("--max-pages", type=int, default=40)
-    parser.add_argument("--vdp-limit", type=int, default=500)
+    parser.add_argument("--vdp-limit", type=int, default=600)
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
     parts = urlsplit(args.url)
     origin = f"{parts.scheme}://{parts.netloc}".lower()
-    rows = await browser_walk(args.url, origin, args.max_pages)
-    await vdp_pass(rows, origin, args.vdp_limit)
+    rows = await scrape(args.url, origin, args.max_pages, args.vdp_limit)
     vehicles = to_sync_rows(rows)
     with_photos = sum(1 for v in vehicles if len(v.get("photos") or []) >= 3)
     print(f"[result] cards={len(rows)} vin_proven={len(vehicles)} multi_photo={with_photos}", flush=True)
