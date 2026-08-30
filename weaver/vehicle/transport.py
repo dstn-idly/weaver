@@ -1857,6 +1857,9 @@ class PersistentDealerSession:
                     raise RuntimeError(
                         "persistent browser does not support bounded readiness predicates"
                     )
+                # A lazy SRP holds skeleton placeholders at load; scroll them
+                # full before judging readiness or stamping the denominator.
+                await _scroll_to_hydrate(page)
                 try:
                     await waiter(
                         _LISTING_READINESS_PREDICATE,
@@ -1911,6 +1914,11 @@ class PersistentDealerSession:
                 "page_action": wait_for_hydrated_gallery,
                 "wait": 0,
             }
+        else:
+            # Discovery and inference evidence come through this default path:
+            # a lazy SRP must be scrolled full here too, or the candidate
+            # catalog only ever sees the two server-rendered spotlight cards.
+            fetch_options = {"page_action": _scroll_to_hydrate}
         if self._hang_recovery_pending:
             # The previous navigation hung waiting for the page's load event
             # (a stalled subresource never finishing, a known dealer-site
@@ -2562,6 +2570,60 @@ def _challenge_or_empty(html: str) -> bool:
         or _cloudflare_block_detected(html)
         or _blank_rendered_shell(html)
     )
+
+
+# Lazy SRPs (Malloy Ford's Dealer.com theme) server-render 2 real cards plus
+# a page of skeleton placeholders and fill the rest only as the visitor
+# SCROLLS — a load-complete render still holds 2 vehicles of a declared 1,114.
+# The census counts the skeletons; the scroll pass runs only when they exist.
+_PLACEHOLDER_CENSUS = r"""
+() => ({
+  placeholders: document.querySelectorAll(
+    "[class*='placeholder-card'], [class*='skeleton-card'], [class*='loading-card']"
+  ).length,
+})
+"""
+
+
+async def _scroll_to_hydrate(page: object) -> None:
+    """Bounded scroll pass for SRPs that hydrate their cards on scroll.
+
+    Fires only when skeleton placeholders are present, scrolls the window
+    bottom-ward while they keep filling in, and stops when they are gone,
+    stop shrinking, or the bound is spent. Hydration help must never fail a
+    fetch: every page call is guarded.
+    """
+
+    evaluator = getattr(page, "evaluate", None)
+    if not callable(evaluator):
+        return
+    try:
+        census = await evaluator(_PLACEHOLDER_CENSUS)
+    except Exception:  # noqa: BLE001 - hydration help never fails a fetch
+        return
+    if not isinstance(census, dict):
+        return
+    remaining = int(census.get("placeholders") or 0)
+    if remaining < 3:
+        return
+    stagnant = 0
+    for _ in range(12):
+        try:
+            await evaluator("() => { window.scrollTo(0, document.body.scrollHeight); }")
+        except Exception:  # noqa: BLE001
+            return
+        await asyncio.sleep(0.7)
+        try:
+            census = await evaluator(_PLACEHOLDER_CENSUS)
+        except Exception:  # noqa: BLE001
+            return
+        now = int(census.get("placeholders") or 0) if isinstance(census, dict) else 0
+        if now == 0:
+            return
+        stagnant = stagnant + 1 if now >= remaining else 0
+        if stagnant >= 2:
+            return
+        remaining = now
 
 
 _BROWSER_CRASH_MARKERS = (

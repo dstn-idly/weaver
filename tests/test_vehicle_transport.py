@@ -44,7 +44,7 @@ class FakeResponse:
 
 
 class FakeSession:
-    async def fetch(self, url):
+    async def fetch(self, url, **kwargs):
         return FakeResponse()
 
 
@@ -72,7 +72,7 @@ class FakeTransport:
             "https://dealer.example/vdp/1HGBH41JXMN109186": _photographed_vdp("1HGBH41JXMN109186"),
         }
 
-    async def fetch(self, url):
+    async def fetch(self, url, **kwargs):
         return self.pages[url]
 
 
@@ -494,7 +494,7 @@ def test_capture_stops_when_source_denominator_is_satisfied() -> None:
                 ),
             }
 
-        async def fetch(self, url):
+        async def fetch(self, url, **kwargs):
             self.calls.append(url)
             return self.pages[url]
 
@@ -522,7 +522,7 @@ def test_capture_retries_one_transient_unproven_detail_shell() -> None:
         def __init__(self):
             self.detail_calls = 0
 
-        async def fetch(self, url):
+        async def fetch(self, url, **kwargs):
             if url == "https://dealer.example/used":
                 return (
                     '<div class="card"><span data-vin="1HGBH41JXMN109186"></span>'
@@ -557,7 +557,7 @@ def test_browser_challenge_is_owner_action_not_success(monkeypatch) -> None:
     monkeypatch.setattr("weaver.vehicle.transport.validate_public_url", allow)
 
     class ChallengeSession:
-        async def fetch(self, url):
+        async def fetch(self, url, **kwargs):
             class Response:
                 body = b"<html><title>Just a moment...</title><body>enable javascript and cookies to continue</body></html>"
             return Response()
@@ -715,7 +715,7 @@ def test_browser_escalation_is_sticky_and_redirect_is_rejected(monkeypatch) -> N
         def __init__(self):
             self.urls = []
 
-        async def fetch(self, url):
+        async def fetch(self, url, **kwargs):
             self.urls.append(url)
             return BrowserResponse(url)
 
@@ -736,7 +736,7 @@ def test_browser_escalation_is_sticky_and_redirect_is_rejected(monkeypatch) -> N
         assert session.last_mode == "persistent_browser"
 
         class Redirecting:
-            async def fetch(self, url):
+            async def fetch(self, url, **kwargs):
                 return BrowserResponse("https://other.example/redirected")
 
         session._session = Redirecting()
@@ -1281,7 +1281,7 @@ def test_capture_supplies_listing_spec_to_readiness_aware_transport() -> None:
                 f'<a class="vdp" href="{detail_url}">view</a></div>'
             )
 
-        async def fetch(self, url):
+        async def fetch(self, url, **kwargs):
             assert url == detail_url
             return _photographed_vdp("1HGBH41JXMN109186")
 
@@ -2015,7 +2015,7 @@ def test_duplicate_detail_candidates_are_removed_before_detail_cap() -> None:
                 self.second: "<main class='vehicle' data-vin='2HGBH41JXMN109187'></main>",
             }
 
-        async def fetch(self, url):
+        async def fetch(self, url, **kwargs):
             self.calls.append(url)
             return self.pages[url]
 
@@ -2041,7 +2041,7 @@ def test_url_only_discovery_selects_same_origin_inventory_and_vdp() -> None:
             "https://dealer.example/vdp/1HGBH41JXMN109186": '<main data-vin="1HGBH41JXMN109186">vehicle detail</main>',
         }
 
-        async def fetch(self, url):
+        async def fetch(self, url, **kwargs):
             return self.pages[url]
 
     async def run():
@@ -2073,7 +2073,7 @@ def test_direct_inventory_discovery_does_not_fetch_model_year_navigation() -> No
                 second_vdp: _photographed_vdp("2HGBH41JXMN109187"),
             }
 
-        async def fetch(self, url):
+        async def fetch(self, url, **kwargs):
             self.calls.append(url)
             return self.pages[url]
 
@@ -2109,7 +2109,7 @@ def test_discovery_deduplicates_candidates_before_candidate_cap() -> None:
             "https://dealer.example/vdp/1HGBH41JXMN109186": "<main data-vin='1HGBH41JXMN109186'>detail</main>",
         }
 
-        async def fetch(self, url):
+        async def fetch(self, url, **kwargs):
             return self.pages[url]
 
     async def run():
@@ -2231,7 +2231,7 @@ def test_discovery_skips_stale_detail_redirect_markup_and_uses_next_identity_vdp
                 ),
             }
 
-        async def fetch(self, url):
+        async def fetch(self, url, **kwargs):
             self.calls.append(url)
             return self.pages[url]
 
@@ -2353,7 +2353,7 @@ def test_discovery_fetches_corroborated_json_ld_vehicle_url_not_doubled_path() -
                 detail: '<main data-vin="2HGFC2F59RH123456">vehicle detail</main>',
             }
 
-        async def fetch(self, url):
+        async def fetch(self, url, **kwargs):
             self.calls.append(url)
             return self.pages[url]
 
@@ -2390,7 +2390,7 @@ def test_static_inventory_shell_escalates_same_url_once_before_route_scouting() 
             self.static_calls = []
             self.rendered_calls = []
 
-        async def fetch(self, url):
+        async def fetch(self, url, **kwargs):
             self.static_calls.append(url)
             if url == "https://dealer.example/used":
                 return "<html><body><main id='inventory-app'>Loading inventory</main></body></html>"
@@ -2522,7 +2522,7 @@ def test_capture_hydrates_thin_gallery_details_once() -> None:
                 f"https://dealer.example/vdp/{vin}": vdp_html(["front"]),
             }
 
-        async def fetch(self, url):
+        async def fetch(self, url, **kwargs):
             return self.pages[url]
 
         async def fetch_rendered(self, url):
@@ -2564,7 +2564,7 @@ def test_capture_keeps_static_detail_when_gallery_is_already_rich() -> None:
                 f"https://dealer.example/vdp/{vin}": static_html,
             }
 
-        async def fetch(self, url):
+        async def fetch(self, url, **kwargs):
             return self.pages[url]
 
         async def fetch_rendered(self, url):
@@ -2635,7 +2635,7 @@ def test_capture_passes_known_detail_urls_to_listing_fetches() -> None:
             self.listing_calls.append((url, tuple(known_detail_urls)))
             return self.pages[url]
 
-        async def fetch(self, url):
+        async def fetch(self, url, **kwargs):
             return self.pages[url]
 
     async def run():
@@ -2682,7 +2682,7 @@ def test_thin_gallery_escalation_requests_gallery_wait() -> None:
                 f"https://dealer.example/vdp/{vin}": vdp_html(["front"]),
             }
 
-        async def fetch(self, url):
+        async def fetch(self, url, **kwargs):
             return self.pages[url]
 
         async def fetch_rendered(self, url, **kwargs):
@@ -3286,7 +3286,7 @@ def test_discovery_skips_unphotographed_first_car_for_the_representative_vdp() -
                 photographed: _photographed_vdp("JHMCM56557C404453"),
             }
 
-        async def fetch(self, url):
+        async def fetch(self, url, **kwargs):
             self.calls.append(url)
             return self.pages[url]
 
@@ -3332,7 +3332,7 @@ def test_discovery_still_yields_a_representative_vdp_on_an_unphotographed_lot() 
                 second: '<main class="vehicle" data-vin="JHMCM56557C404453"></main>',
             }
 
-        async def fetch(self, url):
+        async def fetch(self, url, **kwargs):
             self.calls.append(url)
             return self.pages[url]
 
@@ -3708,7 +3708,7 @@ def test_folding_the_www_alias_must_not_fold_away_the_query() -> None:
                 "https://dealer.example/inventory/ford/f250/10392/": _photographed_vdp("JHMCM56557C404453"),
             }
 
-        async def fetch(self, url):
+        async def fetch(self, url, **kwargs):
             self.calls.append(url)
             return self.pages[url]
 
@@ -3952,7 +3952,7 @@ def test_discovery_failure_carries_the_last_candidate_vdp_snapshot() -> None:
         def __init__(self):
             self.calls = []
 
-        async def fetch(self, url):
+        async def fetch(self, url, **kwargs):
             self.calls.append(url)
             return pages[url]
 
@@ -4218,5 +4218,52 @@ def test_a_renderer_crash_recycles_the_browser_and_retries_the_navigation(
         session._session = Unrelated()
         with pytest.raises(RuntimeError, match="some other defect"):
             await session.fetch("https://dealer.example/used?page=5")
+
+    asyncio.run(run())
+
+
+def test_scroll_hydration_fills_lazy_placeholder_pages_and_leaves_others_alone() -> None:
+    """Malloy Ford's SRP server-renders 2 cards plus skeleton placeholders and
+    fills the rest on scroll. The pass fires only when placeholders exist,
+    stops when they are gone or stop shrinking, and never fails the fetch."""
+
+    from weaver.vehicle.transport import _scroll_to_hydrate
+
+    class Page:
+        def __init__(self, censuses):
+            self.censuses = list(censuses)
+            self.scrolls = 0
+
+        async def evaluate(self, script, *args):
+            if "scrollTo" in script:
+                self.scrolls += 1
+                return None
+            return {"placeholders": self.censuses.pop(0) if self.censuses else 0}
+
+    async def run():
+        # No placeholders: no scrolling at all.
+        clean = Page([0])
+        await _scroll_to_hydrate(clean)
+        assert clean.scrolls == 0
+
+        # Placeholders shrink to zero: scrolls until hydrated.
+        lazy = Page([22, 14, 6, 0])
+        await _scroll_to_hydrate(lazy)
+        assert lazy.scrolls == 3
+
+        # Placeholders that stop shrinking end the pass after two stagnant
+        # rounds instead of spinning the full bound.
+        stuck = Page([22, 18, 18, 18, 18, 18])
+        await _scroll_to_hydrate(stuck)
+        assert stuck.scrolls == 3
+
+        # An evaluator that explodes never fails the fetch.
+        class Broken:
+            async def evaluate(self, script, *args):
+                raise RuntimeError("page gone")
+
+        await _scroll_to_hydrate(Broken())
+        # And a page object with no evaluate at all is fine too.
+        await _scroll_to_hydrate(object())
 
     asyncio.run(run())

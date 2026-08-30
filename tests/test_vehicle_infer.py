@@ -1559,3 +1559,16 @@ def test_run_options_accept_and_normalize_repair_notes():
     options = RunOptions(repair_notes="  two   words \n here ")
     assert options.repair_notes == "two words here"
     assert RunOptions().repair_notes == ""
+
+
+def test_hydration_starved_fires_only_on_big_lots_with_thin_catalogs():
+    from weaver.vehicle.infer import hydration_starved
+
+    starved_html = '<html data-weaver-asc-item-results="1114"><body></body></html>'
+    thin = [{"selector": ".spot", "locally_matched_cards": 2}]
+    rich = [{"selector": ".card", "locally_matched_cards": 24}]
+    assert hydration_starved(starved_html, thin) is True
+    assert hydration_starved(starved_html, rich) is False
+    # Small lots and unstamped pages never trigger.
+    assert hydration_starved('<html data-weaver-asc-item-results="8"><body></body></html>', thin) is False
+    assert hydration_starved("<html><body></body></html>", thin) is False

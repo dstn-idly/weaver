@@ -37,7 +37,7 @@ from bs4 import BeautifulSoup, Comment, NavigableString, Tag
 import httpx
 import soupsieve
 
-from .extract import card_stock_keys, extract_listing_page
+from .extract import _asc_stamped_total, card_stock_keys, extract_listing_page
 from .identity import (
     clean_vin,
     detail_url_authority,
@@ -960,6 +960,33 @@ def _application_card_selector_candidates(
         maximum=maximum,
     )
     return tuple(dict.fromkeys((*repeated, *fallback)))[:maximum]
+
+
+def hydration_starved(listing_html: str, card_catalog: Sequence[Mapping[str, Any]]) -> bool:
+    """The evidence page is too thin for the lot the page itself declares.
+
+    Malloy Ford's static SRP server-renders only 2-4 VIN-decorated spotlight
+    cards while declaring 1,114 vehicles in its ASC data layer; the other ~22
+    cards per page mount client-side. Every catalog candidate from that
+    evidence was a real, producible card — so the mid-hydration refetch never
+    fired — yet the best proposable selector could only ever see the
+    spotlights. No dealer with hundreds of cars renders a four-card page: a
+    declared lot of 50+ with fewer than 8 cards visible to the BEST candidate
+    means the evidence is starved, and inference must look at a rendered page
+    before spending a model attempt.
+    """
+
+    try:
+        declared = _asc_stamped_total(BeautifulSoup(listing_html or "", "html.parser"))
+    except Exception:  # noqa: BLE001 - a total we cannot read never blocks inference
+        return False
+    if declared is None or declared < 50:
+        return False
+    best = max(
+        (int(row.get("locally_matched_cards") or 0) for row in card_catalog),
+        default=0,
+    )
+    return best < 8
 
 
 def producible_catalog_rows(
@@ -2247,6 +2274,41 @@ def infer_vehicle_spec(
             "application vehicle-card selector catalog did not resolve locally"
         )
     listing_refetched = False
+    if refetch_listing is not None and hydration_starved(listing_html, card_catalog):
+        # Spotlight-starved static evidence: the page declares a big lot but
+        # the best candidate sees almost nothing. One rendered refetch gives
+        # the catalog the cards the customer's browser would see; the swap is
+        # kept only when the rendered page actually offers a richer candidate.
+        refreshed = refetch_listing()
+        if isinstance(refreshed, str) and refreshed:
+            fresh_selectors = _application_card_selector_candidates(
+                refreshed,
+                listing_url=listing_url,
+                origin=origin,
+            )
+            fresh_catalog = (
+                _card_selector_catalog(
+                    refreshed,
+                    selectors=fresh_selectors,
+                    listing_url=listing_url,
+                    origin=origin,
+                )
+                if fresh_selectors
+                else ()
+            )
+            previous_best = max(
+                (int(row.get("locally_matched_cards") or 0) for row in card_catalog),
+                default=0,
+            )
+            fresh_best = max(
+                (int(row.get("locally_matched_cards") or 0) for row in fresh_catalog),
+                default=0,
+            )
+            if fresh_best > previous_best:
+                listing_html = refreshed
+                card_selectors = fresh_selectors
+                card_catalog = fresh_catalog
+                listing_refetched = True
     if detail_url is not None:
         producible = producible_catalog_rows(
             listing_html,
@@ -2255,7 +2317,7 @@ def infer_vehicle_spec(
             origin=origin,
             detail_url=detail_url,
         )
-        if not producible and refetch_listing is not None:
+        if not producible and refetch_listing is not None and not listing_refetched:
             # The snapshot caught the SPA mid-hydration: the representative's
             # card is not selectable yet. One fresh render gets hydration a
             # second chance before any paid attempt.
