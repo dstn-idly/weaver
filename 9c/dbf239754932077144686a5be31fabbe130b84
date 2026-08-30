@@ -1,0 +1,23 @@
+quickscrape/quickscrape.py
+  s_4245107d2f7a12::t_5198f25a86ef96 361
+  s_4245107d2f7a12::t_a32ae6ef234c36 157-161
+  s_4245107d2f7a12::t_ab9cac10677f5f 127-134,139-156,166-197
+  s_4245107d2f7a12::t_738a6e8b858d4e 162-165
+  s_4245107d2f7a12::t_b59cb687c5b1e0 198-199
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "9cdbf239754932077144686a5be31fabbe130b84",
+  "prompts": {},
+  "sessions": {
+    "s_4245107d2f7a12": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "42b354fa-7aab-46be-b24a-1dfaf2c78f13",
+        "model": "claude-fable-5"
+      },
+      "human_author": "dustin thach <epikunder321123@gmail.com>"
+    }
+  }
+}
