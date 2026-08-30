@@ -84,13 +84,6 @@ def parse_cards(html: str, page_url: str, origin: str) -> list[dict]:
         price = PRICE_RE.search(text)
         if price:
             row["price"] = int(price.group(1).replace(",", ""))
-        img = card.select_one("img")
-        if img:
-            src = str(img.get("src") or img.get("data-src") or "")
-            if src.startswith("https://") and (
-                urlsplit(src).hostname or ""
-            ).endswith(PHOTO_HOSTS) or _same_origin(src, origin):
-                row["thumbnail"] = src
         rows.append(row)
     return rows
 
@@ -287,7 +280,9 @@ def to_sync_rows(rows: list[dict]) -> list[dict]:
         vin = row.get("vin")
         if not vin:
             continue  # first populate ships only VIN-proven cars
-        photos = row.get("photos") or ([row["thumbnail"]] if row.get("thumbnail") else [])
+        # No stock-art fallback: a car the dealer has not photographed ships
+        # with NO photos, never a manufacturer trim render. Owned gallery only.
+        photos = row.get("photos") or []
         vehicle = {
             "vin": vin,
             "condition": "used",
