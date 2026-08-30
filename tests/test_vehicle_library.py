@@ -160,7 +160,8 @@ def test_retrieval_is_deterministic_and_explains_itself() -> None:
         recomputed, why = speclib.score_overlap(
             fingerprint, match["record"]["platform_fingerprint"]
         )
-        assert recomputed == match["score"] and why == match["why"]
+        assert recomputed == match["overlap"] and why == match["why"]
+        assert match["score"] == round(recomputed * match["verdict_weight"], 2)
 
 
 def test_cross_platform_noise_stays_below_the_floor() -> None:
@@ -534,3 +535,56 @@ def test_a_library_failure_never_breaks_inference(
         max_attempts=1,
     )
     assert spec.listing.card_selector == ".vehicle-card"
+
+
+def test_a_shipped_spec_outranks_a_partial_sibling_but_kinship_still_dominates() -> None:
+    """Founder decision: weight exemplars by verdict. Between comparable
+    same-platform siblings the one whose spec actually shipped wins; but the
+    multiplier scales overlap, so a needs_repair sibling still outranks a
+    verified stranger from another platform."""
+
+    from weaver.vehicle.library import retrieve
+
+    fingerprint = {
+        "platform_tokens": ["dealercenter", "dws"],
+        "gallery_mechanisms": ["data-pin-media"],
+        "photo_cdn_hosts": ["imagescf.dealercenter.net"],
+        "photo_path_grammars": ["imagescf_numeric_pair"],
+        "pagination": ["offset_start"],
+        "class_families": ["dws-"],
+        "json_ld_types": ["car"],
+    }
+    sibling = dict(fingerprint)
+    stranger = {
+        "platform_tokens": ["dealer.com", "ddc"],
+        "gallery_mechanisms": ["data-base-img-url"],
+        "photo_cdn_hosts": ["pictures.dealer.com"],
+        "photo_path_grammars": ["impolicy_query"],
+        "pagination": ["offset_start"],
+        "class_families": ["ws-inv-"],
+        "json_ld_types": ["car"],
+    }
+
+    def record(origin, fp, verdict):
+        return {
+            "origin": origin,
+            "platform_fingerprint": fp,
+            "spec": None,
+            "verdict": verdict,
+            "created_at": "2026-08-30T00:00:00Z",
+            "provenance": "test",
+            "notes": "",
+        }
+
+    library = {
+        "https://shipped-sibling.example": record("https://shipped-sibling.example", sibling, "ship"),
+        "https://partial-sibling.example": record("https://partial-sibling.example", sibling, "needs_repair"),
+        "https://verified-stranger.example": record("https://verified-stranger.example", stranger, "verified"),
+    }
+    matches = retrieve(fingerprint, k=3, library=library)
+    origins = [m["origin"] for m in matches]
+    assert origins[0] == "https://shipped-sibling.example"
+    assert origins[1] == "https://partial-sibling.example"
+    # The stranger scores below both siblings regardless of its verdict
+    # (and typically below the floor entirely).
+    assert "https://verified-stranger.example" not in origins[:2]

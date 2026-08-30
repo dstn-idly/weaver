@@ -102,6 +102,20 @@ _VERDICTS = frozenset(
     {"verified", "ship", "review", "needs_repair", "fingerprint_only"}
 )
 
+# A proven spec is worth more than a partial one, and a bare fingerprint is a
+# platform hint without a spec at all. The multiplier scales the OVERLAP score,
+# so kinship still dominates — a same-platform needs_repair sibling (raw 29-47)
+# outranks a cross-platform verified stranger (raw <=9) at every weight — but
+# between two comparable siblings the one whose spec actually shipped wins.
+# Founder decision 2026-08-30: weight by verdict.
+_VERDICT_WEIGHT = {
+    "verified": 1.0,
+    "ship": 1.0,
+    "review": 0.95,
+    "needs_repair": 0.8,
+    "fingerprint_only": 0.6,
+}
+
 # Library records hold page-derived tokens, selectors, hosts and spec JSON
 # only. Anything credential-shaped is refused outright rather than redacted:
 # a redacted record proves the writer put a secret where none belongs.
@@ -600,11 +614,20 @@ def retrieve(
         record = records[origin]
         if excluded_host is not None and _origin_host(origin) == excluded_host:
             continue
-        score, why = score_overlap(fingerprint, record["platform_fingerprint"])
+        overlap, why = score_overlap(fingerprint, record["platform_fingerprint"])
+        weight = _VERDICT_WEIGHT.get(record.get("verdict"), 0.6)
+        score = round(overlap * weight, 2)
         if score < floor:
             continue
         matches.append(
-            {"origin": origin, "score": score, "why": why, "record": record}
+            {
+                "origin": origin,
+                "score": score,
+                "overlap": overlap,
+                "verdict_weight": weight,
+                "why": why,
+                "record": record,
+            }
         )
     matches.sort(key=lambda match: (-match["score"], match["origin"]))
     return matches[: max(0, int(k))]
