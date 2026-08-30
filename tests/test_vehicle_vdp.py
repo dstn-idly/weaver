@@ -2408,3 +2408,333 @@ def test_pin_media_needs_same_asset_and_strictly_larger_proven_size() -> None:
     # A smaller or size-unproven pin is refused.
     downgrade = photo_for(large, small)
     assert downgrade is None or downgrade.url != small
+
+
+def test_dws_base_img_url_is_the_pages_own_full_rendition_of_the_same_asset() -> None:
+    """DealerCenter/DWS publishes the full-size rendition itself: a slider div's
+    data-base-img-url names the thumb's exact file at /1920/1080/. The upgrade
+    is accepted only for the SAME asset (photo_asset_key folds the size path on
+    this one host) at a strictly larger declared width, on that host only."""
+
+    from bs4 import BeautifulSoup
+
+    from weaver.vehicle.vdp import _node_photo
+
+    def photo_for(markup: str):
+        node = BeautifulSoup(markup, "html.parser").find("img")
+        return _node_photo(node, base_url="https://dealer.example/vdp/x")
+
+    file = "202608-" + "ab" * 16 + ".jpg"
+    other_file = "202608-" + "cd" * 16 + ".jpg"
+    thumb = f"https://imagescf.dealercenter.net/320/240/{file}"
+    base = f"https://imagescf.dealercenter.net/1920/1080/{file}"
+
+    upgraded = photo_for(
+        f'<div class="wrap"><img src="{thumb}">'
+        f'<div data-base-img-url="{base}"></div></div>'
+    )
+    assert upgraded is not None and upgraded.url == base
+    assert upgraded.source == "base_img" and upgraded.width == 1920
+    assert upgraded.full_resolution_candidate
+
+    # The declaration may sit on the img node itself.
+    on_self = photo_for(f'<img src="{thumb}" data-base-img-url="{base}">')
+    assert on_self is not None and on_self.url == base and on_self.width == 1920
+
+    # A declaration for ANOTHER file is not this photo's evidence.
+    other = photo_for(
+        f'<div class="wrap"><img src="{thumb}">'
+        f'<div data-base-img-url="https://imagescf.dealercenter.net/1920/1080/{other_file}"></div></div>'
+    )
+    assert other is not None and other.url == thumb
+    assert not other.full_resolution_candidate
+
+    # Another host's /1920/1080/ path proves no size and upgrades nothing.
+    foreign = photo_for(
+        f'<div class="wrap"><img src="{thumb}">'
+        f'<div data-base-img-url="https://cdn.example/1920/1080/{file}"></div></div>'
+    )
+    assert foreign is not None and foreign.url == thumb
+    assert not foreign.full_resolution_candidate
+
+    # Equal or smaller declared sizes are not upgrades.
+    equal = photo_for(
+        f'<div class="wrap"><img src="{thumb}">'
+        f'<div data-base-img-url="{thumb}"></div></div>'
+    )
+    assert equal is not None and equal.url == thumb
+    bigger_src = f"https://imagescf.dealercenter.net/640/480/{file}"
+    downgrade = photo_for(
+        f'<div class="wrap"><img src="{bigger_src}">'
+        f'<div data-base-img-url="https://imagescf.dealercenter.net/320/240/{file}"></div></div>'
+    )
+    assert downgrade is not None and downgrade.url == bigger_src
+    assert not downgrade.full_resolution_candidate
+
+
+_DWS_VIN = "1B3ER69E7VV301227"
+_DWS_URL = "https://dealer.example/inventory/dodge/viper/10429/"
+_DWS_LABEL = (
+    "1997 DODGE VIPER COUPE V10, 8.0 LITER GTS COUPE 2D at "
+    "Orlando Auto Lounge in Sanford, FL"
+)
+
+
+def _dws_product_schema(**overrides: object) -> dict:
+    schema: dict = {
+        "@context": "http://schema.org/",
+        "@type": "Product",
+        "brand": {"@type": "Brand", "name": "DODGE"},
+        "model": "VIPER",
+        "name": "1997 DODGE VIPER",
+        "vehicleIdentificationNumber": _DWS_VIN,
+        "vehicleModelDate": 1997,
+        "offers": {"@type": "Offer", "price": 89999, "priceCurrency": "USD"},
+        "url": _DWS_URL,
+    }
+    schema.update(overrides)
+    return schema
+
+
+def _dws_gallery_html(schema: dict, extra_thumb: str = "") -> str:
+    files = ["202608-" + "1a" * 16 + ".jpg", "202608-" + "2b" * 16 + ".jpg"]
+    sliders = "".join(
+        f'<li><div class="dws-vehicles-slider-item-container">'
+        f'<div class="dws-basic-photo-nav dws-vehicle-image-container lozad"'
+        f' data-base-img-url="https://imagescf.dealercenter.net/1920/1080/{file}"'
+        f' data-lazy="https://imagescf.dealercenter.net/640/480/{file}"'
+        f' aria-label="{_DWS_LABEL}" title="{_DWS_LABEL} - Image {index + 1}"'
+        f' role="img"></div></div></li>'
+        for index, file in enumerate(files)
+    )
+    thumbs = "".join(
+        f'<li><div class="dws-vehicles-slider-item-thumbnail-container">'
+        f'<img class="dws-vehicles-slider-item-thumbnail img-responsive"'
+        f' src="https://imagescf.dealercenter.net/320/240/{file}"'
+        f' alt="{_DWS_LABEL}" title="{_DWS_LABEL} - Image {index + 1}"'
+        f' width="320" height="240"></div></li>'
+        for index, file in enumerate(files)
+    )
+    return f"""
+    <html><head><link rel="canonical" href="{_DWS_URL}">
+      <script type="application/ld+json">{json.dumps(schema)}</script>
+    </head><body>
+      <div id="DWS_VDP_Media_4" class="dws-vdp-vehicle-media-slider-container dws-vdp-media-container">
+        <ul class="dws-vdp-media-slider dws-img-with-popup-group">{sliders}</ul>
+        <ul class="dws-vdp-media-slider-thumbnail">{thumbs}{extra_thumb}</ul>
+      </div>
+    </body></html>
+    """
+
+
+_DWS_SPEC = DetailSpec(
+    root_selector=None,
+    gallery_selector=".dws-vdp-vehicle-media-slider-container",
+    gallery_item_selector="img",
+    fields={},
+    max_photos=80,
+)
+
+
+def test_dws_flat_cdn_gallery_is_proven_per_asset_label_at_base_img_resolution() -> None:
+    """The reduced real-shape DealerCenter VDP: 320px thumbs, slider divs
+    declaring /1920/1080/ bases, no VIN in any photo URL or DOM attribute, and
+    a VIN-bearing Product JSON-LD supplying year/make/model. The gallery is
+    owned through the same per-asset-label route Dealer eProcess uses."""
+
+    result = extract_vdp(
+        _dws_gallery_html(_dws_product_schema()),
+        detail_url=_DWS_URL,
+        origin="https://dealer.example",
+        detail=_DWS_SPEC,
+        expected_vin=_DWS_VIN,
+    )
+
+    assert result.identity_proven
+    assert result.record["vin"] == _DWS_VIN
+    assert result.record["year"] == 1997
+    assert result.record["make"] == "DODGE"
+    assert result.record["model"] == "VIPER"
+    assert result.record["photos"] == [
+        "https://imagescf.dealercenter.net/1920/1080/202608-" + "1a" * 16 + ".jpg",
+        "https://imagescf.dealercenter.net/1920/1080/202608-" + "2b" * 16 + ".jpg",
+    ]
+    assert all(photo.source == "base_img" for photo in result.photos)
+    assert all(photo.width == 1920 for photo in result.photos)
+    # The exact evidence clause inference uses to accept a gallery contract.
+    assert all(
+        (isinstance(photo.width, int) and photo.width >= 1_000)
+        or (
+            photo.full_resolution_candidate
+            and photo.source in {"data_full", "gallery_anchor", "known_cdn_full"}
+        )
+        for photo in result.photos
+    )
+
+
+def test_dws_flat_cdn_gallery_fails_closed_with_one_foreign_asset() -> None:
+    """One asset that is not the platform CDN's grammar — or whose own label
+    names another vehicle — poisons the whole per-asset-label proof."""
+
+    foreign_host = (
+        '<li><div class="dws-vehicles-slider-item-thumbnail-container">'
+        f'<img src="https://cdn.example/lot/intruder.jpg" alt="{_DWS_LABEL}">'
+        "</div></li>"
+    )
+    result = extract_vdp(
+        _dws_gallery_html(_dws_product_schema(), extra_thumb=foreign_host),
+        detail_url=_DWS_URL,
+        origin="https://dealer.example",
+        detail=_DWS_SPEC,
+        expected_vin=_DWS_VIN,
+    )
+    assert result.identity_proven
+    assert result.photos == ()
+
+    intruder_file = "202608-" + "3c" * 16 + ".jpg"
+    foreign_label = (
+        '<li><div class="dws-vehicles-slider-item-thumbnail-container">'
+        f'<img src="https://imagescf.dealercenter.net/320/240/{intruder_file}"'
+        f' data-base-img-url="https://imagescf.dealercenter.net/1920/1080/{intruder_file}"'
+        ' alt="2013 NISSAN SENTRA SV at Orlando Auto Lounge in Sanford, FL">'
+        "</div></li>"
+    )
+    relabeled = extract_vdp(
+        _dws_gallery_html(_dws_product_schema(), extra_thumb=foreign_label),
+        detail_url=_DWS_URL,
+        origin="https://dealer.example",
+        detail=_DWS_SPEC,
+        expected_vin=_DWS_VIN,
+    )
+    assert relabeled.identity_proven
+    assert relabeled.photos == ()
+
+
+def test_product_json_ld_is_a_vehicle_only_when_it_owns_a_vin() -> None:
+    photos = [
+        f"https://cdn.example/photos/{_DWS_VIN}-1.jpg",
+        f"https://cdn.example/photos/{_DWS_VIN}-2.jpg",
+    ]
+    html = f"""
+    <html><head><link rel="canonical" href="{_DWS_URL}">
+      <script type="application/ld+json">{json.dumps(_dws_product_schema(image=photos))}</script>
+    </head><body><main class="vehicle"></main></body></html>
+    """
+    result = extract_vdp(
+        html,
+        detail_url=_DWS_URL,
+        origin="https://dealer.example",
+        detail=DetailSpec(root_selector=None, fields={}),
+        expected_vin=_DWS_VIN,
+    )
+    assert result.identity_proven
+    assert result.matched_by == "json_ld:vin"
+    assert result.record["year"] == 1997
+    assert result.record["make"] == "DODGE"
+    assert result.record["model"] == "VIPER"
+    assert result.record["price"] == 89999
+    assert result.record["photos"] == photos
+
+    vinless = _dws_product_schema(image=photos)
+    vinless.pop("vehicleIdentificationNumber")
+    vinless_html = f"""
+    <html><head><link rel="canonical" href="{_DWS_URL}">
+      <script type="application/ld+json">{json.dumps(vinless)}</script>
+    </head><body><main class="vehicle"></main></body></html>
+    """
+    refused = extract_vdp(
+        vinless_html,
+        detail_url=_DWS_URL,
+        origin="https://dealer.example",
+        detail=DetailSpec(root_selector=None, fields={}),
+        expected_vin=_DWS_VIN,
+    )
+    assert refused.matched_by is None
+    assert refused.record.get("year") is None
+    assert refused.record.get("make") is None
+    assert refused.photos == ()
+
+
+def test_wrong_vin_product_cannot_override_page_identity() -> None:
+    page_vin = VIN
+    other_vin = "3N1AB7AP6DL686723"
+    schema = _dws_product_schema(
+        vehicleIdentificationNumber=other_vin,
+        model="SENTRA",
+        brand={"@type": "Brand", "name": "NISSAN"},
+        vehicleModelDate=2013,
+        url=f"https://dealer.example/vdp/{page_vin}",
+        image=[f"https://cdn.example/photos/{other_vin}-1.jpg"],
+    )
+    html = f"""
+    <html><head><link rel="canonical" href="https://dealer.example/vdp/{page_vin}">
+      <script type="application/ld+json">{json.dumps(schema)}</script>
+    </head><body><main class="vehicle" data-vin="{page_vin}"></main></body></html>
+    """
+    for expected in (page_vin, None):
+        result = extract_vdp(
+            html,
+            detail_url=f"https://dealer.example/vdp/{page_vin}",
+            origin="https://dealer.example",
+            detail=DetailSpec(root_selector="main.vehicle", fields={}),
+            expected_vin=expected,
+        )
+        assert result.record["vin"] == page_vin
+        assert result.record.get("model") != "SENTRA"
+        assert all(other_vin not in photo.url for photo in result.photos)
+        assert result.photos == ()
+
+
+def test_a_warranty_products_serial_is_not_a_vin() -> None:
+    """The adversarial pass demonstrated both failure directions of a looser
+    Product admission: a "Vehicle Protection Plan" Product carrying a 17-char
+    serialNumber fabricated a promotable vehicle on an accessory-only page,
+    and its serial joining the candidate VINs silently disabled
+    unambiguous-VIN selection for the page's REAL car. Product admission now
+    reads only the true VIN keys and demands the ISO check digit."""
+
+    real_vin = "1B3ER69E7VV301227"  # check-digit valid
+    warranty = json.dumps({
+        "@type": "Product",
+        "name": "Premium Vehicle Protection Plan",
+        "serialNumber": "WARRANTY123456789",
+        "image": ["https://cdn.example/plans/gold.jpg", "https://cdn.example/plans/platinum.jpg"],
+    })
+    car = json.dumps({
+        "@type": "Car",
+        "vehicleIdentificationNumber": real_vin,
+        "name": "1997 Dodge Viper GTS",
+        "image": ["https://cdn.example/lot/viper-front.jpg"],
+    })
+
+    # Direction 1: the real car's extraction survives the co-published plan.
+    page = (
+        '<html><head><link rel="canonical" href="https://dealer.example/inventory/dodge/viper/10429/"></head>'
+        f'<body><script type="application/ld+json">{car}</script>'
+        f'<script type="application/ld+json">{warranty}</script></body></html>'
+    )
+    result = extract_vdp(
+        page,
+        detail_url="https://dealer.example/inventory/dodge/viper/10429/",
+        origin="https://dealer.example",
+        detail=DetailSpec(root_selector=None, fields={}),
+        expected_vin=None,
+    )
+    assert result.identity_proven and result.record["vin"] == real_vin
+    assert len(result.photos) == 1
+
+    # Direction 2: an accessory-only page never becomes a vehicle.
+    accessory_page = (
+        '<html><head><link rel="canonical" href="https://dealer.example/warranty/"></head>'
+        f'<body><script type="application/ld+json">{warranty}</script></body></html>'
+    )
+    refused = extract_vdp(
+        accessory_page,
+        detail_url="https://dealer.example/warranty/",
+        origin="https://dealer.example",
+        detail=DetailSpec(root_selector=None, fields={}),
+        expected_vin=None,
+    )
+    assert not refused.identity_proven
+    assert refused.photos == ()
+    assert refused.matched_by is None

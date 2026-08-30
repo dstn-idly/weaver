@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import html as html_module
 import json
 import re
+import weakref
 from typing import Any, Iterable, Mapping, Sequence
 from urllib.parse import parse_qsl, urlsplit
 from urllib.parse import urlunsplit
@@ -13,7 +14,7 @@ from urllib.parse import urlunsplit
 from bs4 import BeautifulSoup, Tag
 
 from .extract import apply_field_rules, clean_text
-from .identity import clean_vin, is_surrogate_vin, normalize_detail_url, safe_data_url, vin_from_url
+from .identity import clean_vin, is_surrogate_vin, normalize_detail_url, safe_data_url, vin_check_digit_ok, vin_from_url
 from .models import DetailSpec
 
 
@@ -73,6 +74,14 @@ _DEALEREPROCESS_DVP_PATH_RE = re.compile(
 )
 _RIDEMOTIVE_IMAGE_PATH_RE = re.compile(r"^/[a-z0-9]{20,64}$")
 _RIDEMOTIVE_IMAGE_ID_RE = re.compile(r"^[a-z0-9]{20,64}$")
+# DealerCenter/DWS: imagescf.dealercenter.net/{w}/{h}/{yyyymm}-{32hex}.jpg —
+# a flat CDN like Dealer eProcess's: opaque per-asset filenames, no album
+# token, no VIN anywhere in the URL (verified on the captured Orlando Auto
+# Lounge VDP: 193 slider renditions, every filename this exact shape).
+_DEALERCENTER_GALLERY_ASSET_PATH_RE = re.compile(
+    r"^/\d{1,5}/\d{1,5}/(?:19|20)\d{2}(?:0[1-9]|1[0-2])-[0-9a-f]{32}\.jpe?g$",
+    re.I,
+)
 # Cars Commerce (Dealer Inspire) files a car's photos under its VIN:
 # /{shard}-{dealerId}/{VIN}/{asset}.png is the published original, and
 # /{shard}-{dealerId}/{VIN}/thumbnails/{size}/{asset}.png a rendition of that
@@ -184,6 +193,12 @@ _TYPE_VEHICLE_RE = re.compile(
     r"(?:^|[/#])(?:vehicle|car|usedcar|newcar|usedvehicle|newvehicle|motorizedvehicle|truck|suv|van)$",
     re.I,
 )
+# DealerCenter/DWS splits one car across two JSON-LD nodes: a Car that owns
+# the VIN but one image and almost no naming, and a schema.org Product that
+# repeats the SAME VIN alongside brand/model/vehicleModelDate and the gallery.
+# A Product is vehicle-typed ONLY when it directly owns a real VIN; a VIN-less
+# Product (accessory, service, merchandise) is never a vehicle.
+_TYPE_PRODUCT_RE = re.compile(r"(?:^|[/#])product$", re.I)
 _FIELD_ALIASES: dict[str, tuple[str, ...]] = {
     "vin": ("vehicleidentificationnumber", "vin", "serialnumber"),
     "stock_number": ("stocknumber", "stock", "sku"),
@@ -344,7 +359,29 @@ def _raw_data_vehicle_values(raw_html: str, soup: BeautifulSoup) -> list[Any]:
 def _type_is_vehicle(mapping: Mapping[str, Any]) -> bool:
     raw = mapping.get("@type", mapping.get("type"))
     values = raw if isinstance(raw, list) else [raw]
-    return any(isinstance(value, str) and _TYPE_VEHICLE_RE.search(value) for value in values)
+    if any(isinstance(value, str) and _TYPE_VEHICLE_RE.search(value) for value in values):
+        return True
+    # A schema.org Product that directly carries a vehicleIdentificationNumber
+    # is this page's vehicle published under the generic type (DealerCenter's
+    # VDP keeps year/make/model and the gallery there). The bar is HIGHER than
+    # the vehicle-typed alias lookup: only the true VIN keys count — never
+    # serialNumber, which a warranty or protection-plan Product legitimately
+    # carries with a 17-character serial — and the value must pass the ISO
+    # check digit. An adversarial review demonstrated both failure directions
+    # of the looser form: a "Vehicle Protection Plan" Product fabricated a
+    # promotable vehicle, and its serial joining the candidate VINs silently
+    # disabled unambiguous-VIN selection for the page's REAL car. A miss here
+    # is safe (the node is simply not admitted, as before); a misattribution
+    # is not.
+    if not any(
+        isinstance(value, str) and _TYPE_PRODUCT_RE.search(value)
+        for value in values
+    ):
+        return False
+    own_vin = clean_vin(
+        _primitive(_lookup(mapping, ("vehicleidentificationnumber", "vin"), recursive=False))
+    )
+    return bool(own_vin) and vin_check_digit_ok(own_vin)
 
 
 def _structured_candidates(raw_html: str, soup: BeautifulSoup) -> list[_StructuredCandidate]:
@@ -2179,12 +2216,114 @@ def _imagescf_size_width(url: str) -> int | None:
     return width if 1 <= width <= 20_000 else None
 
 
+_DWS_BASE_IMG_ATTR = "data-base-img-url"
+# The scope's declarations are indexed once per (scope, page) instead of
+# re-walked per thumbnail: the real DealerCenter VDP holds 193 slider
+# declarations beside 197 thumb imgs, and the quadratic scan tripled
+# extraction time. Keys are id() validated by a weakref identity check —
+# Tag hashing is content-based, so two look-alike containers must never
+# share an entry.
+_DWS_BASE_INDEX_CACHE: dict[
+    int, tuple[Any, str, dict[str, tuple[str, int]]]
+] = {}
+
+
+def _dws_scope_base_index(
+    scope: Tag, *, base_url: str
+) -> dict[str, tuple[str, int]]:
+    """Every proven-size base-image declaration under scope, by asset key."""
+
+    cached = _DWS_BASE_INDEX_CACHE.get(id(scope))
+    if cached is not None and cached[0]() is scope and cached[1] == base_url:
+        return cached[2]
+    index: dict[str, tuple[str, int]] = {}
+    for declared in scope.find_all(attrs={_DWS_BASE_IMG_ATTR: True}, limit=2_000):
+        if not isinstance(declared, Tag):
+            continue
+        candidate = safe_data_url(base_url, declared.get(_DWS_BASE_IMG_ATTR))
+        if not candidate:
+            continue
+        width = _imagescf_size_width(candidate)
+        if width is None:
+            continue
+        key = photo_asset_key(candidate)
+        existing = index.get(key)
+        if existing is None or width > existing[1]:
+            index[key] = (candidate, width)
+    if len(_DWS_BASE_INDEX_CACHE) >= 8:
+        _DWS_BASE_INDEX_CACHE.clear()
+    _DWS_BASE_INDEX_CACHE[id(scope)] = (weakref.ref(scope), base_url, index)
+    return index
+
+
+def _dws_base_image_upgrade(
+    node: Tag,
+    src_url: str | None,
+    *,
+    base_url: str,
+    gallery_scope: Tag | None = None,
+) -> tuple[str, int] | None:
+    """The page's own full rendition of a DealerCenter/DWS thumbnail.
+
+    DWS renders the gallery twice: /320/240/ thumb ``<img>``s and slider
+    ``<div>``s whose ``data-base-img-url`` names the SAME file at /1920/1080/.
+    This trusts only that published declaration, never a blind rewrite, and
+    only when it is provably the same asset — ``photo_asset_key`` folds the
+    /{w}/{h}/ size path on this one host, so the keys are equal exactly when
+    the files are — at a strictly larger width the CDN's own path declares.
+    The search is bounded: the node and its ancestors up to the configured
+    gallery container (or a fixed depth without one), then that container's
+    declarations for the same file. A declaration for another file, another
+    host, or a smaller/unproven size upgrades nothing.
+    """
+
+    src_width = _imagescf_size_width(src_url or "")
+    if src_width is None:
+        return None
+    src_key = photo_asset_key(src_url or "")
+
+    def accepted(raw: Any) -> tuple[str, int] | None:
+        candidate = safe_data_url(base_url, raw)
+        if not candidate:
+            return None
+        width = _imagescf_size_width(candidate)
+        if width is None or width <= src_width:
+            return None
+        if photo_asset_key(candidate) != src_key:
+            return None
+        return candidate, width
+
+    scope: Tag | None = None
+    current: Tag | None = node
+    for _depth in range(10):
+        if not isinstance(current, Tag):
+            break
+        if current.has_attr(_DWS_BASE_IMG_ATTR):
+            found = accepted(current.get(_DWS_BASE_IMG_ATTR))
+            if found:
+                return found
+        scope = current
+        if gallery_scope is not None and current is gallery_scope:
+            break
+        parent = current.parent
+        current = parent if isinstance(parent, Tag) else None
+    if gallery_scope is not None:
+        scope = gallery_scope
+    if scope is None or scope is node:
+        return None
+    declared = _dws_scope_base_index(scope, base_url=base_url).get(src_key)
+    if declared is not None and declared[1] > src_width:
+        return declared
+    return None
+
+
 def _node_photo(
     node: Tag,
     *,
     base_url: str,
     gallery_owned: bool = False,
     allow_background: bool = False,
+    gallery_scope: Tag | None = None,
 ) -> PhotoEvidence | None:
     candidates: list[tuple[int, PhotoEvidence]] = []
 
@@ -2274,6 +2413,19 @@ def _node_photo(
                 and pin_width > src_width
             ):
                 add(node.get("data-pin-media"), "pin_media", 860, width=pin_width)
+        # DWS publishes the full-size rendition itself: a slider div's
+        # data-base-img-url names this exact file at /1920/1080/. Same-asset
+        # plus strictly-larger declared width is the whole proof; the recorded
+        # width lets the existing width>=1000 evidence clause judge it, and
+        # full-resolution is never asserted by the label alone.
+        base_upgrade = _dws_base_image_upgrade(
+            node,
+            src_url,
+            base_url=base_url,
+            gallery_scope=gallery_scope,
+        )
+        if base_upgrade is not None:
+            add(base_upgrade[0], "base_img", 880, width=base_upgrade[1])
         anchor = node.find_parent("a")
         if anchor and anchor.find("img") is node:
             add(anchor.get("href"), "gallery_anchor", 850)
@@ -2375,6 +2527,30 @@ def _photo_collection_key(url: str) -> tuple[str, ...] | None:
     return None
 
 
+def _flat_cdn_gallery_grammar(url: str) -> str | None:
+    """The one verified flat-CDN grammar a gallery URL matches, if any.
+
+    "Flat" means per-asset opaque ids with no album/VIN token, so the
+    per-asset-label ownership route is the only proof available. Each entry is
+    an exact host plus an exact path shape, never a pattern family.
+    """
+
+    try:
+        parsed = urlsplit(url)
+    except ValueError:
+        return None
+    hostname = (parsed.hostname or "").casefold()
+    if hostname == "cloudflareimages.dealereprocess.com" and bool(
+        _DEALEREPROCESS_DVP_PATH_RE.fullmatch(parsed.path)
+    ):
+        return "dealereprocess"
+    if hostname == "imagescf.dealercenter.net" and bool(
+        _DEALERCENTER_GALLERY_ASSET_PATH_RE.fullmatch(parsed.path)
+    ):
+        return "dealercenter"
+    return None
+
+
 def _configured_gallery_identity_proven(
     scope: Tag | BeautifulSoup,
     *,
@@ -2444,6 +2620,7 @@ def _configured_gallery_identity_proven(
             base_url=base_url,
             gallery_owned=True,
             allow_background=True,
+            gallery_scope=container,
         )
         if photo is None:
             continue
@@ -2525,18 +2702,15 @@ def _configured_gallery_identity_proven(
         if _is_explicit_primary_gallery_component(container):
             return True
 
-    # Dealer eProcess assigns a distinct immutable CDN id to each photo, so no
-    # common album token exists. Its unique ``--vdp`` slider is still provable
-    # when every selected URL has the exact verified DVP CDN grammar and every
-    # asset label independently agrees with the exact structured year/make/model.
+    # Dealer eProcess and DealerCenter assign a distinct immutable CDN id to
+    # each photo, so no common album token exists. A unique, explicitly
+    # primary VDP slider is still provable when every selected URL has one
+    # exact verified flat-CDN grammar (never a mix of hosts) and every asset
+    # label independently agrees with the exact structured year/make/model.
     if not _is_explicit_primary_gallery_component(container) or not vehicle_record:
         return False
-    if not all(
-        (urlsplit(url).hostname or "").casefold()
-        == "cloudflareimages.dealereprocess.com"
-        and bool(_DEALEREPROCESS_DVP_PATH_RE.fullmatch(urlsplit(url).path))
-        for url in owned_urls
-    ):
+    grammars = {_flat_cdn_gallery_grammar(url) for url in owned_urls}
+    if len(grammars) != 1 or None in grammars:
         return False
     required_tokens = [
         _key(vehicle_record.get(name))
@@ -2748,6 +2922,7 @@ def _dom_photos(
                 base_url=base_url,
                 gallery_owned=True,
                 allow_background=bool(gallery_selector),
+                gallery_scope=container,
             )
             key = candidate.url.casefold() if candidate else ""
             if candidate and key not in seen_container_urls:
@@ -2895,6 +3070,7 @@ def _dedupe_photos(photos: Iterable[PhotoEvidence], maximum: int) -> tuple[Photo
     source_strength = {
         "data_full": 6,
         "known_cdn_full": 6,
+        "base_img": 5,
         "pin_media": 5,
         "gallery_anchor": 5,
         "srcset": 4,
@@ -3323,6 +3499,19 @@ def extract_vdp(
     # Never accept a mismatched real VIN from a generic/sole structured node.
     selected_vin = clean_vin(record.get("vin"))
     if expected and not expected.startswith("URLKEY") and selected_vin and selected_vin != expected:
+        record = {}
+        structured_photos = []
+        matched_by = None
+    # Without a caller-expected VIN the page's own printed identity is the
+    # authority: a structured node (Vehicle- or Product-typed) whose direct
+    # VIN contradicts it must not contribute fields or photos to this record.
+    page_published_vin = scope_vin or advertised_vin or document_vin
+    if (
+        not expected_real
+        and page_published_vin
+        and selected_vin
+        and selected_vin != page_published_vin
+    ):
         record = {}
         structured_photos = []
         matched_by = None
