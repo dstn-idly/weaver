@@ -75,5 +75,38 @@ services:
     tmpfs:
       - /tmp:rw,nosuid,nodev,noexec,size=16m
 
+  # First-populate quick scraper — one-shot, run per new customer:
+  #   docker compose run --rm quickscrape python /quickscrape/quickscrape.py \
+  #     --url <SRP> --license <key> --secret "$APP_API_SECRET"
+  # Reuses the weaver image (browser stack included) via a read-only mount, so
+  # invoking it never rebuilds or restarts the factory.
+  quickscrape:
+    image: weaver-hackathon:local
+    profiles:
+      - quickscrape
+    command: ["python", "/quickscrape/quickscrape.py", "--help"]
+    healthcheck:
+      disable: true
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - ./quickscrape:/quickscrape:ro
+    init: true
+    read_only: true
+    cap_drop:
+      - ALL
+    cap_add:
+      - SYS_CHROOT
+    security_opt:
+      - no-new-privileges:true
+      - seccomp=./seccomp_profile.json
+    pids_limit: 1024
+    mem_limit: 4g
+    cpus: 2.0
+    shm_size: 1gb
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,noexec,size=256m
+
 volumes:
   weaver-data:
