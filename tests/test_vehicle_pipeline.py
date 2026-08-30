@@ -337,7 +337,7 @@ def _install_pipeline_fakes(
     )
     capture_specs: list[Any] = []
 
-    async def fake_capture(spec: Any, session: Any, *, limits: Any) -> FixtureSet:
+    async def fake_capture(spec: Any, session: Any, *, limits: Any, **kwargs: Any) -> FixtureSet:
         assert session.open
         assert limits.max_listing_pages == 3
         capture_specs.append(spec)

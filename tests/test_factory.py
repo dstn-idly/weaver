@@ -955,3 +955,57 @@ def test_a_referral_never_recrawls_an_origin_escalated_to_a_human(tmp_path):
         assert len(store.jobs) == 1
 
     asyncio.run(run())
+
+
+def test_the_job_feed_relays_the_runs_own_narration(tmp_path, monkeypatch):
+    """The run knows which page and which VDP it is on; the factory feed must
+    carry that instead of a dead heartbeat — while never relaying the noise
+    types and never letting a relay failure disturb polling."""
+
+    import weaver.factory.orchestrator as orchestrator
+
+    run_events = [
+        {"seq": 1, "type": "run", "payload": {"status": "running"}},
+        {"seq": 2, "type": "crawl_listing_page",
+         "payload": {"page": 1, "cards": 24, "vdp_urls_so_far": 24}},
+        {"seq": 3, "type": "crawl_detail_page",
+         "payload": {"index": 1, "of": 24, "photos": 27}},
+        {"seq": 4, "type": "log", "payload": {"line": "noise"}},
+    ]
+
+    class FakeResponse:
+        def __init__(self, data):
+            self._data = data
+
+        def json(self):
+            return self._data
+
+    async def fake_api(client, method, path, **kwargs):
+        assert "events.json" in path
+        cursor = int(path.split("cursor=")[1].split("&")[0])
+        events = run_events[cursor:]
+        return FakeResponse({"cursor": cursor + len(events), "events": events})
+
+    monkeypatch.setattr(orchestrator, "_api", fake_api)
+
+    async def run():
+        store = FactoryStore(tmp_path)
+        job = store.create("https://dealer.example/used", "https://dealer.example")
+        cursor = await orchestrator._relay_run_events(None, store, job, "runX", 0)
+        assert cursor == 4
+        types = [e["type"] for e in job.events]
+        assert "crawl_listing_page" in types and "crawl_detail_page" in types
+        assert "run" not in types and "log" not in types  # noise stays out
+        # A second poll at the advanced cursor forwards nothing new.
+        cursor = await orchestrator._relay_run_events(None, store, job, "runX", cursor)
+        assert cursor == 4
+        assert len([t for t in job.events]) == 2
+
+        # A relay failure returns the cursor unchanged and breaks nothing.
+        async def broken_api(client, method, path, **kwargs):
+            raise RuntimeError("events endpoint down")
+
+        monkeypatch.setattr(orchestrator, "_api", broken_api)
+        assert await orchestrator._relay_run_events(None, store, job, "runX", 4) == 4
+
+    asyncio.run(run())

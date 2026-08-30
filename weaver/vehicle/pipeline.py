@@ -393,6 +393,16 @@ async def _run_vehicle_pipeline(record: Any) -> None:
                 )
 
             active_attempt_error: Exception | None = None
+            async def _capture_progress(kind: str, payload: dict[str, Any]) -> None:
+                await record.emit(kind, payload, source_id)
+                # The portal's heartbeat reads row_count; narrating discovery
+                # into it turns "row_count: 0 for half an hour" into a live
+                # number. The real replay count overwrites this at the end.
+                if kind == "crawl_listing_page":
+                    discovered = payload.get("vdp_urls_so_far")
+                    if isinstance(discovered, int):
+                        record.summary.row_count = discovered
+
             try:
                 if verified_detail_cache:
                     fixtures = await capture_dealer_fixtures(
@@ -400,12 +410,14 @@ async def _run_vehicle_pipeline(record: Any) -> None:
                         session,
                         limits=limits,
                         verified_detail_cache=verified_detail_cache,
+                        progress=_capture_progress,
                     )
                 else:
                     fixtures = await capture_dealer_fixtures(
                         spec,
                         session,
                         limits=limits,
+                        progress=_capture_progress,
                     )
                 await record.emit(
                     "phase",

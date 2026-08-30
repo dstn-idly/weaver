@@ -811,6 +811,29 @@ async def _event_stream(record: RunRecord, cursor: int) -> AsyncIterator[str]:
             yield ": keepalive\n\n"
 
 
+@app.get("/api/runs/{run_id}/events.json")
+async def run_events_json(run_id: str, cursor: int = 0, limit: int = 200) -> dict[str, Any]:
+    """Plain-JSON event tail for pollers (the factory's live-feed relay).
+
+    The SSE stream above stays the browser's channel; a poller that already
+    wakes every few seconds just wants "everything after my cursor" without
+    holding a streaming response open.
+    """
+
+    record = run_store.get(run_id)
+    if not record:
+        raise HTTPException(404, "Run not found")
+    start = max(0, int(cursor))
+    bounded = max(1, min(int(limit), 500))
+    events = list(record.events[start : start + bounded])
+    return {
+        "cursor": start + len(events),
+        "total": len(record.events),
+        "status": record.summary.status,
+        "events": events,
+    }
+
+
 @app.get("/api/runs/{run_id}/events")
 async def run_events(run_id: str, last_event_id: str | None = Header(default=None)) -> StreamingResponse:
     record = run_store.get(run_id)

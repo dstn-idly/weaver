@@ -2569,8 +2569,23 @@ async def capture_dealer_fixtures(
     *,
     limits: CrawlLimits,
     verified_detail_cache: Mapping[str, VerifiedDetailCacheEntry] | None = None,
+    progress: Any = None,
 ) -> FixtureSet:
-    """Capture bounded listing/VDP fixtures through one persistent session."""
+    """Capture bounded listing/VDP fixtures through one persistent session.
+
+    ``progress`` is an optional async callable ``(kind, payload)`` told about
+    each listing page and VDP as it is captured — a half-hour crawl narrating
+    itself instead of a feed of silent heartbeats. Progress reporting must
+    never break a crawl: every call is fire-and-forget behind a guard.
+    """
+
+    async def _note(kind: str, payload: dict[str, Any]) -> None:
+        if progress is None:
+            return
+        try:
+            await progress(kind, payload)
+        except Exception:  # noqa: BLE001 - narration must never fail the crawl
+            pass
 
     listing_pages: dict[str, str] = {}
     detail_pages: dict[str, str] = {}
@@ -2605,6 +2620,18 @@ async def capture_dealer_fixtures(
             if isinstance(detail_url, str):
                 detail_key = canonical_page_url(detail_url)
                 detail_targets.setdefault(detail_key, (detail_url, clean_vin(row.get("vin"))))
+        await _note(
+            "crawl_listing_page",
+            {
+                "page": len(listing_pages),
+                "url": url,
+                "cards": page.raw_card_count,
+                "rejected_cards": page.rejected_card_count,
+                "vdp_urls_so_far": len(detail_targets),
+                "expected_total": expected_total,
+                "transport": getattr(session, "last_mode", None),
+            },
+        )
         # Dealer pagers can render speculative pages after the final inventory
         # page. Stop once the source's own denominator is satisfied, or when a
         # page contributes no new VDP URLs.
@@ -2623,12 +2650,21 @@ async def capture_dealer_fixtures(
             return await session_fetch_detail(detail_url)
         return await session.fetch(detail_url)
 
-    for detail_url, expected_vin in list(detail_targets.values())[: limits.max_detail_pages]:
+    planned_details = list(detail_targets.values())[: limits.max_detail_pages]
+    await _note(
+        "crawl_details_planned",
+        {"count": len(planned_details), "discovered": len(detail_targets),
+         "expected_total": expected_total},
+    )
+    detail_index = 0
+    for detail_url, expected_vin in planned_details:
+        detail_index += 1
         try:
             detail_key = canonical_page_url(detail_url)
         except (TypeError, ValueError):
             detail_key = detail_url
         cached = cache.get(detail_key)
+        note_photos = None
         eligible = bool(
             cached
             and expected_vin
@@ -2653,6 +2689,7 @@ async def capture_dealer_fixtures(
                 detail=spec.detail,
                 expected_vin=expected_vin,
             )
+            note_photos = len(result.photos)
             if not result.identity_proven:
                 # A reused fixture still has to satisfy today's deterministic
                 # identity contract. If code/spec evolution rejects it, hydrate
@@ -2674,6 +2711,7 @@ async def capture_dealer_fixtures(
                     detail=spec.detail,
                     expected_vin=expected_vin,
                 )
+                note_photos = len(current.photos)
                 if current.identity_proven and len(current.photos) < 2:
                     try:
                         rendered_html = await fetch_rendered(
@@ -2692,6 +2730,7 @@ async def capture_dealer_fixtures(
                     if hydrated.identity_proven and len(hydrated.photos) > len(current.photos):
                         html = rendered_html
                         reused = False
+                        note_photos = len(hydrated.photos)
         # "refetched" means every VDP hydrated from the dealer this run,
         # including new/unindexed vehicles and cache candidates that changed.
         if not reused:
@@ -2704,6 +2743,12 @@ async def capture_dealer_fixtures(
             if etag is not None:
                 detail_etags[detail_url] = etag
         detail_pages[detail_url] = html
+        await _note(
+            "crawl_detail_page",
+            {"index": detail_index, "of": len(planned_details), "vin": expected_vin,
+             "photos": note_photos, "reused": reused,
+             "transport": getattr(session, "last_mode", None)},
+        )
     return FixtureSet(
         listing_pages=listing_pages,
         detail_pages=detail_pages,

@@ -93,19 +93,64 @@ async def _create_run(
     raise RuntimeError(f"factory could not reach its own run API: {last_error}")
 
 
+# Run event types the job feed does not relay: "run" duplicates run_status,
+# "done" duplicates crawl_done, and "log" lines are the engine-log panel's job.
+_UNRELAYED_RUN_EVENTS = frozenset({"run", "done", "log"})
+
+
+async def _relay_run_events(
+    client: httpx.AsyncClient,
+    store: FactoryStore,
+    job: FactoryJob,
+    run_id: str,
+    cursor: int,
+) -> int:
+    """Forward the run's own narration into the job feed; returns new cursor.
+
+    The run knows exactly what it is doing — which listing page, which VDP,
+    how many photos — and the factory feed was reducing all of it to a dead
+    heartbeat. Relay failures never disturb polling."""
+
+    try:
+        response = await _api(
+            client, "GET", f"/api/runs/{run_id}/events.json?cursor={cursor}&limit=200"
+        )
+        feed = response.json()
+    except Exception:  # noqa: BLE001 - narration must never break the poll loop
+        return cursor
+    events = feed.get("events") or []
+    for event in events:
+        event_type = str(event.get("type") or "run_event")
+        if event_type in _UNRELAYED_RUN_EVENTS:
+            continue
+        payload = event.get("payload")
+        await store.emit(
+            job,
+            event_type,
+            payload if isinstance(payload, dict) else {"detail": str(payload)[:400]},
+        )
+    try:
+        return int(feed.get("cursor") or cursor) or cursor
+    except (TypeError, ValueError):
+        return cursor
+
+
 async def _poll_run(client: httpx.AsyncClient, store: FactoryStore, job: FactoryJob, run_id: str) -> dict[str, Any]:
     last_status = ""
+    events_cursor = 0
     heartbeat_every = max(1, int(120 / POLL_SECONDS))
     for tick in range(int(MAX_RUN_MINUTES * 60 / POLL_SECONDS)):
         response = await _api(client, "GET", f"/api/runs/{run_id}")
         run = response.json()
         status = str(run.get("status"))
+        events_cursor = await _relay_run_events(client, store, job, run_id, events_cursor)
         if status != last_status:
             last_status = status
             await store.emit(job, "run_status", {"run_id": run_id, "status": status, "row_count": run.get("row_count")})
         elif tick and tick % heartbeat_every == 0:
-            # A long crawl emits no boundary events; the heartbeat keeps the
-            # portal's live feed visibly ticking instead of looking frozen.
+            # The relayed narration usually keeps the feed alive; the
+            # heartbeat remains for stretches where the run itself is silent
+            # (a slow single fetch, a wedged transport).
             await store.emit(
                 job,
                 "crawl_heartbeat",
@@ -117,6 +162,8 @@ async def _poll_run(client: httpx.AsyncClient, store: FactoryStore, job: Factory
                 },
             )
         if status in ("passed", "partial", "failed"):
+            # One final drain so the tail of the narration is never lost.
+            await _relay_run_events(client, store, job, run_id, events_cursor)
             return run
         await asyncio.sleep(POLL_SECONDS)
     raise TimeoutError(f"weaver run {run_id} exceeded the factory polling budget")

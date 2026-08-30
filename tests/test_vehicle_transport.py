@@ -4120,3 +4120,35 @@ def test_navigation_pacing_is_env_tunable_and_never_metronomic(monkeypatch) -> N
 
     monkeypatch.delenv("WEAVER_NAV_MIN_INTERVAL_SEC")
     assert PersistentDealerSession("https://dealer.example").navigation_min_interval_seconds == 1.0
+
+
+def test_capture_narrates_every_page_and_vdp_it_fetches() -> None:
+    """A half-hour crawl must explain itself: one event per listing page, a
+    plan announcement, and one event per VDP — and a broken narrator can
+    never break the crawl."""
+
+    told = []
+
+    async def progress(kind, payload):
+        told.append((kind, payload))
+        raise RuntimeError("narrator crashed — the crawl must not care")
+
+    async def run():
+        spec = parse_spec(SPEC)
+        fixtures = await capture_dealer_fixtures(
+            spec,
+            FakeTransport(),
+            limits=CrawlLimits(max_listing_pages=2, max_detail_pages=2),
+            progress=progress,
+        )
+        assert list(fixtures.detail_pages)  # the crawl itself succeeded
+
+    asyncio.run(run())
+    kinds = [kind for kind, _ in told]
+    assert kinds.count("crawl_listing_page") >= 1
+    assert kinds.count("crawl_details_planned") == 1
+    assert kinds.count("crawl_detail_page") >= 1
+    listing = next(p for k, p in told if k == "crawl_listing_page")
+    assert listing["page"] == 1 and "cards" in listing and "vdp_urls_so_far" in listing
+    detail = next(p for k, p in told if k == "crawl_detail_page")
+    assert detail["index"] == 1 and "photos" in detail and "vin" in detail
