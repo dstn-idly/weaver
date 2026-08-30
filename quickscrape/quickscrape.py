@@ -124,8 +124,77 @@ def parse_vdp(html: str, origin: str) -> dict:
                 break
     if vin:
         out["vin"] = vin
+    text = soup.get_text(" | ", strip=True)
+    if "mileage" not in out:
+        odometer = _labeled_mileage(text)
+        if odometer is not None:
+            out["mileage"] = odometer
+    fuel = _labeled_fuel(text)
+    if fuel:
+        out["fuel"] = fuel
     out["photos"] = _gallery_from_vdp(html, soup)
     return out
+
+
+# Odometer statements only — never a bare "X miles". On an EV page "286
+# miles" is the range and "100,000 miles" the warranty; the real odometer of
+# a demo unit often lives ONLY in prose ("a demonstrator with just 2,875
+# miles"). Every accepted match is re-checked against range/warranty context.
+_MILEAGE_ACCEPT = (
+    re.compile(r"(?:mileage|odometer)\s*[:|]?\s*([\d,]{1,9})\b", re.I),
+    re.compile(r"with\s+(?:just\s+|only\s+)?([\d,]{1,9})\s+miles\b", re.I),
+    re.compile(r"([\d,]{1,9})\s+miles\s+on\s+the\s+odometer", re.I),
+    re.compile(r"(?:has|showing|carries)\s+(?:just\s+|only\s+)?([\d,]{1,9})\s+miles\b", re.I),
+)
+_MILEAGE_REJECT_NEAR = re.compile(
+    r"range|economy|per\s+charge|warranty|months|epa|kwh|kw\b|charging", re.I
+)
+
+
+def _labeled_mileage(text: str) -> int | None:
+    for pattern in _MILEAGE_ACCEPT:
+        for match in pattern.finditer(text):
+            # Judge the match against ITS OWN text segment (get_text joins
+            # nodes with " | "), not a fixed byte window — a flat window
+            # reaches into the neighboring spec row and a warranty line
+            # there would veto a legitimate odometer sentence.
+            segment_start = text.rfind("|", 0, match.start()) + 1
+            segment_end = text.find("|", match.end())
+            if segment_end == -1:
+                segment_end = min(len(text), match.end() + 40)
+            context = text[segment_start:segment_end]
+            if _MILEAGE_REJECT_NEAR.search(context):
+                continue
+            try:
+                value = int(match.group(1).replace(",", ""))
+            except ValueError:
+                continue
+            if 1 <= value <= 400_000:
+                return value
+    return None
+
+
+_FUEL_RE = re.compile(
+    r"Fuel\s*Type\s*[:|]\s*(Electric|Gasoline|Gas|Diesel|Plug[- ]?in\s+Hybrid|Hybrid|Flex(?:[- ]?fuel)?|E85)",
+    re.I,
+)
+_FUEL_CANON = {
+    "gas": "gasoline",
+    "e85": "flex",
+    "flexfuel": "flex",
+    "flex fuel": "flex",
+    "flex-fuel": "flex",
+    "plugin hybrid": "plug-in hybrid",
+    "plug in hybrid": "plug-in hybrid",
+}
+
+
+def _labeled_fuel(text: str) -> str | None:
+    match = _FUEL_RE.search(text)
+    if not match:
+        return None
+    raw = " ".join(match.group(1).lower().split())
+    return _FUEL_CANON.get(raw, raw)
 
 
 def _photo_asset_key(url: str) -> str:
@@ -289,7 +358,7 @@ def to_sync_rows(rows: list[dict]) -> list[dict]:
             "detail_url": row.get("detail_url"),
             "photos": photos[:40],
         }
-        for key in ("year", "make", "model", "trim", "price", "mileage"):
+        for key in ("year", "make", "model", "trim", "price", "mileage", "fuel"):
             if row.get(key) is not None:
                 vehicle[key] = row[key]
         payload.append(vehicle)
