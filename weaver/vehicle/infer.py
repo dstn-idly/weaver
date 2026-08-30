@@ -12,6 +12,14 @@ listing/VDP extractors successfully replay it against captured HTML.
 There is no generated code or model-controlled transport configuration here.
 Runtime crawling, credentials, headers, cookies, proxies, browser flags, and
 resource budgets remain owned by the application and vehicle engine.
+
+The spec library (``weaver.vehicle.library``) may append bounded EXEMPLARS —
+verified sibling-platform specs retrieved by fingerprint — to the model
+instructions.  Those exemplars are hints only: they are never added to the
+response-schema enums or the application catalogs, and
+``_enforce_selector_authority`` continues to pin every proposed selector to
+the CURRENT page's own locally verified catalog, so an exemplar selector this
+page did not independently produce is unproposable.
 """
 
 from __future__ import annotations
@@ -46,6 +54,7 @@ from .vdp import extract_vdp
 
 
 from ..openai_retry import post_json_with_retry, quota_exhausted_reason
+from . import library as spec_library
 from .lessons import field_notes_prompt
 
 RESPONSES_URL = "https://api.openai.com/v1/responses"
@@ -1365,17 +1374,32 @@ def _detail_selector_candidates(
                 image_count = max(image_count, len(str(value).strip("\"'").split(",")))
         if image_count < 2:
             continue
-        selector = _css_selector(node, meaningful=gallery_meaningful)
-        if not selector or selector in seen_gallery:
-            continue
-        try:
-            matches = soup.select(selector)
-        except Exception:
-            continue
-        if len(matches) != 1:
-            continue
-        seen_gallery.add(selector)
-        galleries.append((image_count, selector))
+        # An id like DWS_VDP_Media_5 carries a widget-instance counter, so a
+        # spec pinned to it is bound to one template instance. Nominate the
+        # stable-class spelling of the SAME node as an additional candidate —
+        # still uniqueness-checked here and still contract-replayed like any
+        # other — so the model can choose the form that generalizes.
+        candidates = [_css_selector(node, meaningful=gallery_meaningful)]
+        if candidates[0] and "#" in candidates[0]:
+            without_id = Tag(name=node.name, attrs={
+                key: value for key, value in node.attrs.items() if key != "id"
+            })
+            class_form = _css_selector(without_id, meaningful=gallery_meaningful)
+            # Only a class-bearing spelling is evidence; a bare tag name is
+            # not a nomination.
+            if class_form and "." in class_form:
+                candidates.append(class_form)
+        for selector in candidates:
+            if not selector or selector in seen_gallery:
+                continue
+            try:
+                matches = soup.select(selector)
+            except Exception:
+                continue
+            if len(matches) != 1:
+                continue
+            seen_gallery.add(selector)
+            galleries.append((image_count, selector))
     galleries.sort(key=lambda item: (-item[0], len(item[1]), item[1]))
     return (
         tuple(roots[:12]),
@@ -2268,17 +2292,27 @@ def infer_vehicle_spec(
     )
     gallery_item_selectors: tuple[str | None, ...] = ()
     if detail_html is not None and detail_url is not None:
-        (
-            detail_root_selectors,
-            gallery_selectors,
-            gallery_item_selectors,
-        ) = _verified_detail_selector_contract(
-            detail_html,
-            detail_url=detail_url,
-            origin=origin,
-            roots=detail_root_selectors,
-            galleries=gallery_selectors,
-        )
+        # The gallery-contract raise is the one inference failure that used to
+        # carry NO diagnostics — the candidate lists were assigned only after
+        # the contract returned, so a failed run's bundle said diagnostics:
+        # null and the diagnosis had to rebuild the candidates by hand.
+        try:
+            (
+                detail_root_selectors,
+                gallery_selectors,
+                gallery_item_selectors,
+            ) = _verified_detail_selector_contract(
+                detail_html,
+                detail_url=detail_url,
+                origin=origin,
+                roots=detail_root_selectors,
+                galleries=gallery_selectors,
+            )
+        except SpecInferenceError as contract_error:
+            diagnostics["detail_root_candidates"] = list(detail_root_selectors)
+            diagnostics["gallery_candidates"] = list(gallery_selectors)
+            contract_error.diagnostics = diagnostics
+            raise
     else:
         detail_root_selectors = (None,)
         gallery_selectors = ()
@@ -2347,6 +2381,25 @@ def infer_vehicle_spec(
     # Refuse over-budget evidence before making the first paid request.
     _attempt_prompt(evidence_payload, ())
 
+    # Retrieval-augmented exemplars from the spec library. HINTS ONLY, by
+    # design and by test: this bounded text joins the model INSTRUCTIONS and
+    # nothing else — the response schema enums, the application catalogs, and
+    # _enforce_selector_authority below never see library content, so an
+    # exemplar selector the current page's catalog does not independently
+    # offer remains exactly as unproposable as before the library existed.
+    exemplar_text = ""
+    try:
+        exemplar_text, exemplar_summary = spec_library.exemplar_prompt_for_pages(
+            listing_html, detail_html, origin=origin
+        )
+        if exemplar_summary:
+            diagnostics["spec_library_exemplars"] = [
+                {"origin": row["origin"], "score": row["score"]}
+                for row in exemplar_summary
+            ]
+    except Exception:  # noqa: BLE001 - a hint source must never break inference
+        exemplar_text = ""
+
     instructions = (
         "Design selectors for a deterministic dealership vehicle extractor. "
         "Return only the strict schema. Never return code, URLs, hostnames, headers, "
@@ -2365,7 +2418,7 @@ def infer_vehicle_spec(
         "scope to the page-primary vehicle and its main full-size gallery; exclude "
         "thumbnails, related/recommended cars, logos, banners, and stock imagery. Use "
         "ordinary CSS supported by BeautifulSoup/soupsieve. Null means the evidence does "
-        "not prove a selector." + field_notes_prompt()
+        "not prove a selector." + field_notes_prompt() + exemplar_text
     )
 
     owned_client = session is None
