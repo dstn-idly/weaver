@@ -3825,3 +3825,58 @@ def test_a_block_page_served_with_200_is_named_a_block_not_a_readiness_timeout()
         assert caught.value.code == "dealer_waf_blocked"
 
     asyncio.run(run())
+
+
+def test_readiness_judges_extraction_with_the_pages_own_origin(monkeypatch) -> None:
+    """Three judges must spell the origin one way. Inference and capture key
+    extraction on spec.origin (www); the readiness gate used the raw apex
+    session origin, so same_origin_url's exact-host upgrade branch rejected
+    all 100 of Universal Nissan's http:// card links and a perfectly good
+    rendered page raised "did not produce a concrete spec-matched vehicle
+    card". Readiness now judges against the already-authorized page's own
+    origin — navigation authorization is unchanged."""
+
+    from types import SimpleNamespace
+
+    from weaver.vehicle.models import parse_spec
+
+    card = (
+        '<li class="vehicle-item">'
+        '<a href="http://www.dealer.example/inventory/used-2022-nissan-rogue-jn8at3bb9nw123456/">'
+        "2022 Nissan Rogue SV AWD, 41,120 miles, one owner, clean history, "
+        "backup camera, blind spot warning, remote start, priced to move "
+        "today</a><span>VIN JN8AT3BB9NW123456</span>"
+        "<span>$24,995</span><span>2022</span></li>"
+    )
+    page = f"<html><body><ul>{card * 6}</ul></body></html>"
+
+    class RenderedBrowser:
+        async def fetch(self, url, **kwargs):
+            return SimpleNamespace(status=200, url="https://www.dealer.example/llm/inventory/", html_content=page)
+
+    async def allow(url):
+        return SimpleNamespace(url=url, hostname=url.split("/", 3)[2])
+
+    spec = parse_spec(SPEC)
+    # The session was opened on the APEX intake origin; the SRP lives on www.
+    session = PersistentDealerSession("https://dealer.example")
+    session._session = RenderedBrowser()
+    session._validate_public_target = allow
+
+    listing = spec.listing.__class__(
+        card_selector="li.vehicle-item",
+        detail_link_selector="a[href]",
+        fields={},
+        next_page_selector=None,
+        total_selector=None,
+        total_attribute=None,
+    )
+
+    async def run():
+        html = await session._fetch_rendered_once(
+            "https://www.dealer.example/llm/inventory/",
+            listing_readiness=listing,
+        )
+        assert "vehicle-item" in html
+
+    asyncio.run(run())

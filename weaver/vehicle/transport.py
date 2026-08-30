@@ -1695,7 +1695,16 @@ class PersistentDealerSession:
                 if listing_readiness is None or _listing_readiness_satisfied(
                     static,
                     page_url=url,
-                    origin=self.origin,
+                    # Judge extraction against the page's OWN authorized
+                    # origin, not the raw session origin. Universal Nissan's
+                    # intake is the apex, its SRP lives on www, and every one
+                    # of 100 good cards was rejected here because the judge
+                    # spelled the origin differently than the page it was
+                    # judging — while inference and capture (both keyed on
+                    # spec.origin) accepted the same bytes. Navigation was
+                    # already authorized by the www-folded _same_origin, so
+                    # this cannot widen where the crawl goes.
+                    origin=url_origin(url) or self.origin,
                     listing=listing_readiness,
                     known_detail_urls=known_detail_urls,
                 ):
@@ -1914,7 +1923,10 @@ class PersistentDealerSession:
         if listing_readiness is not None and not _listing_readiness_satisfied(
             html,
             page_url=final_url,
-            origin=self.origin,
+            # The page's own origin, for the same reason as the static site
+            # above: the readiness judge must spell the origin the way the
+            # already-authorized page it is judging is served.
+            origin=url_origin(final_url) or self.origin,
             listing=listing_readiness,
         ):
             # Say WHY the page had no card, not just that it didn't — the
