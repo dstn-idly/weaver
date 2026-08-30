@@ -2599,9 +2599,20 @@ def _skeleton_placeholder_count(html: str) -> int:
 _HYDRATION_CENSUS = r"""
 (sel) => {
   const generic = "[class*='vehicle-card'],[class*='vehicle-item'],[class*='inventory-card']";
+  let nodes;
+  try { nodes = document.querySelectorAll(sel || generic); }
+  catch (_) { nodes = document.querySelectorAll(generic); }
+  // A skeleton shell matches the same class family as the card it will
+  // become; counting shells reads "stable" from the first instant while the
+  // page is still empty. A card counts only once it is HYDRATED: not a
+  // placeholder, and carrying a real link.
   let cards = 0;
-  try { cards = document.querySelectorAll(sel || generic).length; }
-  catch (_) { cards = document.querySelectorAll(generic).length; }
+  for (const node of nodes) {
+    const cls = String(node.className || "");
+    if (/placeholder|skeleton|loading/i.test(cls)) continue;
+    if (!node.querySelector("a[href]")) continue;
+    cards++;
+  }
   const placeholders = document.querySelectorAll(
     "[class*='placeholder-card'],[class*='skeleton-card'],[class*='loading-card']"
   ).length;
@@ -2630,7 +2641,7 @@ async def _scroll_to_hydrate(page: object, card_selector: str | None = None) -> 
             return None
         return state if isinstance(state, dict) else None
 
-    await asyncio.sleep(0.8)  # let the inventory widget mount before judging
+    await asyncio.sleep(1.0)  # let the inventory widget mount before judging
     state = await census()
     if state is None:
         return
@@ -2643,7 +2654,7 @@ async def _scroll_to_hydrate(page: object, card_selector: str | None = None) -> 
             await evaluator("() => { window.scrollTo(0, document.body.scrollHeight); }")
         except Exception:  # noqa: BLE001
             return
-        await asyncio.sleep(0.9)
+        await asyncio.sleep(1.0)
         state = await census()
         if state is None:
             return
