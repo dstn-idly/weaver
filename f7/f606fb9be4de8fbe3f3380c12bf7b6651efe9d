@@ -1,0 +1,27 @@
+docker-compose.yml
+  s_da9cd4ad208db2::t_aef402d836c299 59-64
+tests/test_factory_referrals.py
+  s_da9cd4ad208db2::t_b0bf466a16747b 1-225
+weaver/autoposting_reaper.py
+  s_da9cd4ad208db2::t_eb907e9127e3b0 12-20,60-73,86-93,98,108-111,116-126,130-152,202-298,322-335,345,349-351
+weaver/factory/portal.py
+  s_da9cd4ad208db2::t_35297524f943b7 10-11,60-161,204-212,419
+weaver/factory/store.py
+  s_da9cd4ad208db2::t_f9c0359715dbf4 46-50,67,94
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "f7f606fb9be4de8fbe3f3380c12bf7b6651efe9d",
+  "prompts": {},
+  "sessions": {
+    "s_da9cd4ad208db2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4cd1a6ac-f843-47f4-ac8d-77cbe7e08a68",
+        "model": "claude-fable-5"
+      },
+      "human_author": "dustin thach <epikunder321123@gmail.com>"
+    }
+  }
+}
