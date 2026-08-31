@@ -762,7 +762,13 @@ _CDN_STOCK_PATH_RE = re.compile(
     r"/stock_images/"
     r"|/autodata/[^\s\"'<>,\\]*/color/"
     r"|/ddc/vehicles/[^\s\"'<>,\\]*/color/"
-    r"|oem_vin_stock_photos/",
+    r"|oem_vin_stock_photos/"
+    # EDealer sorts by path segment: /inventory/ is this unit's own
+    # photography, /trim/ is the manufacturer's imagery for the trim. A
+    # traded-in Buick at a Mitsubishi store published thirteen /trim/ renders
+    # and no photographs; shipping those tells a buyer they are looking at a
+    # car that is not for sale.
+    r"|media\.edealer\.ca/[^\s\"'<>\\]*?/trim/",
     re.I,
 )
 

@@ -4790,3 +4790,18 @@ def test_a_rejected_clearance_relaunches_clean_instead_of_ending_the_crawl() -> 
         assert session._carried_cookie_count == 0
 
     asyncio.run(run())
+
+
+def test_the_generic_hydration_census_recognizes_more_card_families() -> None:
+    """EDealer names its cards "card js-inventory-item-id cell" — matching none
+    of the vehicle-* forms — so the no-spec rendered path reported zero cards
+    and skipped hydration on a lazily-loaded listing."""
+
+    from weaver.vehicle.transport import _HYDRATION_CENSUS
+
+    for fragment in (
+        "vehicle-card", "vehicle-item", "inventory-card",
+        "inventory-item", "srp-vehicle", "vehicle-listing",
+        "li.card", "div.card.cell",
+    ):
+        assert fragment in _HYDRATION_CENSUS

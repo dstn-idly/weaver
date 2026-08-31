@@ -2902,3 +2902,23 @@ def test_a_lazyload_notavailable_placeholder_cannot_veto_a_gallery() -> None:
     assert result.identity_proven
     assert len(result.photos) == 2
     assert not any("notavailable" in p.url for p in result.photos)
+
+
+def test_edealer_trim_renders_are_stock_art_not_photographs() -> None:
+    """North Shore's traded-in Buick published thirteen /trim/ renders and no
+    photographs. EDealer sorts by path segment: /inventory/ is this unit's own
+    photography, /trim/ is the manufacturer's imagery for the trim — and the
+    transform segment carries commas, which the shared URL class excludes."""
+
+    from weaver.vehicle.vdp import _CDN_STOCK_PATH_RE
+
+    real = "https://media.edealer.ca/w_1920,h_1440,q_75,c_l,v1/inventory/MYSIZJGRLNHVDFURCSLGFVT5WE.webp"
+    stock = "https://media.edealer.ca/w_1920,h_1440,q_75,c_l,v1/trim/VQTGM4SMWJCHZJX7J56NWZAE3U.webp"
+    thumb = "https://media.edealer.ca/w_400,h_300,q_90,c_f,v1/trim/VQTGM4SMWJCHZJX7J56NWZAE3U.webp"
+
+    assert not _CDN_STOCK_PATH_RE.search(real)
+    assert _CDN_STOCK_PATH_RE.search(stock)
+    assert _CDN_STOCK_PATH_RE.search(thumb)
+    # The rule stays scoped to this CDN: another host's /trim/ path is not
+    # automatically manufacturer art.
+    assert not _CDN_STOCK_PATH_RE.search("https://cdn.other.example/v1/trim/abc.jpg")

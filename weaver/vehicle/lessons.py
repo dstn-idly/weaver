@@ -32,10 +32,11 @@ FIELD_NOTES: tuple[str, ...] = (
     "asks for the car today.",
 
     # ── PHOTOS ───────────────────────────────────────────────────────────────
-    "PHOTOS: one image at two sizes is ONE photo. CDNs serve /photo.jpg and "
-    "/resize/1024x1024/photo.jpg for the same asset; counting both let cars "
-    "with a single picture pass a two-photo requirement, and 43 live listings "
-    "shipped showing the same image twice.",
+    "PHOTOS: one image at two sizes is ONE photo, and the size may live in "
+    "the path (/resize/1024x1024/) or the query "
+    "(?impolicy=downsize_bkpt&w=1024). Counting renditions separately let "
+    "43 live listings ship the same picture twice and pass a two-photo "
+    "test on one image.",
     "PHOTOS: some platforms publish the full gallery ONLY as CDN URLs inside "
     "inline scripts, with no VIN attached. Each vehicle owns one "
     "{dealerId}/{vehicleId} folder, and the page's own og:image names it — "
@@ -47,9 +48,6 @@ FIELD_NOTES: tuple[str, ...] = (
     "still holds when one car is served from more than one CDN shard. A "
     "166-photo page once read as photoless purely because its host was "
     "unfamiliar.",
-    "PHOTOS: manufacturer stock renders are not photographs of this car. "
-    "Treat evox/GetEvoxImage art and /stock_images/ paths as absent "
-    "photography, however many of them the page shows.",
     "PHOTOS: a car with no photos, or exactly one, is a real published state "
     "for a just-arrived unit. Report it as such rather than inventing a "
     "gallery — but corroborate it from the page, and never let it exceed a "
@@ -61,16 +59,13 @@ FIELD_NOTES: tuple[str, ...] = (
     "unphotographed, and stopping at the first car in the list threw away a "
     "lot whose other 179 vehicles were fully photographed.",
 
-    "PHOTOS: manufacturer art is not photography of the unit. Dealer.com "
-    "paint chips (images.dealer.com/autodata/.../color/, /ddc/vehicles/.../"
-    "color/) and generic OEM stock-photo folders are shared by every identical "
-    "trim. A car whose whole gallery is that art has NO photos and is a "
-    "corroborated no-photos-published exception, never a two-photo listing.",
+    "PHOTOS: manufacturer art is not photography of this unit. "
+    "Evox/GetEvoxImage renders, /stock_images/, Dealer.com paint chips "
+    "(images.dealer.com/autodata/.../color/, /ddc/vehicles/.../color/) and "
+    "OEM stock-photo folders are shared by every identical trim. A car "
+    "whose whole gallery is that art has NO photos — a corroborated "
+    "no-photos-published exception, never a two-photo listing.",
 
-    "PHOTOS: the same asset served at two sizes is one photo, and the size can "
-    "live in the query (?impolicy=downsize_bkpt&w=1024) as easily as the path "
-    "(/resize/1024x1024/). Counting renditions separately is how one picture "
-    "satisfies a two-photo test.",
 
     "PLATFORMS: a gallery widget's state key is not a constant. The same "
     "Dealer.com gallery appears as 'vehicle-gallery' on one build and "
@@ -155,6 +150,12 @@ FIELD_NOTES: tuple[str, ...] = (
     "TRANSPORT: deep listing pages often stop server-rendering structured "
     "data that page one includes. Do not conclude the lot ended because a "
     "later page looks empty.",
+    "GALLERY: a listing card sometimes carries the vehicle's FULL gallery "
+    "at full resolution, not a thumbnail. North Shore Mitsubishi's cards "
+    "each held 19 such images while its VDP mounted the gallery too late "
+    "for any sweep to see, so a detail-only photo rule returned 22 of 51 "
+    "cars with none. Several distinct full-size images for one vehicle "
+    "inside a card means bind the gallery THERE.",
 )
 
 

@@ -2756,7 +2756,12 @@ def _skeleton_placeholder_count(html: str) -> int:
 # until the card population stops growing.
 _HYDRATION_CENSUS = r"""
 (sel) => {
-  const generic = "[class*='vehicle-card'],[class*='vehicle-item'],[class*='inventory-card']";
+  // Card class families seen across dealer platforms. EDealer names its cards
+  // "card js-inventory-item-id cell" — matching none of the vehicle-* forms —
+  // so a listing page could report zero cards and skip hydration entirely.
+  const generic = "[class*='vehicle-card'],[class*='vehicle-item'],"
+    + "[class*='inventory-card'],[class*='inventory-item'],[class*='srp-vehicle'],"
+    + "[class*='vehicle-listing'],li.card,div.card.cell";
   let nodes;
   try { nodes = document.querySelectorAll(sel || generic); }
   catch (_) { nodes = document.querySelectorAll(generic); }
