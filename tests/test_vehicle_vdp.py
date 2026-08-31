@@ -2922,3 +2922,34 @@ def test_edealer_trim_renders_are_stock_art_not_photographs() -> None:
     # The rule stays scoped to this CDN: another host's /trim/ path is not
     # automatically manufacturer art.
     assert not _CDN_STOCK_PATH_RE.search("https://cdn.other.example/v1/trim/abc.jpg")
+
+
+def test_stock_art_regex_covers_hyphenated_and_oem_render_cdns() -> None:
+    """Manufacturer renders are not photographs, whichever CDN serves them.
+
+    Each URL below is a real one this project mistook for photography: Cars
+    Commerce spells 'stock-images' with a hyphen where the original pattern
+    only matched an underscore, and the two OEM render libraries were simply
+    unknown. A dealer whose whole gallery is this art published no photos.
+    """
+
+    from weaver.vehicle.vdp import _CDN_STOCK_PATH_RE
+
+    stock_art = (
+        "https://vehicle-images.carscommerce.inc/stock-images/chrome/abc123.png",
+        "https://content.homenetiol.com/2000157/2065512/0x0/stock_images/5/x.jpg",
+        "https://media.dealeralchemist.com/12345/jellies/2025_toyota_rav4.png",
+        "https://delivery.via.assetscs.toyota.com/x/adobe/assets/urn:aaid:aem:1/render.png",
+        "https://media.edealer.ca/photos/w_1920/trim/renders/9/front.jpg",
+    )
+    for url in stock_art:
+        assert _CDN_STOCK_PATH_RE.search(url), f"stock art not recognised: {url}"
+
+    real_photos = (
+        "https://vehicle-images.carscommerce.inc/686c-11001492/1N4BL4DV4SN384471/aaa.png",
+        "https://media.dealeralchemist.com/12345/inventory/lot-photo-01.jpg",
+        "https://media.edealer.ca/photos/w_1920/inventory/9/front.jpg",
+        "https://imagescf.dealercenter.net/2048/1536/202607-c0796842.jpg",
+    )
+    for url in real_photos:
+        assert not _CDN_STOCK_PATH_RE.search(url), f"real photo rejected: {url}"

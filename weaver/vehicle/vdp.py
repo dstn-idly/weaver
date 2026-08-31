@@ -759,7 +759,7 @@ _STOCK_RENDER_PRIMARY_RE = re.compile(
 # Manufacturer art shipped inside the dealer's own CDN folder; shared across
 # identical units, so it can never count as unit photography.
 _CDN_STOCK_PATH_RE = re.compile(
-    r"/stock_images/"
+    r"/stock[-_]images/"
     r"|/autodata/[^\s\"'<>,\\]*/color/"
     r"|/ddc/vehicles/[^\s\"'<>,\\]*/color/"
     r"|oem_vin_stock_photos/"
@@ -768,7 +768,13 @@ _CDN_STOCK_PATH_RE = re.compile(
     # traded-in Buick at a Mitsubishi store published thirteen /trim/ renders
     # and no photographs; shipping those tells a buyer they are looking at a
     # car that is not for sale.
-    r"|media\.edealer\.ca/[^\s\"'<>\\]*?/trim/",
+    r"|media\.edealer\.ca/[^\s\"'<>\\]*?/trim/"
+    # Two OEM render CDNs, both found on one Toyota store. A "jelly" is the
+    # manufacturer's studio render of a trim in a paint code, and the Toyota
+    # AEM library is the same idea; 21 of that lot's 272 cars publish nothing
+    # else, and each one is a car the dealer photographed zero times.
+    r"|dealeralchemist\.com/[^\s\"'<>\\]*?/jellies/"
+    r"|assetscs\.toyota\.com/[^\s\"'<>\\]*?/adobe/assets/",
     re.I,
 )
 

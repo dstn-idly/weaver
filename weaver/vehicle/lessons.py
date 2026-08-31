@@ -60,7 +60,10 @@ FIELD_NOTES: tuple[str, ...] = (
     "lot whose other 179 vehicles were fully photographed.",
 
     "PHOTOS: manufacturer art is not photography of this unit. "
-    "Evox/GetEvoxImage renders, /stock_images/, Dealer.com paint chips "
+    "Evox/GetEvoxImage renders, /stock-images/ AND /stock_images/ (both "
+    "spellings ship), OEM 'jelly' renders (dealeralchemist /jellies/), the "
+    "Toyota AEM library (assetscs.toyota.com/adobe/assets/), Dealer.com "
+    "paint chips "
     "(images.dealer.com/autodata/.../color/, /ddc/vehicles/.../color/) and "
     "OEM stock-photo folders are shared by every identical trim. A car "
     "whose whole gallery is that art has NO photos — a corroborated "
