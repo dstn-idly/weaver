@@ -1,0 +1,23 @@
+tests/test_vehicle_vdp.py
+  s_da9cd4ad208db2::t_352fef9fb1e977 2925-2955
+weaver/vehicle/lessons.py
+  s_da9cd4ad208db2::t_1e9464512e5799 63-66
+weaver/vehicle/vdp.py
+  s_da9cd4ad208db2::t_5d26be8d7c96c5 762,771-777
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "e2edfc802361620c747a845b0167ec7676e80e55",
+  "prompts": {},
+  "sessions": {
+    "s_da9cd4ad208db2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4cd1a6ac-f843-47f4-ac8d-77cbe7e08a68",
+        "model": "claude-opus-5"
+      },
+      "human_author": "dustin thach <epikunder321123@gmail.com>"
+    }
+  }
+}
