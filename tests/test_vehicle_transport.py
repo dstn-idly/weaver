@@ -3144,7 +3144,7 @@ def test_navigation_hang_watchdog_recycles_and_retries_with_dom_ready(
             session, "_navigation_hang_deadline_seconds", lambda: 0.05
         )
 
-        async def fake_recycle():
+        async def fake_recycle(**kwargs):
             recycles.append(True)
 
         monkeypatch.setattr(session, "_force_browser_recycle", fake_recycle)
@@ -3183,7 +3183,7 @@ def test_navigation_hang_exhausts_to_typed_transport_error(monkeypatch) -> None:
             session, "_navigation_hang_deadline_seconds", lambda: 0.05
         )
 
-        async def fake_recycle():
+        async def fake_recycle(**kwargs):
             return None
 
         monkeypatch.setattr(session, "_force_browser_recycle", fake_recycle)
@@ -4194,7 +4194,7 @@ def test_a_renderer_crash_recycles_the_browser_and_retries_the_navigation(
         session._session = browser
         recycles = []
 
-        async def fake_recycle():
+        async def fake_recycle(**kwargs):
             recycles.append(1)
 
         session._force_browser_recycle = fake_recycle
@@ -4421,7 +4421,7 @@ def test_a_heat_starved_listing_page_recycles_the_browser_and_refetches_cold(
         async def fetch_detail(self, url):
             return "<html><body>vdp</body></html>"
 
-        async def _force_browser_recycle(self):
+        async def _force_browser_recycle(self, **kwargs):
             self.recycles += 1
             self.navs = 0
 
@@ -4535,7 +4535,8 @@ def test_a_browser_recycle_carries_this_origins_clearance_forward() -> None:
         def __init__(self, cookies):
             self._cookies = cookies
 
-        async def cookies(self):
+        async def cookies(self, urls=None):
+            self.filtered_by = urls
             return self._cookies
 
     class FakeSession:
@@ -4623,3 +4624,169 @@ def test_a_launch_with_nothing_to_carry_is_byte_identical() -> None:
     seen.clear()
     session._new_stealthy_session(factory, cookies=[{"name": "a", "value": "b"}])
     assert seen["cookies"] == [{"name": "a", "value": "b"}]
+
+
+def test_a_crowded_context_still_yields_this_origins_clearance() -> None:
+    """The cap must never eat the clearance. A dealer SRP's context holds
+    hundreds of ad cookies after 45 navigations; capping the RAW jar before
+    filtering discarded cf_clearance and launched cold, silently."""
+
+    class Context:
+        def __init__(self, cookies):
+            self._cookies = cookies
+            self.filtered_by = "NEVER CALLED"
+
+        async def cookies(self, urls=None):
+            self.filtered_by = urls
+            return self._cookies
+
+    async def run():
+        noise = [
+            {"name": f"ad{i}", "value": "x", "domain": ".doubleclick.net", "path": "/"}
+            for i in range(400)
+        ]
+        clearance = {
+            "name": "cf_clearance", "value": "abc",
+            "domain": ".dealer.example", "path": "/", "expires": -1,
+        }
+        session = PersistentDealerSession("https://dealer.example")
+        session._session = SimpleNamespace(context=Context(noise + [clearance]))
+        carried = await session._harvest_context_cookies()
+        assert [c["name"] for c in carried] == ["cf_clearance"]
+        # And it asks the browser to filter by origin in the first place.
+        assert session._session.context.filtered_by == "https://dealer.example"
+
+    asyncio.run(run())
+
+
+def test_a_context_that_hangs_does_not_delay_the_recycle() -> None:
+    """The advertised 5s bound, actually exercised: recycling is how a wedged
+    browser gets replaced, so reading its jar must not join the wedge."""
+
+    class HangingContext:
+        async def cookies(self, urls=None):
+            await asyncio.sleep(3600)
+
+    async def run():
+        session = PersistentDealerSession("https://dealer.example")
+        session._session = SimpleNamespace(context=HangingContext())
+
+        slept = []
+
+        async def instant_wait_for(awaitable, timeout):
+            slept.append(timeout)
+            task = asyncio.ensure_future(awaitable)
+            task.cancel()
+            raise asyncio.TimeoutError
+
+        original = asyncio.wait_for
+        asyncio.wait_for = instant_wait_for
+        try:
+            carried = await session._harvest_context_cookies()
+        finally:
+            asyncio.wait_for = original
+        assert carried == []
+        assert slept == [5.0]
+
+    asyncio.run(run())
+
+
+def test_a_host_only_cookie_goes_back_host_only() -> None:
+    """Re-adding a host-only cookie with an explicit domain would widen it to
+    every subdomain the page's subresources touch; the url form preserves the
+    original scope."""
+
+    class Context:
+        async def cookies(self, urls=None):
+            return [
+                {"name": "host_only", "value": "1", "domain": "dealer.example",
+                 "path": "/inv", "expires": -1},
+                {"name": "domain_wide", "value": "2", "domain": ".dealer.example",
+                 "path": "/", "expires": -1},
+            ]
+
+    async def run():
+        session = PersistentDealerSession("https://dealer.example")
+        session._session = SimpleNamespace(context=Context())
+        carried = {c["name"]: c for c in await session._harvest_context_cookies()}
+        assert carried["host_only"]["url"] == "https://dealer.example/inv"
+        assert "domain" not in carried["host_only"]
+        assert carried["domain_wide"]["domain"] == ".dealer.example"
+        assert "url" not in carried["domain_wide"]
+
+    asyncio.run(run())
+
+
+def test_the_heat_lane_recycles_cold_on_purpose() -> None:
+    """The heat recycle exists because Dealer.com throttles by session: handing
+    the replacement browser back the jar it just shed would defeat the cold
+    refetch that lane is for."""
+
+    async def run():
+        session = PersistentDealerSession("https://dealer.example")
+        harvested = []
+
+        async def spy_harvest():
+            harvested.append(True)
+            return [{"name": "cf_clearance", "value": "x", "domain": ".dealer.example"}]
+
+        made = []
+
+        def recorder(factory, *, cookies=None):
+            made.append(cookies)
+            return SimpleNamespace(
+                __aenter__=lambda *a: asyncio.sleep(0),
+                __aexit__=lambda *a: asyncio.sleep(0),
+            )
+
+        session._harvest_context_cookies = spy_harvest
+        session._new_stealthy_session = recorder
+        session._session = SimpleNamespace(
+            __aexit__=lambda *a: asyncio.sleep(0), context=None
+        )
+
+        await session._force_browser_recycle(carry_cookies=False)
+        assert harvested == []          # never even read
+        assert made == [[]]             # launched clean
+        assert session._carried_cookie_count == 0
+
+        await session._force_browser_recycle()
+        assert harvested == [True]      # the ordinary recycle still carries
+        assert made[1] and made[1][0]["name"] == "cf_clearance"
+
+    asyncio.run(run())
+
+
+def test_a_rejected_clearance_relaunches_clean_instead_of_ending_the_crawl() -> None:
+    """Seeding cookies is an optimisation on top of the recycle's real job.
+    If the browser refuses them, the session must still come back up."""
+
+    async def run():
+        session = PersistentDealerSession("https://dealer.example")
+
+        async def carry():
+            return [{"name": "cf_clearance", "value": "x", "domain": ".dealer.example"}]
+
+        attempts = []
+
+        def recorder(factory, *, cookies=None):
+            attempts.append(cookies)
+            if cookies:
+                raise ValueError("cookie rejected by the browser")
+            return SimpleNamespace(
+                __aenter__=lambda *a: asyncio.sleep(0),
+                __aexit__=lambda *a: asyncio.sleep(0),
+            )
+
+        session._harvest_context_cookies = carry
+        session._new_stealthy_session = recorder
+        session._session = SimpleNamespace(
+            __aexit__=lambda *a: asyncio.sleep(0), context=None
+        )
+
+        await session._force_browser_recycle()
+        assert len(attempts) == 2 and attempts[1] is None   # retried cookieless
+        assert session._session is not None
+        assert session._carried_cookie_count == 0
+
+    asyncio.run(run())

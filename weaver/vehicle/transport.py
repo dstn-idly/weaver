@@ -16,6 +16,7 @@ from email.utils import parsedate_to_datetime
 import inspect
 import json
 import os
+import logging
 import random
 from pathlib import Path
 import re
@@ -1458,18 +1459,27 @@ class PersistentDealerSession:
         if not callable(reader):
             return []
         try:
-            # A wedged browser is one reason we recycle at all; reading its
-            # context must never delay the recovery for long.
-            raw = await asyncio.wait_for(reader(), timeout=5.0)
+            # Ask the browser to filter by origin: after 45 navigations of a
+            # dealer SRP the context holds hundreds of ad and analytics
+            # cookies, and a cap applied to that raw list would discard this
+            # origin's clearance before the filter below ever saw it.
+            # A wedged browser is one reason we recycle at all, so the read is
+            # bounded — recovery must not wait on a dead CDP connection.
+            try:
+                raw = await asyncio.wait_for(reader(self.origin), timeout=5.0)
+            except TypeError:
+                raw = await asyncio.wait_for(reader(), timeout=5.0)
         except Exception:  # noqa: BLE001 - carrying clearance never fails a crawl
             return []
-        host = (urlsplit(self.origin).hostname or "").lower()
+        host = (urlsplit(self.origin).hostname or "").strip(".").lower()
+        scheme = urlsplit(self.origin).scheme or "https"
         now = self._wall_clock()
         carried: list[dict[str, Any]] = []
-        for cookie in list(raw or [])[:200]:
+        for cookie in list(raw or [])[:2_000]:
             if not isinstance(cookie, Mapping):
                 continue
-            if not _cookie_covers_origin(str(cookie.get("domain") or ""), host):
+            domain = str(cookie.get("domain") or "")
+            if not _cookie_covers_origin(domain, host):
                 # Analytics, CDN and widget cookies belong to other parties and
                 # are not ours to replay.
                 continue
@@ -1479,6 +1489,14 @@ class PersistentDealerSession:
             trimmed = {key: cookie[key] for key in _COOKIE_PARAM_KEYS if key in cookie}
             if not trimmed.get("name") or "value" not in trimmed:
                 continue
+            if not domain.startswith("."):
+                # A host-only cookie must go back host-only. Re-adding it with
+                # an explicit domain would widen it across every subdomain the
+                # page's subresources touch; the url form restores the original
+                # scope exactly.
+                path = str(trimmed.pop("path", "") or "/")
+                trimmed.pop("domain", None)
+                trimmed["url"] = f"{scheme}://{domain}{path}"
             carried.append(trimmed)
             if len(carried) >= _MAX_CARRIED_COOKIES:
                 break
@@ -1494,13 +1512,16 @@ class PersistentDealerSession:
             return
         await self._force_browser_recycle()
 
-    async def _force_browser_recycle(self) -> None:
+    async def _force_browser_recycle(self, *, carry_cookies: bool = True) -> None:
         session = self._session
         if session is None:
             return
         self._browser_navigation_count = 0
         # Read the jar BEFORE the teardown; after __aexit__ the context is gone.
-        carried = await self._harvest_context_cookies()
+        # carry_cookies=False is for the heat lane, whose whole premise is that
+        # the replacement browser reads COLD to the dealer — handing it back
+        # the session it just shed would defeat the refetch it exists to make.
+        carried = await self._harvest_context_cookies() if carry_cookies else []
         self._carried_cookie_count = len(carried)
         try:
             # A wedged browser must not fail the crawl — and closing a wedged
@@ -1513,8 +1534,30 @@ class PersistentDealerSession:
             from scrapling.fetchers import AsyncStealthySession
         except Exception as exc:  # pragma: no cover - dependency is image-level
             raise RuntimeError("Scrapling AsyncStealthySession is required for vehicle runs") from exc
-        self._session = self._new_stealthy_session(AsyncStealthySession, cookies=carried)
-        await self._session.__aenter__()
+        try:
+            self._session = self._new_stealthy_session(AsyncStealthySession, cookies=carried)
+            await self._session.__aenter__()
+        except Exception:  # noqa: BLE001 - a rejected cookie must never end a crawl
+            # The recycle's contract is that a wedged browser is replaced, and
+            # a clearance carry is an optimisation on top of it. If seeding
+            # fails for any reason, launch clean rather than leave the session
+            # holding an object that was never started.
+            LOGGER.warning(
+                "clearance carry rejected by the browser; relaunching clean (%s cookies)",
+                len(carried),
+            )
+            self._carried_cookie_count = 0
+            self._session = self._new_stealthy_session(AsyncStealthySession)
+            await self._session.__aenter__()
+        else:
+            if carried:
+                # The engine log is where an operator can see this happened;
+                # a silent carry is indistinguishable from a broken one.
+                LOGGER.info(
+                    "carried %s cookie(s) across the browser recycle for %s",
+                    len(carried),
+                    self.origin,
+                )
 
     async def __aexit__(self, exc_type, exc, traceback) -> None:
         if self._session is not None:
@@ -2666,9 +2709,12 @@ def _challenge_or_empty(html: str) -> bool:
     )
 
 
-# Playwright's add_cookies accepts exactly these keys; an extra key raises.
+# The keys add_cookies understands. Extras are dropped silently upstream, so
+# the trim is not a safety gate — it keeps the carried shape auditable, and
+# preserves partitionKey so a CHIPS cookie is not re-added unpartitioned.
 _COOKIE_PARAM_KEYS = (
-    "name", "value", "domain", "path", "expires", "httpOnly", "secure", "sameSite",
+    "name", "value", "domain", "path", "expires",
+    "httpOnly", "secure", "sameSite", "partitionKey",
 )
 _MAX_CARRIED_COOKIES = 50
 
@@ -2686,6 +2732,9 @@ def _cookie_covers_origin(domain: str, host: str) -> bool:
     if not candidate or not hostname:
         return False
     return hostname == candidate or hostname.endswith("." + candidate)
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 _SKELETON_CLASS_RE = re.compile(
@@ -2907,7 +2956,7 @@ async def capture_dealer_fixtures(
                      "run_best": best_listing_cards, "recycle": heat_recycles},
                 )
                 try:
-                    await recycle()
+                    await recycle(carry_cookies=False)
                     fresh_html = await _fetch_listing_fixture(
                         session,
                         url,
