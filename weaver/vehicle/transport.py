@@ -9,7 +9,7 @@ budgets under the caller's control.
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import timezone
 from email.utils import parsedate_to_datetime
@@ -1403,7 +1403,12 @@ class PersistentDealerSession:
         await self._session.__aenter__()
         return self
 
-    def _new_stealthy_session(self, factory: type) -> object:
+    def _new_stealthy_session(
+        self, factory: type, *, cookies: Sequence[Mapping[str, Any]] | None = None
+    ) -> object:
+        # The cookies kwarg is omitted entirely when there is nothing to carry,
+        # so the ordinary launch is byte-identical to what it always was.
+        carried = {"cookies": [dict(cookie) for cookie in cookies]} if cookies else {}
         return factory(
             max_pages=1,
             headless=True,
@@ -1414,6 +1419,7 @@ class PersistentDealerSession:
             retries=2,
             wait=1_500,
             page_setup=self._page_setup,
+            **carried,
         )
 
     # Hundreds of heavy SPA navigations through one sticky Chromium grow its
@@ -1435,6 +1441,49 @@ class PersistentDealerSession:
         except Exception:  # noqa: BLE001 - a cookie we cannot store is not fatal
             pass
 
+    async def _harvest_context_cookies(self) -> list[dict[str, Any]]:
+        """This origin's cookies, read out of the live browser context.
+
+        A Cloudflare clearance lives ONLY inside the browser context, so a
+        recycle throws away a solved challenge and the next navigation sits
+        through the turnstile again — eleven needless solves on a 500-page
+        lot, each one another chance the edge decides this client looks wrong.
+        Carrying the jar across a recycle is the browser's own clearance going
+        back into a browser for the same pinned origin: no new trust, no new
+        surface, and nothing is ever handed to a different client.
+        """
+
+        context = getattr(self._session, "context", None)
+        reader = getattr(context, "cookies", None)
+        if not callable(reader):
+            return []
+        try:
+            # A wedged browser is one reason we recycle at all; reading its
+            # context must never delay the recovery for long.
+            raw = await asyncio.wait_for(reader(), timeout=5.0)
+        except Exception:  # noqa: BLE001 - carrying clearance never fails a crawl
+            return []
+        host = (urlsplit(self.origin).hostname or "").lower()
+        now = self._wall_clock()
+        carried: list[dict[str, Any]] = []
+        for cookie in list(raw or [])[:200]:
+            if not isinstance(cookie, Mapping):
+                continue
+            if not _cookie_covers_origin(str(cookie.get("domain") or ""), host):
+                # Analytics, CDN and widget cookies belong to other parties and
+                # are not ours to replay.
+                continue
+            expires = cookie.get("expires")
+            if isinstance(expires, (int, float)) and 0 < float(expires) <= now:
+                continue
+            trimmed = {key: cookie[key] for key in _COOKIE_PARAM_KEYS if key in cookie}
+            if not trimmed.get("name") or "value" not in trimmed:
+                continue
+            carried.append(trimmed)
+            if len(carried) >= _MAX_CARRIED_COOKIES:
+                break
+        return carried
+
     def _navigation_hang_deadline_seconds(self) -> float:
         # Covers the goto timeout, one internal Scrapling retry, and the
         # bounded page_action waits, with margin. Never below two minutes.
@@ -1450,6 +1499,9 @@ class PersistentDealerSession:
         if session is None:
             return
         self._browser_navigation_count = 0
+        # Read the jar BEFORE the teardown; after __aexit__ the context is gone.
+        carried = await self._harvest_context_cookies()
+        self._carried_cookie_count = len(carried)
         try:
             # A wedged browser must not fail the crawl — and closing a wedged
             # CDP connection can itself hang, so the close is time-bounded.
@@ -1461,7 +1513,7 @@ class PersistentDealerSession:
             from scrapling.fetchers import AsyncStealthySession
         except Exception as exc:  # pragma: no cover - dependency is image-level
             raise RuntimeError("Scrapling AsyncStealthySession is required for vehicle runs") from exc
-        self._session = self._new_stealthy_session(AsyncStealthySession)
+        self._session = self._new_stealthy_session(AsyncStealthySession, cookies=carried)
         await self._session.__aenter__()
 
     async def __aexit__(self, exc_type, exc, traceback) -> None:
@@ -2612,6 +2664,28 @@ def _challenge_or_empty(html: str) -> bool:
         or _cloudflare_block_detected(html)
         or _blank_rendered_shell(html)
     )
+
+
+# Playwright's add_cookies accepts exactly these keys; an extra key raises.
+_COOKIE_PARAM_KEYS = (
+    "name", "value", "domain", "path", "expires", "httpOnly", "secure", "sameSite",
+)
+_MAX_CARRIED_COOKIES = 50
+
+
+def _cookie_covers_origin(domain: str, host: str) -> bool:
+    """Standard cookie-domain match — never a bare suffix test.
+
+    The separating dot is what makes this safe: "evil-dealer.example" must not
+    inherit a cookie scoped to "dealer.example", and a bare endswith() would
+    hand it one.
+    """
+
+    candidate = (domain or "").strip().lower().lstrip(".")
+    hostname = (host or "").strip().lower()
+    if not candidate or not hostname:
+        return False
+    return hostname == candidate or hostname.endswith("." + candidate)
 
 
 _SKELETON_CLASS_RE = re.compile(

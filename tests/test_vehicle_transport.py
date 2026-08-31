@@ -4511,3 +4511,115 @@ def test_the_rendered_fetch_returns_the_live_dom_not_the_network_bytes(monkeypat
         assert "stale network document" in html
 
     asyncio.run(run())
+
+
+def test_cookie_domain_match_requires_the_separating_dot() -> None:
+    from weaver.vehicle.transport import _cookie_covers_origin
+
+    assert _cookie_covers_origin(".dealer.example", "www.dealer.example")
+    assert _cookie_covers_origin("dealer.example", "dealer.example")
+    assert _cookie_covers_origin(".dealer.example", "dealer.example")
+    # The whole point: a bare suffix test would hand a lookalike our clearance.
+    assert not _cookie_covers_origin("dealer.example", "evil-dealer.example")
+    assert not _cookie_covers_origin("other.example", "dealer.example")
+    assert not _cookie_covers_origin("", "dealer.example")
+    assert not _cookie_covers_origin("dealer.example", "")
+
+
+def test_a_browser_recycle_carries_this_origins_clearance_forward() -> None:
+    """A Cloudflare clearance lives only in the browser context, so recycling
+    every 45 navigations re-solved the turnstile from scratch. The jar now
+    crosses the recycle — this origin's cookies only, unexpired only."""
+
+    class FakeContext:
+        def __init__(self, cookies):
+            self._cookies = cookies
+
+        async def cookies(self):
+            return self._cookies
+
+    class FakeSession:
+        def __init__(self, cookies=()):
+            self.context = FakeContext(cookies)
+            self.closed = False
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            self.closed = True
+            return None
+
+    async def run():
+        cookies = [
+            {"name": "cf_clearance", "value": "abc", "domain": ".dealer.example",
+             "path": "/", "expires": 9_999.0, "httpOnly": True, "secure": True,
+             "sameSite": "None", "session": False},          # extra key must be dropped
+            {"name": "sessionid", "value": "s1", "domain": "dealer.example",
+             "path": "/", "expires": -1},                     # session cookie: kept
+            {"name": "_ga", "value": "x", "domain": ".google-analytics.com",
+             "path": "/"},                                    # foreign: dropped
+            {"name": "stale", "value": "x", "domain": "dealer.example",
+             "path": "/", "expires": 10.0},                   # expired: dropped
+            {"name": "", "value": "x", "domain": "dealer.example"},  # nameless: dropped
+        ]
+        made = []
+
+        session = PersistentDealerSession(
+            "https://www.dealer.example", _wall_clock=lambda: 1_000.0
+        )
+        old = FakeSession(cookies)
+        session._session = old
+
+        def recorder(factory, *, cookies=None):
+            made.append(cookies)
+            return FakeSession()
+
+        session._new_stealthy_session = recorder
+        session._browser_navigation_count = 99
+        await session._force_browser_recycle()
+
+        assert old.closed is True
+        assert session._browser_navigation_count == 0
+        carried = made[0]
+        assert [c["name"] for c in carried] == ["cf_clearance", "sessionid"]
+        # Only Playwright's own add_cookies keys survive the trim.
+        assert set(carried[0]) <= {
+            "name", "value", "domain", "path", "expires", "httpOnly", "secure", "sameSite",
+        }
+        assert "session" not in carried[0]
+        assert session._carried_cookie_count == 2
+
+        # A wedged context yields nothing and must not break the recycle.
+        class WedgedSession(FakeSession):
+            def __init__(self):
+                super().__init__()
+                self.context = object()  # no cookies() at all
+
+        made.clear()
+        session._session = WedgedSession()
+        await session._force_browser_recycle()
+        assert made == [[]]
+        assert session._carried_cookie_count == 0
+
+    asyncio.run(run())
+
+
+def test_a_launch_with_nothing_to_carry_is_byte_identical() -> None:
+    """No clearance to carry must mean no cookies kwarg at all — the ordinary
+    launch path stays exactly what it was."""
+
+    seen = {}
+
+    def factory(**kwargs):
+        seen.update(kwargs)
+        return object()
+
+    session = PersistentDealerSession("https://dealer.example")
+    session._new_stealthy_session(factory)
+    assert "cookies" not in seen
+    assert seen["max_pages"] == 1 and seen["headless"] is True
+
+    seen.clear()
+    session._new_stealthy_session(factory, cookies=[{"name": "a", "value": "b"}])
+    assert seen["cookies"] == [{"name": "a", "value": "b"}]
