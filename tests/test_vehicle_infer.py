@@ -1600,3 +1600,32 @@ def test_a_fragment_anchor_is_widget_chrome_not_a_second_vehicle():
     )
     assert len(owned) == 1
     assert owned[0].endswith("73eb296eac18168a1686c87992fcbd84.htm")
+
+
+def test_a_placeholder_is_never_a_content_source():
+    """North Shore bound its whole gallery to '.placeholder-image' — the
+    lazy-loader's skeleton — because the image-ish admission test only looks
+    for the word 'image'. The result was 56% photo coverage with 2% of it full
+    resolution: present everywhere, real nowhere."""
+
+    from weaver.vehicle.infer import _PLACEHOLDER_SELECTOR_RE
+
+    for skeleton in (
+        ".placeholder-image",
+        "div.skeleton-card img",
+        ".loading-tile",
+        ".lazy-img",
+        "span.shimmer",
+        "li.vehicle-card.placeholder-card",
+    ):
+        assert _PLACEHOLDER_SELECTOR_RE.search(skeleton), skeleton
+
+    # Real galleries must still be admitted — the guard is narrow on purpose.
+    for real in (
+        "img.img-fade-in",
+        "li.vehicle-card img[data-src]",
+        ".gallery-image",
+        "a.img-fade-in-container img",
+        "div.vehicle-media img",
+    ):
+        assert not _PLACEHOLDER_SELECTOR_RE.search(real), real

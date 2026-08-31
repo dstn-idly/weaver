@@ -564,6 +564,14 @@ def _detail_urls_in(node: Tag, *, page_url: str, origin: str) -> tuple[str, ...]
     )
 
 
+# Lazy-loading skeletons name themselves, and several of those names contain
+# "image" — so they sail through the image-ish admission test below and can be
+# nominated as a photo source. A placeholder is never content, for any field.
+_PLACEHOLDER_SELECTOR_RE = re.compile(
+    r"placeholder|skeleton|shimmer|(?:^|[.\-_])lazy(?:[.\-_]|$)|loading-", re.I
+)
+
+
 def _listing_card_selector_candidates(
     html: str,
     *,
@@ -1168,6 +1176,14 @@ def _field_selector_catalog(
 
     rows: list[tuple[tuple[int, int, int, int], dict[str, Any]]] = []
     for selector in candidates:
+        if _PLACEHOLDER_SELECTOR_RE.search(selector):
+            # A node that names itself a placeholder is the lazy-loader's
+            # skeleton, not content. North Shore Mitsubishi bound its whole
+            # gallery to ".placeholder-image" — which passes the image-ish
+            # test because the word "image" is right there — and produced
+            # 56% photo coverage with 2% of it full resolution: the shape of
+            # a field that is present everywhere and real nowhere.
+            continue
         matched_per_scope: list[list[Tag]] = []
         for scope in scopes:
             try:
