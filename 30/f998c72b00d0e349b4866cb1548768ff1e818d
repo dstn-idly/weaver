@@ -1,0 +1,21 @@
+tests/test_vehicle_infer.py
+  s_da9cd4ad208db2::t_83f15ef14a065d 1603-1631
+weaver/vehicle/infer.py
+  s_da9cd4ad208db2::t_88dfd6c248edd0 567-574,1179-1186
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "30f998c72b00d0e349b4866cb1548768ff1e818d",
+  "prompts": {},
+  "sessions": {
+    "s_da9cd4ad208db2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4cd1a6ac-f843-47f4-ac8d-77cbe7e08a68",
+        "model": "claude-opus-5"
+      },
+      "human_author": "dustin thach <epikunder321123@gmail.com>"
+    }
+  }
+}
